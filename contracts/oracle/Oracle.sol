@@ -35,16 +35,15 @@ contract Oracle is Ownable {
         _;
     }
 
-    function isTrustedServer(address serverAddress) override public view returns (bool) {
+    function isTrustedServer(address serverAddress) public view returns (bool) {
         return trustedServers[serverAddress];
     }
 
-    function isTrustedClient(address clientAddress) override public view returns (bool) {
-        return trustedServers[serverAddress];
+    function isTrustedClient(address clientAddress) public view returns (bool) {
+        return trustedServers[clientAddress];
     }
 
-
-    function request(uint256 _reqId) override onlyTrustedClients external {
+    function request(uint256 _reqId) external payable onlyTrustedClients {
         // associate the reqId with the address of the caller for later callback using respond() function
         pendingRequestRecords[_reqId] = msg.sender;
 
@@ -57,12 +56,18 @@ contract Oracle is Ownable {
 
     /// @notice get the aggregated price of all component tokens in the portfolio
     /// @dev this function is only called by a trusted Oracle Server
-    function respond(uint256 _reqId, uint256 _price) override onlyTrustedServers external {
-        require(pendingRequestRecords[_reqId] != address(0), "Request ID not found");
+    function respond(uint256 _reqId, uint256 _price)
+        external
+        onlyTrustedServers
+    {
+        require(
+            pendingRequestRecords[_reqId] != address(0),
+            "Request ID not found"
+        );
 
         address clientAddress = pendingRequestRecords[_reqId];
 
-        IOracleClient(clientAddress).oracleCallback(_reqId, _price);
+        IOracleClient(clientAddress).__oracleCallback(_reqId, _price);
 
         requestStatus[_reqId] = RequestStatus.None;
 
@@ -71,29 +76,31 @@ contract Oracle is Ownable {
         emit RespondPrice(_reqId, _price);
     }
 
-    function getRequestStatus(uint256 _reqId) override external view returns(RequestStatus){
+    function getRequestStatus(uint256 _reqId)
+        external
+        view
+        returns (RequestStatus)
+    {
         return requestStatus[_reqId];
     }
 
-
-    function addserver(address server) override external onlyOwner returns (bool) {
+    function addserver(address server) external onlyOwner returns (bool) {
         trustedServers[server] = true;
         return trustedServers[server];
     }
 
-    function removeserver(address server) override external onlyOwner returns (bool) {
+    function removeserver(address server) external onlyOwner returns (bool) {
         trustedServers[server] = false;
         return trustedServers[server];
     }
 
-    function addClient(address client) override external onlyOwner returns (bool) {
+    function addClient(address client) external onlyOwner returns (bool) {
         trustedClients[client] = true;
         return trustedClients[client];
     }
 
-    function removeClient(address client) override external onlyOwner returns (bool) {
+    function removeClient(address client) external onlyOwner returns (bool) {
         trustedClients[client] = false;
         return trustedClients[client];
     }
-
 }

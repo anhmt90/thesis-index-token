@@ -2,6 +2,11 @@
 pragma solidity ^0.8.0;
 
 interface IOracle {
+    enum RequestStatus {
+        None, // request not available
+        Underway // processed at Oracle node
+        // Accomplished // result received from Oracle node and sent back to client
+    }
 
     /// @notice get the aggregated price of all component tokens in the portfolio
     function request() external;

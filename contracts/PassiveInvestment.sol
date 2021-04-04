@@ -14,12 +14,15 @@ contract PassiveInvestment is Ownable, IOracleClient {
         uint256 _price;
     }
 
-    uint256 constant MAX_UINT256 = uint256(-1);
+    uint256 constant MAX_UINT256 = 2**256 - 1;
 
-    // address of the ERC20 IndexToken contract
-    IndexToken private tokenContract = IndexToken(address(0));
-    Oracle private oracleContract = Oracle(address(0));
+    // instance of the ERC20 Index Token contract
+    IndexToken public tokenContract = IndexToken(address(0));
 
+    // instance of the price Oracle contract
+    Oracle public oracleContract = Oracle(address(0));
+
+    // set of pending purchases that are yet to finalize
     mapping(uint256 => Purchase) pendingPurchases;
 
     // <token_itin> is set at <price> in Ether
@@ -28,14 +31,14 @@ contract PassiveInvestment is Ownable, IOracleClient {
     // keep track of the token amount sold out to the market
     uint256 public tokensSold;
 
-    event Sale(
+    event PriceRequest(uint256 indexed _reqId, address indexed _buyer);
+    event PurchaseReady(uint256 indexed _reqId, address indexed _buyer);
+    event Purchased(
         uint256 indexed _reqId,
         address indexed _buyer,
         uint256 _amount,
         uint256 _price
     );
-    event PriceRequest(uint256 indexed _reqId, address indexed _buyer);
-    event PurchaseReady(uint256 indexed _reqId, address indexed _buyer);
 
     constructor(IndexToken _tokenContract, Oracle _oracleContract) {
         tokenContract = _tokenContract;
@@ -43,7 +46,7 @@ contract PassiveInvestment is Ownable, IOracleClient {
     }
 
     // payable: function can exec Tx
-    function orderTokens(uint256 _numberOfTokens) public {
+    function orderTokens(uint256 _numberOfTokens) public payable {
         uint256 _reqId = assignRequestId();
 
         pendingPurchases[_reqId] = Purchase(
@@ -58,15 +61,32 @@ contract PassiveInvestment is Ownable, IOracleClient {
         emit PriceRequest(_reqId, msg.sender);
     }
 
-    function purchase(uint256 _reqId) public payable returns (bool)  {
+    // @notice a callback for Oracle contract to call once the requested data is ready
+    function __oracleCallback(uint256 _reqId, uint256 _price)
+        external
+        override
+        returns (bool)
+    {
+        require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
+
+        pendingPurchases[_reqId]._price = _price;
+        delete pendingPurchases[_reqId];
+
+        emit PurchaseReady(_reqId, pendingPurchases[_reqId]._buyer);
+        // finalize(_reqId);
+
+        return true;
+    }
+
+    function finalize(uint256 _reqId) public payable returns (bool)  {
         // require that the request Id passed in is available
         require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
 
         // require that the function caller is the buyer that placed token order earlier
-        require(pendingPurchases[_reqId]._buyer == msg.sender, "Unauthorized purchase claim");
+        // require(pendingPurchases[_reqId]._buyer == msg.sender, "Unauthorized purchase claim");
 
         // require that the contract has enough tokens
-        require(tokenContract.balanceOf(address(this)) >= _numberOfTokens, "Unable to purchase more tokens than totally available");
+        require(tokenContract.balanceOf(address(this)) >= pendingPurchases[_reqId]._numberOfTokens, "Unable to purchase more tokens than totally available");
 
         // require that actual price has been queried and received from the oracle
         require(pendingPurchases[_reqId]._price != MAX_UINT256, "Price is yet to set");
@@ -75,11 +95,16 @@ contract PassiveInvestment is Ownable, IOracleClient {
         require(msg.value == (pendingPurchases[_reqId]._numberOfTokens * pendingPurchases[_reqId]._price), "Not enough funds to buy tokens");
 
         // require that a transfer is successful
-        require(tokenContract.transfer(msg.sender, _numberOfTokens), "Unable to transfer tokens to buyer");
+        require(tokenContract.transfer(msg.sender, pendingPurchases[_reqId]._numberOfTokens), "Unable to transfer tokens to buyer");
 
-        tokensSold += _numberOfTokens;
+        tokensSold += pendingPurchases[_reqId]._numberOfTokens;
 
-        emit Sale(msg.sender, pendingPurchases[_reqId]._numberOfTokens, pendingPurchases[_reqId]._price);
+        emit Purchased(
+            _reqId,
+            msg.sender,
+            pendingPurchases[_reqId]._numberOfTokens,
+            pendingPurchases[_reqId]._price
+        );
 
         return true;
     }
@@ -102,16 +127,14 @@ contract PassiveInvestment is Ownable, IOracleClient {
         selfdestruct(payable(owner()));
     }
 
-    // @notice a callback for Oracle contract to call once the requested data is ready
-    function oracleCallback(uint256 _reqId, uint256 _price)
-        external
-        override
-        returns (bool)
-    {
-        Purchase memory _purchase = pendingPurchases[_reqId];
-        _purchase._price = _price;
-        delete pendingPurchases[_reqId];
-
-        emit PurchaseReady(_reqId, _buyer);
+    function setTokenContract(address _tokenContract) external onlyOwner returns (bool) {
+        tokenContract = IndexToken(_tokenContract);
+        return true;
     }
+
+    function setOracle(address _oracleContract) override external onlyOwner returns (bool) {
+        oracleContract = Oracle(_oracleContract);
+        return true;
+    }
+
 }
