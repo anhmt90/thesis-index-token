@@ -58,7 +58,7 @@ contract PassiveInvestment is Ownable, IOracleClient {
 
         oracleContract.request(_reqId);
 
-        emit PriceRequest(_reqId, msg.sender);
+        // emit PriceRequest(_reqId, msg.sender);
     }
 
     // @notice a callback for Oracle contract to call once the requested data is ready

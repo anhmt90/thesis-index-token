@@ -40,7 +40,7 @@ contract Oracle is Ownable {
     }
 
     function isTrustedClient(address clientAddress) public view returns (bool) {
-        return trustedServers[clientAddress];
+        return trustedClients[clientAddress];
     }
 
     function request(uint256 _reqId) external payable onlyTrustedClients {
