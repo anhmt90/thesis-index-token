@@ -32,7 +32,7 @@ contract PassiveInvestment is Ownable, IOracleClient {
     uint256 public tokensSold;
 
     event PriceRequest(uint256 indexed _reqId, address indexed _buyer);
-    event PurchaseReady(uint256 indexed _reqId, address indexed _buyer);
+    event PurchaseReady(uint256 indexed _reqId, address indexed _buyer, uint256 _price);
     event Purchased(
         uint256 indexed _reqId,
         address indexed _buyer,
@@ -72,7 +72,7 @@ contract PassiveInvestment is Ownable, IOracleClient {
         pendingPurchases[_reqId]._price = _price;
         delete pendingPurchases[_reqId];
 
-        emit PurchaseReady(_reqId, pendingPurchases[_reqId]._buyer);
+        emit PurchaseReady(_reqId, pendingPurchases[_reqId]._buyer, _price);
         // finalize(_reqId);
 
         return true;

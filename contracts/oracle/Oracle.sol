@@ -18,8 +18,8 @@ contract Oracle is Ownable {
     mapping(uint256 => address) pendingRequestRecords;
     mapping(uint256 => RequestStatus) requestStatus;
 
-    event RequestPrice(uint256 _reqId);
-    event RespondPrice(uint256 _reqId, uint256 _price);
+    event PriceRequest(uint256 _reqId);
+    event PriceResponse(uint256 _reqId, uint256 _price);
 
     constructor(address server) {
         trustedServers[server] = true;
@@ -51,7 +51,7 @@ contract Oracle is Ownable {
         requestStatus[_reqId] = RequestStatus.Underway;
 
         // emit event for off-chain Oracle Servers to start processing the price request
-        emit RequestPrice(_reqId);
+        emit PriceRequest(_reqId);
     }
 
     /// @notice get the aggregated price of all component tokens in the portfolio
@@ -73,7 +73,7 @@ contract Oracle is Ownable {
 
         pendingRequestRecords[_reqId] = address(0);
 
-        emit RespondPrice(_reqId, _price);
+        emit PriceResponse(_reqId, _price);
     }
 
     function getRequestStatus(uint256 _reqId)
