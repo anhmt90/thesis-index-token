@@ -1,5 +1,8 @@
+const fs = require('fs');
+
 // const ganache = require('ganache-cli');
 // const web3 = new Web3(ganache.provider());
+
 const Web3 = require('web3');
 // const web3 = new Web3("http://localhost:8545");
 
@@ -120,6 +123,18 @@ let investmentContractAddress;
     await tokenContractInstance.methods.transfer(investmentContractAddress, 80000).send({
         from: admin,
         gas: '3000000'
-    })
+    });
+
+    const contractAddressesJson = JSON.stringify({
+        tokenContractAddress,
+        oracleContractAddress,
+        investmentContractAddress
+    }, null, 4);
+
+    const savePath = 'data/contractAddresses.json';
+    fs.writeFile(savePath, contractAddressesJson, (err) => {
+        if (err) throw err;
+        console.log('\nJson file of contract addresses saved at:', savePath);
+    });
 
 })();

@@ -1,17 +1,31 @@
+const fs = require('fs');
 const Web3 = require('web3');
 const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8545'));
 
 const TOKEN_CONTRACT_JSON = require('../build/contracts/IndexToken.json');
 const INVESTMENT_CONTRACT_JSON = require('../build/contracts/PassiveInvestment.json');
 
-const tokenContractAddress = "0x9b1f7F645351AF3631a656421eD2e40f2802E6c0";
-const tokenContractInstance = new web3.eth.Contract(TOKEN_CONTRACT_JSON.abi, tokenContractAddress);
+let tokenContractAddress;
+let tokenContractInstance;
 
-const investmentContractAddress = "0x2612Af3A521c2df9EAF28422Ca335b04AdF3ac66";
-const investmentContractInstance = new web3.eth.Contract(INVESTMENT_CONTRACT_JSON.abi, investmentContractAddress);
+let investmentContractAddress;
+let investmentContractInstance;
 
 let investor;
 const tokenAmount = 19;
+
+fs.readFile('data/contractAddresses.json', 'utf-8', (err, jsonData) => {
+    if (err) throw err;
+    const contractAddresses = JSON.parse(jsonData.toString());
+    tokenContractAddress = contractAddresses.tokenContractAddress;
+    investmentContractAddress = contractAddresses.investmentContractAddress;
+
+    tokenContractInstance = new web3.eth.Contract(TOKEN_CONTRACT_JSON.abi, tokenContractAddress);
+    investmentContractInstance = new web3.eth.Contract(INVESTMENT_CONTRACT_JSON.abi, investmentContractAddress);
+
+    console.log('\ntokenContractAddress: ', tokenContractAddress);
+    console.log('investmentContractAddress: ', investmentContractAddress);
+});
 
 const printBalance = async (address, name) => {
     console.log(`Balance of ${name}: `, web3.utils.fromWei(
@@ -41,7 +55,7 @@ const orderTokens = async () => {
 
     await orderTokens();
 
-    console.log("\nListening for PurchaseReady events from Investment Contract...");
+    console.log(`\nListening for PurchaseReady events from Investment Contract (${investmentContractAddress})...`);
     investmentContractInstance.events.PurchaseReady({
         // filter: {_buyer: investor}
     })

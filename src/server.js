@@ -1,13 +1,20 @@
+const fs = require('fs');
 const Web3 = require('web3');
-// const { oracleContractAddress } = require('./deploy');
+// require('./deploy');
 
 // Ref.: https://hanezu.net/posts/Enable-WebSocket-support-of-Ganache-CLI-and-Subscribe-to-Events.html
 const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8545'));
 
 const ORACLE_CONTRACT_JSON = require('../build/contracts/Oracle.json');
 
-const oracleContractAddress = "0x67B5656d60a809915323Bf2C40A8bEF15A152e3e";
-const oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi, oracleContractAddress);
+let oracleContractAddress;
+let oracleContractInstance;
+
+fs.readFile('data/contractAddresses.json', 'utf-8', (err, jsonData) => {
+    if (err) throw err;
+    oracleContractAddress = JSON.parse(jsonData.toString()).oracleContractAddress
+    oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi, oracleContractAddress);
+});
 
 
 (async () => {
@@ -44,7 +51,7 @@ const oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi, o
 
 })();
 
-
+// serveOracleRequests();
 
 // let web3Provider = new Web3.providers.WebsocketProvider("wss://ropsten.infura.io/ws");
 // var web3Obj = new Web3(web3Provider);
