@@ -14,8 +14,20 @@
 
 ### 0. Setup
 
+Install the required packages and dependencies:
+
 ```console
-npm install
+npm install -g ganache-cli
+
+npm install -g truffle
+
+npm install  # please make you're standing in the repo's folder when running this command
+```
+
+Compile the contracts:
+
+```console
+truffle compile
 ```
 
 ### 1. Run a local blockchain using Ganache CLI
