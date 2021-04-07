@@ -70,7 +70,6 @@ contract PassiveInvestment is Ownable, IOracleClient {
         require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
 
         pendingPurchases[_reqId]._price = _price;
-        delete pendingPurchases[_reqId];
 
         emit PurchaseReady(_reqId, pendingPurchases[_reqId]._buyer, _price);
         // finalize(_reqId);

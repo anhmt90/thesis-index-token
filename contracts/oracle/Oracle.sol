@@ -71,7 +71,7 @@ contract Oracle is Ownable {
 
         requestStatus[_reqId] = RequestStatus.None;
 
-        pendingRequestRecords[_reqId] = address(0);
+        delete pendingRequestRecords[_reqId];
 
         emit PriceResponse(_reqId, _price);
     }
