@@ -1,10 +1,13 @@
 const Web3 = require('web3');
+// const { oracleContractAddress } = require('./deploy');
 
 // Ref.: https://hanezu.net/posts/Enable-WebSocket-support-of-Ganache-CLI-and-Subscribe-to-Events.html
 const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8545'));
 
 const ORACLE_CONTRACT_JSON = require('../build/contracts/Oracle.json');
-const oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi, "0xA94B7f0465E98609391C623d0560C5720a3f2D33");
+
+const oracleContractAddress = "0x67B5656d60a809915323Bf2C40A8bEF15A152e3e";
+const oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi, oracleContractAddress);
 
 
 (async () => {
@@ -19,7 +22,7 @@ const oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi, "
      *      https://ethereum.stackexchange.com/questions/35997/how-to-listen-to-events-using-web3-v1-0
      *      https://betterprogramming.pub/ethereum-dapps-how-to-listen-for-events-c4fa1a67cf81
      */
-    console.log("\nListening for PriceRequest events from Oracle Contract...")
+    console.log(`\nListening for PriceRequest events from Oracle Contract (${oracleContractAddress})...`)
     oracleContractInstance.events.PriceRequest({})
         .on('data', async function (event) {
             console.log("GOT ", event);
@@ -27,7 +30,7 @@ const oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi, "
             console.log("returnValues ", event.returnValues);
 
             const reqId = event.returnValues._reqId;
-            const dummyPrice = 1999;
+            const dummyPrice = web3.utils.toWei('20000', 'wei');
 
             await oracleContractInstance.methods.respond(reqId, dummyPrice).send({
                 from: trustedOracleServer,

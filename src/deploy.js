@@ -31,7 +31,6 @@ const deployTokenContract = async () => {
         .on('receipt', async (txReceipt) => {
             if (txReceipt.contractAddress) {
                 contractAddress = txReceipt.contractAddress;
-                console.log("Deployed at address: ", contractAddress);
             }
             // const costPaid = txReceipt.gasUsed * web3.utils.fromWei(await web3.eth.getGasPrice(), 'ether');
             console.log("Gas used (token): ", txReceipt.gasUsed);
@@ -59,7 +58,6 @@ const deployOracleContract = async () => {
         .on('receipt', async (txReceipt) => {
             if (txReceipt.contractAddress) {
                 contractAddress = txReceipt.contractAddress;
-                console.log("Deployed at address: ", contractAddress);
             }
 
             console.log("Gas used (oracle): ", txReceipt.gasUsed);
@@ -87,26 +85,29 @@ const deployInvestmentContract = async (tokenContractAddress, oracleContractAddr
         .on('receipt', async (txReceipt) => {
             if (txReceipt.contractAddress) {
                 contractAddress = txReceipt.contractAddress;
-                console.log("Deployed at address: ", contractAddress);
             }
             console.log("Gas used (investment): ", txReceipt.gasUsed);
         });
     return contractAddress;
 };
 
+let tokenContractAddress;
+let oracleContractAddress;
+let investmentContractAddress;
+
 (async () => {
     const accounts = await web3.eth.getAccounts();
     admin = accounts[0];
     trustedOracleServer = accounts[1];
 
-    const tokenContractAddress = await deployTokenContract();
-    console.log("Token contract at: ", tokenContractAddress);
+    tokenContractAddress = await deployTokenContract();
+    console.log("Token contract deployed at: ", tokenContractAddress);
 
-    const oracleContractAddress = await deployOracleContract();
-    console.log("Oracle contract at: ", oracleContractAddress);
+    oracleContractAddress = await deployOracleContract();
+    console.log("Oracle contract deployed at: ", oracleContractAddress);
 
-    const investmentContractAddress = await deployInvestmentContract(tokenContractAddress, oracleContractAddress);
-    console.log("Investment contract at: ", investmentContractAddress);
+    investmentContractAddress = await deployInvestmentContract(tokenContractAddress, oracleContractAddress);
+    console.log("Investment contract deployed at: ", investmentContractAddress);
 
 
     const oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi, oracleContractAddress);
@@ -114,5 +115,11 @@ const deployInvestmentContract = async (tokenContractAddress, oracleContractAddr
         from: admin,
         gas: '3000000'
     });
+
+    const tokenContractInstance = new web3.eth.Contract(TOKEN_CONTRACT_JSON.abi, tokenContractAddress);
+    await tokenContractInstance.methods.transfer(investmentContractAddress, 80000).send({
+        from: admin,
+        gas: '3000000'
+    })
 
 })();
