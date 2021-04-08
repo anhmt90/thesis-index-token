@@ -81,8 +81,8 @@ contract PassiveInvestment is Ownable, IOracleClient {
         // require that the request Id passed in is available
         require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
 
-        // require that the function caller is the buyer that placed token order earlier
-        // require(pendingPurchases[_reqId]._buyer == msg.sender, "Unauthorized purchase claim");
+        // require that the function caller is the buyer placing token order earlier with this _reqId
+        require(pendingPurchases[_reqId]._buyer == msg.sender, "Unauthorized purchase claim");
 
         // require that the contract has enough tokens
         require(tokenContract.balanceOf(address(this)) >= pendingPurchases[_reqId]._numberOfTokens, "Unable to purchase more tokens than totally available");
