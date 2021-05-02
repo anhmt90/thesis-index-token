@@ -2,6 +2,11 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@uniswap/v2-periphery/contracts/UniswapV2Router02.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-periphery/contracts/test/WETH9.sol";
+import "@uniswap/v2-core/contracts/UniswapV2Factory.sol";
 import "./IndexToken.sol";
 import "./oracle/IOracleClient.sol";
 import "./oracle/Oracle.sol";
@@ -22,27 +27,65 @@ contract ETF is Ownable, IOracleClient {
     // instance of the price Oracle contract
     Oracle public oracleContract = Oracle(address(0));
 
+    // instance of uniswap v2 factory
+    UniswapV2Factory public factory = UniswapV2Factory(address(0));
+
+    // instance of uniswap v2 router02
+    UniswapV2Router02 public router = UniswapV2Router02(address(0));
+
+    // instance of WETH
+    WETH9 public weth = WETH9(address(0));
+
     // set of pending purchases that are yet to finalize
     mapping(uint256 => Purchase) pendingPurchases;
 
-    // <token_itin> is set at <price> in Ether
-    // mapping(bytes32 => uint256) public portfolio;
+    // <token_name> is at <address>
+    mapping(string => address) public portfolio;
+    string[] tokenNames;
 
     // keep track of the token amount sold out to the market
     uint256 public tokensSold;
 
     event PriceRequest(uint256 indexed _reqId, address indexed _buyer);
-    event PurchaseReady(uint256 indexed _reqId, address indexed _buyer, uint256 _price);
+    event PurchaseReady(
+        uint256 indexed _reqId,
+        address indexed _buyer,
+        uint256 _price
+    );
     event Purchased(
         uint256 indexed _reqId,
         address indexed _buyer,
         uint256 _amount,
         uint256 _price
     );
+    event PortfolioChanged(string[] names, address[] addresses);
+    event Swap(uint256[] amounts);
 
-    constructor(IndexToken _tokenContract, Oracle _oracleContract) {
+    constructor(
+        IndexToken _tokenContract,
+        UniswapV2Factory _factory
+        UniswapV2Router02 _router,
+        WETH9 _weth
+    ) {
         tokenContract = _tokenContract;
-        oracleContract = _oracleContract;
+        factory = _factory;
+        router = _router;
+        weth = _weth;
+    }
+
+    function setPorfolio(string[] memory names, address[] memory addresses)
+        external
+        onlyOwner
+    {
+        require(
+            names.length == addresses.length,
+            "ETF/Arrays not equal in length!"
+        );
+        for (uint256 i = 0; i < names.length; i++) {
+            tokenNames[i] = names[i];
+            portfolio[names[i]] = addresses[i];
+        }
+        emit PortfolioChanged(names, addresses);
     }
 
     // payable: function can exec Tx
@@ -55,6 +98,8 @@ contract ETF is Ownable, IOracleClient {
             _numberOfTokens,
             MAX_UINT256
         );
+
+        finalize(_reqId);
 
         oracleContract.request(_reqId);
 
@@ -72,29 +117,75 @@ contract ETF is Ownable, IOracleClient {
         pendingPurchases[_reqId]._price = _price;
 
         emit PurchaseReady(_reqId, pendingPurchases[_reqId]._buyer, _price);
-        // finalize(_reqId);
 
         return true;
     }
 
-    function finalize(uint256 _reqId) public payable returns (bool)  {
+    function getTokenPrice(address pairAddress)
+        public
+        view
+        returns (uint256)
+    {
+        IUniswapV2Pair pair = IUniswapV2Pair(pairAddress);
+        IERC20 token1 = IERC20(pair.token1);
+        (uint256 Res0, uint256 Res1, ) = pair.getReserves();
+
+        // decimals
+        uint256 res0 = Res0 * (10**token1.decimals());
+        return (res0 / Res1); // return amount of token0 needed to buy token1
+    }
+
+    function swap() internal {
+        require(portfolio[tokenNames[0]] != address(0), "ETF/DAI Token not set");
+        address[] path = [weth, portfolio[tokenNames[0]];
+        uint256 amounts =
+            router.swapExactETHForTokens(
+                1000,
+                path,
+                address(this),
+                block.timestamp + 60
+            );
+
+        emit Swap(amounts);
+    }
+
+    function finalize(uint256 _reqId) internal returns (bool) {
         // require that the request Id passed in is available
         require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
 
         // require that the function caller is the buyer placing token order earlier with this _reqId
-        require(pendingPurchases[_reqId]._buyer == msg.sender, "Unauthorized purchase claim");
+        require(
+            pendingPurchases[_reqId]._buyer == msg.sender,
+            "Unauthorized purchase claim"
+        );
 
         // require that the contract has enough tokens
-        require(tokenContract.balanceOf(address(this)) >= pendingPurchases[_reqId]._numberOfTokens, "Unable to purchase more tokens than totally available");
+        require(tokenContract.balanceOf(address(this)) >= pendingPurchases[_reqId]._numberOfTokens,
+            "Unable to purchase more tokens than totally available"
+        );
 
         // require that actual price has been queried and received from the oracle
-        require(pendingPurchases[_reqId]._price != MAX_UINT256, "Price is yet to set");
+        // require(pendingPurchases[_reqId]._price != MAX_UINT256, "Price is yet to set");
+
+        // address pairAddress = factory.getPair(weth, portfolio[tokenNames[0]]);
+        // pendingPurchases[_reqId]._price = getTokenPrice(pairAddress);
+        pendingPurchases[_reqId]._price = 10**18;
 
         // require that the calling entity has enough funds to buy tokens
-        require(msg.value == (pendingPurchases[_reqId]._numberOfTokens * pendingPurchases[_reqId]._price), "Not enough funds to buy tokens");
+        require(msg.value >= (pendingPurchases[_reqId]._numberOfTokens * pendingPurchases[_reqId]._price),
+            "Not enough funds to buy tokens"
+        );
+
+        swap();
 
         // require that a transfer is successful
-        require(tokenContract.transfer(msg.sender, pendingPurchases[_reqId]._numberOfTokens), "Unable to transfer tokens to buyer");
+        require(
+            tokenContract.transfer(
+                msg.sender,
+                pendingPurchases[_reqId]._numberOfTokens
+            ),
+            "Unable to transfer tokens to buyer"
+        );
 
         tokensSold += pendingPurchases[_reqId]._numberOfTokens;
 
@@ -126,14 +217,22 @@ contract ETF is Ownable, IOracleClient {
         selfdestruct(payable(owner()));
     }
 
-    function setTokenContract(address _tokenContract) external onlyOwner returns (bool) {
+    function setTokenContract(address _tokenContract)
+        external
+        onlyOwner
+        returns (bool)
+    {
         tokenContract = IndexToken(_tokenContract);
         return true;
     }
 
-    function setOracle(address _oracleContract) override external onlyOwner returns (bool) {
+    function setOracle(address _oracleContract)
+        external
+        override
+        onlyOwner
+        returns (bool)
+    {
         oracleContract = Oracle(_oracleContract);
         return true;
     }
-
 }
