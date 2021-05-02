@@ -9,9 +9,15 @@ const Web3 = require('web3');
 // Ref.: https://hanezu.net/posts/Enable-WebSocket-support-of-Ganache-CLI-and-Subscribe-to-Events.html
 const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8545'));
 
-const TOKEN_CONTRACT_JSON = require('../build/contracts/IndexToken.json');
-const ORACLE_CONTRACT_JSON = require('../build/contracts/Oracle.json');
-const INVESTMENT_CONTRACT_JSON = require('../build/contracts/PassiveInvestment.json');
+const DAI_JSON = require(`./token-jsons/Dai.json`);
+const WETH_JSON = require('@uniswap/v2-periphery/build/WETH9.json');
+const UNISWAP_FACTORY_JSON = require('@uniswap/v2-core/build/UniswapV2Factory.json');
+const UNISWAP_ROUTER_JSON = require('@uniswap/v2-periphery/build/UniswapV2Router02.json');
+
+
+const ETF_TOKEN_JSON = require('../build/contracts/IndexToken.json');
+const ORACLE_JSON = require('../build/contracts/Oracle.json');
+const ETF_JSON = require('../build/contracts/PassiveInvestment.json');
 
 let admin;
 let trustedOracleServer;
@@ -22,9 +28,9 @@ const deployTokenContract = async () => {
     console.log("Using account: ", admin);
 
     let contractAddress;
-    const tokenContractInstance = new web3.eth.Contract(TOKEN_CONTRACT_JSON.abi);
+    const tokenContractInstance = new web3.eth.Contract(ETF_TOKEN_JSON.abi);
     await tokenContractInstance.deploy({
-        data: TOKEN_CONTRACT_JSON.bytecode,
+        data: ETF_TOKEN_JSON.bytecode,
         arguments: ["100000"]
     })
         .send({
@@ -49,9 +55,9 @@ const deployOracleContract = async () => {
     console.log("Using trusted Oracle server: ", trustedOracleServer);
 
     let contractAddress;
-    const oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi);
+    const oracleContractInstance = new web3.eth.Contract(ORACLE_JSON.abi);
     await oracleContractInstance.deploy({
-        data: ORACLE_CONTRACT_JSON.bytecode,
+        data: ORACLE_JSON.bytecode,
         arguments: [trustedOracleServer]
     })
         .send({
@@ -71,14 +77,14 @@ const deployOracleContract = async () => {
 };
 
 
-const deployInvestmentContract = async (tokenContractAddress, oracleContractAddress) => {
-    console.log("\nDeploying Investment contract...");
+const deployEtfContract = async (tokenContractAddress, oracleContractAddress) => {
+    console.log("\nDeploying ETF contract...");
     console.log("Using account: ", admin);
 
     let contractAddress;
-    const investmentContractInstance = new web3.eth.Contract(INVESTMENT_CONTRACT_JSON.abi);
+    const investmentContractInstance = new web3.eth.Contract(ETF_JSON.abi);
     await investmentContractInstance.deploy({
-        data: INVESTMENT_CONTRACT_JSON.bytecode,
+        data: ETF_JSON.bytecode,
         arguments: [tokenContractAddress, oracleContractAddress]
     })
         .send({
@@ -94,9 +100,34 @@ const deployInvestmentContract = async (tokenContractAddress, oracleContractAddr
     return contractAddress;
 };
 
+const deployContract = async ({name, msgSender, contractJson, args}) => {
+    console.log(`\nDeploying contract ${name} ...`);
+    console.log("Using account: ", msgSender);
+
+    let contractAddress;
+    const contractInstance = new web3.eth.Contract(contractJson.abi);
+    await contractInstance.deploy({
+        data: contractJson.bytecode,
+        arguments: args
+    })
+        .send({
+            from: msgSender,
+            gas: '3000000'
+        })
+        .on('receipt', async (txReceipt) => {
+            if (txReceipt.contractAddress) {
+                contractAddress = txReceipt.contractAddress;
+            }
+            console.log(`Gas used (${name}): `, txReceipt.gasUsed);
+        });
+    console.log(`Contract ${name} deployed at: `, contractAddress)
+    return contractAddress;
+};
+
+
 let tokenContractAddress;
 let oracleContractAddress;
-let investmentContractAddress;
+let etfContractAddress;
 
 (async () => {
     const accounts = await web3.eth.getAccounts();
@@ -109,26 +140,64 @@ let investmentContractAddress;
     oracleContractAddress = await deployOracleContract();
     console.log("Oracle contract deployed at: ", oracleContractAddress);
 
-    investmentContractAddress = await deployInvestmentContract(tokenContractAddress, oracleContractAddress);
-    console.log("Investment contract deployed at: ", investmentContractAddress);
+    etfContractAddress = await deployEtfContract(tokenContractAddress, oracleContractAddress);
+    console.log("Investment contract deployed at: ", etfContractAddress);
 
 
-    const oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi, oracleContractAddress);
-    await oracleContractInstance.methods.addClient(investmentContractAddress).send({
+    const oracleContractInstance = new web3.eth.Contract(ORACLE_JSON.abi, oracleContractAddress);
+    await oracleContractInstance.methods.addClient(etfContractAddress).send({
         from: admin,
         gas: '3000000'
     });
 
-    const tokenContractInstance = new web3.eth.Contract(TOKEN_CONTRACT_JSON.abi, tokenContractAddress);
-    await tokenContractInstance.methods.transfer(investmentContractAddress, 80000).send({
+    const tokenContractInstance = new web3.eth.Contract(ETF_TOKEN_JSON.abi, tokenContractAddress);
+    await tokenContractInstance.methods.transfer(etfContractAddress, 80000).send({
         from: admin,
         gas: '3000000'
     });
+
+
+    // --------------------------------
+    const dai = deployContract({
+        name: 'DAI',
+        msgSender: admin,
+        contractJson: DAI_JSON,
+        args: [1337]
+    })
+
+    const daiInstance = new web3.eth.Contract(DAI_JSON.abi, dai);
+    await daiInstance.methods.mint(admin, web3.utils.toBN('1000' + "0".repeat(18))).send({
+        from: admin,
+        gas: '3000000'
+    });
+
+    const weth = deployContract({
+        name: 'WETH',
+        msgSender: admin,
+        contractJson: WETH_JSON,
+        args: []
+    })
+
+    const uniswapFactory = deployContract({
+        name: 'UniswapV2Factory',
+        msgSender: admin,
+        contractJson: UNISWAP_FACTORY_JSON,
+        args: []
+    })
+
+    const uniswapRouter = deployContract({
+        name: 'UniswapV2Router02',
+        msgSender: admin,
+        contractJson: UNISWAP_ROUTER_JSON,
+        args: [uniswapFactory, weth]
+    })
+
+    //-------------------------------------
 
     const contractAddressesJson = JSON.stringify({
         tokenContractAddress,
         oracleContractAddress,
-        investmentContractAddress
+        investmentContractAddress: etfContractAddress
     }, null, 4);
 
     const savePath = 'data/contractAddresses.json';
@@ -138,3 +207,5 @@ let investmentContractAddress;
     });
 
 })();
+
+
