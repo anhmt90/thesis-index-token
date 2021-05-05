@@ -3,10 +3,10 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@uniswap/v2-periphery/contracts/UniswapV2Router02.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Pair.sol";
-import "@uniswap/v2-periphery/contracts/test/WETH9.sol";
-import "@uniswap/v2-core/contracts/UniswapV2Factory.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
 import "./IndexToken.sol";
 import "./oracle/IOracleClient.sol";
 import "./oracle/Oracle.sol";
@@ -28,13 +28,13 @@ contract ETF is Ownable, IOracleClient {
     Oracle public oracleContract = Oracle(address(0));
 
     // instance of uniswap v2 factory
-    UniswapV2Factory public factory = UniswapV2Factory(address(0));
+    IUniswapV2Factory public factory = IUniswapV2Factory(address(0));
 
     // instance of uniswap v2 router02
-    UniswapV2Router02 public router = UniswapV2Router02(address(0));
+    IUniswapV2Router02 public router = IUniswapV2Router02(address(0));
 
     // instance of WETH
-    WETH9 public weth = WETH9(address(0));
+    IWETH public weth = IWETH(address(0));
 
     // set of pending purchases that are yet to finalize
     mapping(uint256 => Purchase) pendingPurchases;
@@ -63,9 +63,9 @@ contract ETF is Ownable, IOracleClient {
 
     constructor(
         IndexToken _tokenContract,
-        UniswapV2Factory _factory
-        UniswapV2Router02 _router,
-        WETH9 _weth
+        IUniswapV2Factory _factory,
+        IUniswapV2Router02 _router,
+        IWETH _weth
     ) {
         tokenContract = _tokenContract;
         factory = _factory;
@@ -137,7 +137,7 @@ contract ETF is Ownable, IOracleClient {
 
     function swap() internal {
         require(portfolio[tokenNames[0]] != address(0), "ETF/DAI Token not set");
-        address[] path = [weth, portfolio[tokenNames[0]];
+        address[] memory path = [weth, portfolio[tokenNames[0]]];
         uint256 amounts =
             router.swapExactETHForTokens(
                 1000,
@@ -167,9 +167,9 @@ contract ETF is Ownable, IOracleClient {
         // require that actual price has been queried and received from the oracle
         // require(pendingPurchases[_reqId]._price != MAX_UINT256, "Price is yet to set");
 
-        // address pairAddress = factory.getPair(weth, portfolio[tokenNames[0]]);
-        // pendingPurchases[_reqId]._price = getTokenPrice(pairAddress);
-        pendingPurchases[_reqId]._price = 10**18;
+        address pairAddress = factory.getPair(weth, portfolio[tokenNames[0]]);
+        pendingPurchases[_reqId]._price = getTokenPrice(pairAddress);
+        // pendingPurchases[_reqId]._price = 10**18;
 
         // require that the calling entity has enough funds to buy tokens
         require(msg.value >= (pendingPurchases[_reqId]._numberOfTokens * pendingPurchases[_reqId]._price),
