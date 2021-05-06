@@ -2,11 +2,11 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
+import "./interfaces/IERC20Extended.sol";
 import "./IndexToken.sol";
 import "./oracle/IOracleClient.sol";
 import "./oracle/Oracle.sol";
@@ -34,7 +34,7 @@ contract ETF is Ownable, IOracleClient {
     IUniswapV2Router02 public router = IUniswapV2Router02(address(0));
 
     // instance of WETH
-    IWETH public weth = IWETH(address(0));
+    address public weth = address(0);
 
     // set of pending purchases that are yet to finalize
     mapping(uint256 => Purchase) pendingPurchases;
@@ -65,7 +65,7 @@ contract ETF is Ownable, IOracleClient {
         IndexToken _tokenContract,
         IUniswapV2Factory _factory,
         IUniswapV2Router02 _router,
-        IWETH _weth
+        address _weth
     ) {
         tokenContract = _tokenContract;
         factory = _factory;
@@ -124,26 +124,48 @@ contract ETF is Ownable, IOracleClient {
     function getTokenPrice(address pairAddress)
         public
         view
-        returns (uint256)
+        returns (uint256 price)
     {
         IUniswapV2Pair pair = IUniswapV2Pair(pairAddress);
-        IERC20 token1 = IERC20(pair.token1);
+        address token0Addr = pair.token0();
+        address token1Addr = pair.token1();
+        require(
+            weth == token0Addr || weth == token1Addr,
+            "ETF/Not a ERC20 <-> WETH pair"
+        );
+
+        IERC20Extended token0 = IERC20Extended(token0Addr);
+        IERC20Extended token1 = IERC20Extended(token1Addr);
         (uint256 Res0, uint256 Res1, ) = pair.getReserves();
 
-        // decimals
-        uint256 res0 = Res0 * (10**token1.decimals());
-        return (res0 / Res1); // return amount of token0 needed to buy token1
+        // return amount of WETH needed to buy one token1
+        if (token0Addr == weth) {
+            price = ((Res0 * (10**token1.decimals())) / Res1);
+        } else {
+            price = ((Res1 * (10**token0.decimals())) / Res0);
+        }
     }
 
-    function swap() internal {
-        require(portfolio[tokenNames[0]] != address(0), "ETF/DAI Token not set");
-        address[] memory path = [weth, portfolio[tokenNames[0]]];
-        uint256 amounts =
+    function swapExactETHForTokens() internal {
+        require(
+            portfolio[tokenNames[0]] != address(0),
+            "ETF/DAI Token not set"
+        );
+
+        string memory tokenName = tokenNames[0];
+        address tokenAddr = portfolio[tokenName];
+        address[] memory path;
+        path[0] = weth;
+        path[1] = tokenAddr;
+
+        IERC20Extended token = IERC20Extended(tokenAddr);
+
+        uint256[] memory amounts =
             router.swapExactETHForTokens(
-                1000,
+                1 * (10**token.decimals()),
                 path,
                 address(this),
-                block.timestamp + 60
+                block.timestamp + 10
             );
 
         emit Swap(amounts);
@@ -160,7 +182,9 @@ contract ETF is Ownable, IOracleClient {
         );
 
         // require that the contract has enough tokens
-        require(tokenContract.balanceOf(address(this)) >= pendingPurchases[_reqId]._numberOfTokens,
+        require(
+            tokenContract.balanceOf(address(this)) >=
+                pendingPurchases[_reqId]._numberOfTokens,
             "Unable to purchase more tokens than totally available"
         );
 
@@ -176,9 +200,9 @@ contract ETF is Ownable, IOracleClient {
             "Not enough funds to buy tokens"
         );
 
-        swap();
+        swapExactETHForTokens();
 
-        // require that a transfer is successful
+        // require that the transfer is successful
         require(
             tokenContract.transfer(
                 msg.sender,
