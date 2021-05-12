@@ -1,15 +1,17 @@
-const Web3 = require('web3');
-const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8545'));
 var wtf = require('wtfnode');
 
+const web3 = require('./getWeb3');
+
 const {
-    allAddr,
     UNISWAP_PAIR_JSON,
     UNISWAP_FACTORY_JSON,
     UNISWAP_ROUTER_JSON,
     DAI_JSON,
     ETF_JSON
-} = require("./utils");
+} = require('./constants');
+
+const { getEthBalance, loadAddresses } = require("./utils");
+const allAddr = loadAddresses();
 
 const getPairAddress = async ({ tokenA, tokenB, factoryAddr = allAddr.uniswapFactory }) => {
     const factoryInstance = new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, factoryAddr);
@@ -47,10 +49,14 @@ const addLiquidityExactWETH = async ({ ethAmount, msgSender, tokenAddr, tokenJso
 const run = async () => {
     const accounts = await web3.eth.getAccounts();
     const admin = accounts[0];
+    const investor = accounts[2];
 
     console.log("DAI address=", allAddr.dai);
     console.log("WETH address=", allAddr.weth);
 
+    /**
+     * Get address of DAI/WETH pool
+     */
     const dai_wethPairAddr = await getPairAddress({
         tokenA: allAddr.dai,
         tokenB: allAddr.weth
@@ -58,6 +64,9 @@ const run = async () => {
 
     console.log('Pool DAI/WETH at: ', dai_wethPairAddr);
 
+    /**
+     * Add Liquidity into DAI/WETH pool with LP being admin
+     */
     await addLiquidityExactWETH({
         ethAmount: 1,
         msgSender: admin,
@@ -66,6 +75,9 @@ const run = async () => {
         routerAddr: allAddr.uniswapRouter
     });
 
+    /**
+     * Get pool's info
+     */
     const dai_wethInstance = new web3.eth.Contract(UNISWAP_PAIR_JSON.abi, dai_wethPairAddr);
     const token0Addr = await dai_wethInstance.methods.token0().call();
     console.log('Token 0 is', token0Addr === allAddr.weth ? 'WETH' : token0Addr === allAddr.dai ? 'DAI' : 'unknown!');
@@ -81,12 +93,42 @@ const run = async () => {
     const onchainPrice = await etfInstance.methods.getTokenPrice(dai_wethPairAddr).call();
     console.log("Token Price (onchain)=", onchainPrice);
 
+    /**
+     * Set portfolio
+     */
+    const tokenNames = ['DAI'];
+    const tokenAddresses = [allAddr.dai];
+    await etfInstance.methods.setPorfolio(tokenNames, tokenAddresses).send({
+        from: admin,
+        gas: '3000000'
+    });
+    console.log('SUCCESS: Portfolio set!');
+
+
+    /**
+     * Test token ordering
+     */
     const daiInstance = new web3.eth.Contract(DAI_JSON.abi, allAddr.dai);
-    let daiBalance = await daiInstance.methods.balanceOf(allAddr.etf).call();
-    console.log('DAI balance of ETF (before order): ', daiBalance)
-    etfInstance.methods.orderTokens(1).call();
-    daiBalance = await daiInstance.methods.balanceOf(allAddr.etf).call();
-    console.log('DAI balance of ETF (after order): ', daiBalance)
+    let daiBalanceEtf = await daiInstance.methods.balanceOf(allAddr.etf).call();
+    let daiBalanceAdmin = await daiInstance.methods.balanceOf(admin).call();
+
+    console.log('DAI balance of ETF (before): ', web3.utils.fromWei(daiBalanceEtf));
+    console.log('DAI balance of admin (before): ', web3.utils.fromWei(daiBalanceAdmin));
+
+    console.log('Account balance of ETF (before): ', await getEthBalance(allAddr.etf));
+    console.log('Wallet balance of Investor (before): ', await getEthBalance(investor));
+
+    const ethToSwap = 2;
+    console.log('Swapping', ethToSwap, ' ethers for DAI')
+    const txReceipt = await etfInstance.methods.orderTokens(1).send({
+        from: investor,
+        value: web3.utils.toWei(String(ethToSwap), "ether"),
+        gas: '3000000'
+    });
+    daiBalanceEtf = await daiInstance.methods.balanceOf(allAddr.etf).call();
+    console.log('DAI balance of ETF (after): ', web3.utils.fromWei(daiBalanceEtf));
+    console.log('Account balance of ETF (before): ', await getEthBalance(allAddr.etf));
+    console.log('Wallet balance of Investor (before): ', await getEthBalance(investor));
 };
 
 run().finally(() => {

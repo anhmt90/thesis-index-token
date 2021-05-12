@@ -1,20 +1,8 @@
 const fs = require('fs');
 
-// const ganache = require('ganache-cli');
-// const web3 = new Web3(ganache.provider());
-
-const Web3 = require('web3');
-// const web3 = new Web3("http://localhost:8545");
-
-// Ref.: https://hanezu.net/posts/Enable-WebSocket-support-of-Ganache-CLI-and-Subscribe-to-Events.html
-const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8545'));
-
-if (fs.existsSync('data/contractAddresses.json')) {
-    fs.unlinkSync('data/contractAddresses.json');
-}
+const web3 = require('./getWeb3')
 
 const {
-    allAddr,
     DAI_JSON,
     WETH_JSON,
     UNISWAP_FACTORY_JSON,
@@ -22,8 +10,16 @@ const {
     INDEX_TOKEN_JSON,
     ORACLE_JSON,
     ETF_JSON
-} = require('./utils');
+} = require ('./constants.js')
 
+
+// if (fs.existsSync(ADDRESS_FILE)) {
+//     fs.unlinkSync(ADDRESS_FILE);
+//     console.log('Removed file', ADDRESS_FILE)
+// }
+
+const { storeAddresses } = require('./utils');
+const allAddr = {}
 
 const mintDai = async ({ msgSender, totalSupply, daiAddr = allAddr.dai }) => {
     const daiInstance = new web3.eth.Contract(DAI_JSON.abi, daiAddr);
@@ -162,12 +158,7 @@ const deploy = async () => {
 
     //-------------------------------------
 
-    const contractAddressJson = JSON.stringify(allAddr, null, 4);
-    const savePath = 'data/contractAddresses.json';
-    fs.writeFile(savePath, contractAddressJson, (err) => {
-        if (err) throw err;
-        console.log('\nJson file of contract addresses saved at:', savePath);
-    });
+    storeAddresses(allAddr);
 
 };
 
