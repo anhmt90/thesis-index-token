@@ -146,7 +146,7 @@ const deploy = async () => {
 
     await mintDai({
         msgSender: admin,
-        totalSupply: 1000000
+        totalSupply: 19
     });
 
     await createPool({

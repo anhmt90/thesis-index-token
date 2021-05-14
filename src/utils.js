@@ -1,7 +1,7 @@
 const fs = require('fs');
 
-const web3 = require('./getWeb3')
-const { ADDRESS_FILE } = require ('./constants.js')
+const web3 = require('./getWeb3');
+const { ADDRESS_FILE } = require('./constants.js');
 
 const storeAddresses = (addresses) => {
     const contractAddressJson = JSON.stringify(addresses, null, 4);
@@ -9,7 +9,7 @@ const storeAddresses = (addresses) => {
         if (err) throw err;
         console.log('\nJson file of contract addresses saved at:', savePath);
     });
-}
+};
 
 const loadAddresses = () => {
     let allAddr = {};
@@ -20,15 +20,22 @@ const loadAddresses = () => {
         console.log('INFO: Skip loading contract addresses!');
         console.log('INFO: All addresses: ', allAddr);
     }
-    return allAddr
+    return allAddr;
 };
 
-const getEthBalance = async (address) => {
-    return web3.utils.fromWei(await web3.eth.getBalance(address), 'ether')
-}
+const getEthBalance = async (account) => {
+    return web3.utils.fromWei(await web3.eth.getBalance(account), 'ether');
+};
+
+const getERC20Balance = async ({ tokenJson, tokenAddr, account }) => {
+    const tokenContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
+    return (await tokenContract.methods.balanceOf(account).call());
+
+};
 
 module.exports = {
     storeAddresses,
     loadAddresses,
-    getEthBalance
+    getEthBalance,
+    getERC20Balance
 };
