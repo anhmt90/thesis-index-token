@@ -62,6 +62,14 @@ contract ETF is Ownable, IOracleClient {
     event PortfolioChanged(string[] names, address[] addresses);
     event Swap(uint256[] amounts);
 
+    modifier properPortfolio() {
+        require(tokenNames.length > 0, "ETF: No token names found in portfolio");
+        // for (uint256 i = 0; i < tokenNames.length; i++) {
+        //     require(portfolio[tokenNames[i]] != address(0), "ETF: A token in portfolio has address 0");
+        // }
+        _;
+    }
+
     constructor(
         IndexToken _tokenContract,
         IUniswapV2Factory _factory,
@@ -80,7 +88,7 @@ contract ETF is Ownable, IOracleClient {
     {
         require(
             names.length == addresses.length,
-            "ETF/Arrays not equal in length!"
+            "ETF: Arrays not equal in length!"
         );
         tokenNames = names;
         for (uint256 i = 0; i < names.length; i++) {
@@ -90,7 +98,7 @@ contract ETF is Ownable, IOracleClient {
     }
 
     // payable: function can exec Tx
-    function orderTokens(uint256 _numberOfTokens) public payable {
+    function orderTokens(uint256 _numberOfTokens) public payable properPortfolio {
         uint256 _reqId = assignRequestId();
 
         pendingPurchases[_reqId] = Purchase(
@@ -157,21 +165,6 @@ contract ETF is Ownable, IOracleClient {
         return true;
     }
 
-    // @notice a callback for Oracle contract to call once the requested data is ready
-    function __oracleCallback(uint256 _reqId, uint256 _price)
-        external
-        override
-        returns (bool)
-    {
-        require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
-
-        pendingPurchases[_reqId]._price = _price;
-
-        emit PurchaseReady(_reqId, pendingPurchases[_reqId]._buyer, _price);
-
-        return true;
-    }
-
     function getTokenPrice(address pairAddress)
         public
         view
@@ -182,7 +175,7 @@ contract ETF is Ownable, IOracleClient {
         address token1Addr = pair.token1();
         require(
             address(weth) == token0Addr || address(weth) == token1Addr,
-            "ETF/Not a ERC20 <-> WETH pair"
+            "ETF: Not a ERC20 <-> WETH pair"
         );
 
         IERC20Extended token0 = IERC20Extended(token0Addr);
@@ -197,10 +190,10 @@ contract ETF is Ownable, IOracleClient {
         }
     }
 
-    function swapExactETHForTokens() internal {
+    function swapExactETHForTokens() internal  {
         require(
             portfolio[tokenNames[0]] != address(0),
-            "ETF/DAI Token not set"
+            "ETF: DAI Token not set"
         );
 
         string memory tokenName = tokenNames[0];
@@ -220,6 +213,21 @@ contract ETF is Ownable, IOracleClient {
             );
 
         emit Swap(amounts);
+    }
+
+    // @notice a callback for Oracle contract to call once the requested data is ready
+    function __oracleCallback(uint256 _reqId, uint256 _price)
+        external
+        override
+        returns (bool)
+    {
+        require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
+
+        pendingPurchases[_reqId]._price = _price;
+
+        emit PurchaseReady(_reqId, pendingPurchases[_reqId]._buyer, _price);
+
+        return true;
     }
 
 
