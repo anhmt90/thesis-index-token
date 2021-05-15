@@ -5,8 +5,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-// import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
+// import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
 import "./interfaces/IWETH.sol";
+import "./libraries/UniswapV2LibraryUpdated.sol";
 import "./interfaces/IERC20Extended.sol";
 import "./IndexToken.sol";
 import "./oracle/IOracleClient.sol";
@@ -175,7 +176,7 @@ contract ETF is Ownable, IOracleClient {
         address token1Addr = pair.token1();
         require(
             address(weth) == token0Addr || address(weth) == token1Addr,
-            "ETF: Not a ERC20 <-> WETH pair"
+            "ETF: Not an ERC20/WETH pair"
         );
 
         IERC20Extended token0 = IERC20Extended(token0Addr);
@@ -213,6 +214,28 @@ contract ETF is Ownable, IOracleClient {
             );
 
         emit Swap(amounts);
+    }
+
+    function getAmountsOutForExactETH(uint256 amountIn) public view properPortfolio returns (uint256[] memory amounts) {
+        require(address(router) != address(0), "ETF: Router contract not set!");
+        string memory tokenName;
+        address tokenAddress = address(0);
+        address wethAddress = address(weth);
+        amounts = new uint[](tokenNames.length);
+
+        for (uint256 i = 0; i < tokenNames.length; i++) {
+            tokenName = tokenNames[i];
+            tokenAddress = portfolio[tokenName];
+            address pairAddress = UniswapV2LibraryUpdated.pairFor(address(factory), wethAddress, tokenAddress);
+
+            IUniswapV2Pair pair = IUniswapV2Pair(pairAddress);
+            address token0 = pair.token0();
+
+            (uint reserve0, uint reserve1,) = pair.getReserves();
+            (uint reserveIn, uint reserveOut) = wethAddress == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
+
+            amounts[i] = UniswapV2LibraryUpdated.getAmountOut(amountIn, reserveIn, reserveOut);
+        }
     }
 
     // @notice a callback for Oracle contract to call once the requested data is ready
