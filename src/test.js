@@ -54,7 +54,7 @@ const addLiquidityExactWETH = async ({ ethAmount, msgSender, tokenAddr, tokenJso
     /** Approve before adding liquidity */
     const tokenDecimals = await tokenContract.methods.decimals().call();
 
-    const approvedAmount = 2;
+    const approvedAmount = 3724;
     console.log('APRROVING', approvedAmount, ' DAI TO ROUTER...');
     await tokenContract.methods.approve(routerAddr, web3.utils.toBN(String(approvedAmount) + "0".repeat(tokenDecimals))).send({
         from: msgSender,

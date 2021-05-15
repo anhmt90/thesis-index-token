@@ -4,6 +4,7 @@ const web3 = require('./getWeb3')
 
 const {
     DAI_JSON,
+    BNB_JSON,
     WETH_JSON,
     UNISWAP_FACTORY_JSON,
     UNISWAP_ROUTER_JSON,
@@ -21,14 +22,27 @@ const {
 const { storeAddresses } = require('./utils');
 const allAddr = {}
 
-const mintDai = async ({ msgSender, totalSupply, daiAddr = allAddr.dai }) => {
-    const daiInstance = new web3.eth.Contract(DAI_JSON.abi, daiAddr);
-    await daiInstance.methods.mint(msgSender, web3.utils.toBN(String(totalSupply) + "0".repeat(18))).send({
+const mintDaiToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
+    const daiContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
+    const decimals = parseInt(await daiContract.methods.decimals().call());
+    console.log('DAI decimals: ', decimals)
+    await daiContract.methods.mint(msgSender, web3.utils.toBN(String(value) + '0'.repeat(18))).send({
         from: msgSender,
         gas: '3000000'
     });
-    let daiBalance = await daiInstance.methods.balanceOf(msgSender).call();
-    console.log(`${msgSender} has`, daiBalance, 'wad = ', web3.utils.toBN(daiBalance) / (10 ** 18), 'dai');
+    const daiBalance = await daiContract.methods.balanceOf(msgSender).call();
+    console.log(`${msgSender} has`, daiBalance, 'wad = ', web3.utils.toBN(daiBalance) / (10 ** decimals), 'dai');
+};
+
+const mintBnbToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
+    const bnbContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
+    await bnbContract.methods.transfer(msgSender, web3.utils.toBN(String(value) + "0".repeat(18))).send({
+        from: msgSender,
+        gas: '3000000'
+    });
+    let bnbBalance = await bnbContract.methods.balanceOf(msgSender).call();
+    const decimals = parseInt(await bnbContract.methods.decimals().call());
+    console.log(`${msgSender} has`, bnbBalance, ' jager = ', web3.utils.toBN(bnbBalance) / (10 ** decimals), 'bnb');
 };
 
 
@@ -94,6 +108,7 @@ const deploy = async () => {
 
 
     // --------------------------------
+
     allAddr.dai = await deployContract({
         name: 'DAI',
         msgSender: admin,
@@ -101,6 +116,12 @@ const deploy = async () => {
         args: [1337]
     });
 
+    allAddr.bnb = await deployContract({
+        name: 'BNB',
+        msgSender: admin,
+        contractJson: BNB_JSON,
+        args: ['1000000' + '0'.repeat(18), 'BNB', 18, 'BNB']
+    });
 
     allAddr.weth = await deployContract({
         name: 'WETH',
@@ -108,6 +129,8 @@ const deploy = async () => {
         contractJson: WETH_JSON,
         args: []
     });
+
+    // --------------------------------
 
     allAddr.uniswapFactory = await deployContract({
         name: 'UniswapV2Factory',
@@ -144,9 +167,20 @@ const deploy = async () => {
         gas: '3000000'
     });
 
-    await mintDai({
+    const tokenJsons = [DAI_JSON, BNB_JSON]
+
+    await mintDaiToAdmin({
         msgSender: admin,
-        totalSupply: 19
+        value: 1000000,
+        tokenAddr: allAddr.dai,
+        tokenJson: DAI_JSON
+    });
+
+    await mintBnbToAdmin({
+        msgSender: admin,
+        value: 1000000,
+        tokenAddr: allAddr.bnb,
+        tokenJson: BNB_JSON
     });
 
     await createPool({

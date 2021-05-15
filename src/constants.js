@@ -1,6 +1,8 @@
 const path = require('path')
 
 const DAI_JSON = require(`./token-jsons/Dai.json`);
+const BNB_JSON = require(`./token-jsons/BNB.json`);
+
 const WETH_JSON = require('@uniswap/v2-periphery/build/WETH9.json');
 const UNISWAP_FACTORY_JSON = require('@uniswap/v2-core/build/UniswapV2Factory.json');
 const UNISWAP_ROUTER_JSON = require('@uniswap/v2-periphery/build/UniswapV2Router02.json');
@@ -15,6 +17,7 @@ const ADDRESS_FILE = path.join(__dirname, '../data/contractAddresses.json');
 module.exports = {
     ADDRESS_FILE,
     DAI_JSON,
+    BNB_JSON,
     WETH_JSON,
     UNISWAP_FACTORY_JSON,
     UNISWAP_PAIR_JSON,
