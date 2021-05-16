@@ -10,42 +10,20 @@ const {
     ETF_JSON
 } = require('./constants');
 
-const { getEthBalance, getERC20Balance, loadAddresses } = require("./utils");
+const {
+    getEthBalance,
+    getERC20Balance,
+    loadAddresses,
+    getPairAddress,
+    getReservesWETH_ERC20
+} = require("./utils");
 const allAddr = loadAddresses();
 
-const getPairAddress = async (tokenAddr, factoryAddr = allAddr.uniswapFactory) => {
-    const factoryInstance = new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, factoryAddr);
-    const pairAddress = await factoryInstance.methods.getPair(tokenAddr, allAddr.weth).call();
-    return pairAddress;
-};
-
-const printPrice = async (tokenAddr, verbose = false) => {
-    /**
-     * Get pool's info
-     */
-    const pairAddr = await getPairAddress(tokenAddr);
-    const pairInstance = new web3.eth.Contract(UNISWAP_PAIR_JSON.abi, pairAddr);
-    const reserves = await pairInstance.methods.getReserves().call();
-    if (reserves[0] !== '0' && reserves[1] !== '0') {
-        const token0Addr = await pairInstance.methods.token0().call();
-        console.log('reserve0 =', web3.utils.fromWei(reserves[0]),
-            ', reserve1 =', web3.utils.fromWei(reserves[1]),
-            '--> price:', token0Addr === allAddr.weth ? `WETH/ERC20 = ${reserves[0] / reserves[1]}` : `ERC20/WETH=${reserves[1] / reserves[0]}`);
-
-        if (verbose) {
-            const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
-            const onchainPrice = await etfContract.methods.getTokenPrice(pairAddr).call();
-            console.log("Token Price (onchain)=", web3.utils.fromWei(onchainPrice));
-        }
-    } else {
-        console.log('WARNING: One of the reserves is 0');
-    }
-};
 
 const addLiquidityExactWETH = async ({ ethAmount, msgSender, tokenAddr, tokenJson, routerAddr = allAddr.uniswapRouter }) => {
     console.log("\n******** ADD LIQUIDITY ********");
     console.log('==== Current Price:');
-    await printPrice(tokenAddr, true);
+    await getReservesWETH_ERC20(tokenAddr, true);
 
     const tokenContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
     let msgSenderTokenBalance = await tokenContract.methods.balanceOf(msgSender).call();
@@ -86,7 +64,7 @@ const addLiquidityExactWETH = async ({ ethAmount, msgSender, tokenAddr, tokenJso
     console.log('Token balance of', msgSender, '(after adding liquidity): ', msgSenderTokenBalance);
 
     console.log('==== New Price:');
-    await printPrice(tokenAddr)
+    await getReservesWETH_ERC20(tokenAddr, true);
     console.log("******** LIQUIDITY ADDED ********\n");
 };
 
@@ -94,13 +72,6 @@ const run = async () => {
     const accounts = await web3.eth.getAccounts();
     const admin = accounts[0];
     const investor = accounts[2];
-
-    /**
-     * Get address of DAI/WETH pool
-     */
-    const dai_wethPairAddr = await getPairAddress(allAddr.dai);
-
-    console.log('Pool DAI/WETH at: ', dai_wethPairAddr);
 
     /**
      * Add Liquidity into DAI/WETH pool with LP being admin
@@ -151,9 +122,9 @@ const run = async () => {
     console.log('Wallet balance of Investor (after swap):', await getEthBalance(investor));
 
     console.log('==== Price changed: ');
-    await printPrice(allAddr.dai)
+    await printPrice(allAddr.dai);
 
-    console.log("******************************************************")
+    console.log("******************************************************");
 
     amountsOut = await etfContract.methods.getAmountsOutForExactETH('1' + '0'.repeat(18)).call();
     console.log("Real amount outputs (after swap):", web3.utils.fromWei(amountsOut[0]));

@@ -16,13 +16,7 @@ const {
 } = require('./constants.js');
 
 
-// if (fs.existsSync(ADDRESS_FILE)) {
-//     fs.unlinkSync(ADDRESS_FILE);
-//     console.log('Removed file', ADDRESS_FILE)
-// }
-
-const { storeAddresses } = require('./utils');
-const allAddr = {};
+const { storeAddresses, getReservesWETH_ERC20, loadAddresses } = require('./utils');
 
 const mintDaiToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
     const daiContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
@@ -47,20 +41,6 @@ const mintBnbToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
 
 
 /* **************************************************************************************************** */
-
-const createPool = async ({ msgSender, tokenA, tokenB, factoryAddr = allAddr.uniswapFactory }) => {
-    const factoryInstance = new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, factoryAddr);
-    await factoryInstance.methods.createPair(tokenA, tokenB).send({
-        from: msgSender,
-        gas: '3000000'
-    });
-
-    // await getPairAddress({
-    //     factoryAddr,
-    //     tokenA,
-    //     tokenB
-    // });
-};
 
 
 
@@ -89,16 +69,54 @@ const deployContract = async ({ name, msgSender, contractJson, args }) => {
 };
 
 
+const addLiquidityExactWETH = async ({ ethAmount, msgSender, tokenAddr, tokenJson, routerAddr }) => {
+    const tokenContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
+    const symbol = await tokenContract.methods.symbol().call();
+    const decimals = await tokenContract.methods.decimals().call();
+    console.log(`******** ADD LIQUIDITY ${symbol}/WETH ********`);
+
+    /** Approve before adding liquidity */
+
+    const RATE = 3724;
+    console.log('APRROVING', RATE, `${symbol} to Uniswap Router...`);
+    await tokenContract.methods.approve(routerAddr, web3.utils.toBN(String(RATE) + "0".repeat(decimals))).send({
+        from: msgSender,
+        gas: '3000000'
+    });
+
+    const amountTokenDesired = web3.utils.toBN(String(RATE) + '0'.repeat(decimals));
+    const amountTokenMin = web3.utils.toBN('1' + '0'.repeat(decimals));
+    const amountETHMin = web3.utils.toBN('1' + '0'.repeat(decimals));
+    const to = msgSender;
+    const deadline = String(Math.floor(Date.now() / 1000) + 10);
+
+    console.log("Adding", ethAmount, "ETH and ", RATE, symbol, "to pool");
+    const routerContract = new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, routerAddr);
+    await routerContract.methods.addLiquidityETH(
+        tokenAddr,
+        amountTokenDesired,
+        amountTokenMin,
+        amountETHMin,
+        to,
+        deadline
+    ).send({
+        from: msgSender,
+        value: web3.utils.toWei(String(ethAmount), "ether"),
+        gas: '5000000'
+    });
+
+    console.log("***************************************");
+};
+
 const deploy = async () => {
     const accounts = await web3.eth.getAccounts();
-    const admin = accounts[0];
     const trustedOracleServer = accounts[1];
 
     allAddr.indexToken = await deployContract({
         name: 'Index Token',
         msgSender: admin,
         contractJson: INDEX_TOKEN_JSON,
-        args: ["1000000"]
+        args: ["1000000000"]
     });
 
     allAddr.oracle = await deployContract({
@@ -162,8 +180,11 @@ const deploy = async () => {
         args: [allAddr.indexToken, allAddr.uniswapFactory, allAddr.uniswapRouter, allAddr.weth]
     });
 
-    //-------------------------------------
 
+    storeAddresses(allAddr);
+};
+
+const setUpETF = async () => {
     const oracleInstance = new web3.eth.Contract(ORACLE_JSON.abi, allAddr.oracle);
     await oracleInstance.methods.addClient(allAddr.etf).send({
         from: admin,
@@ -171,11 +192,13 @@ const deploy = async () => {
     });
 
     const indexTokenInstance = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken);
-    await indexTokenInstance.methods.transfer(allAddr.etf, 800000).send({
+    await indexTokenInstance.methods.transfer(allAddr.etf, 1000000).send({
         from: admin,
         gas: '3000000'
     });
+};
 
+const mintTokens = async () => {
     await mintDaiToAdmin({
         msgSender: admin,
         value: 1000000,
@@ -184,19 +207,21 @@ const deploy = async () => {
     });
 
     // await mintBnbToAdmin({
-    //     msgSender: admin,
+    //     msgSender: receiver,
     //     value: 1000000,
     //     tokenAddr: allAddr.bnb,
     //     tokenJson: BNB_JSON
     // });
 
     // await createPool({
-    //     msgSender: admin,
+    //     msgSender: receiver,
     //     tokenA: allAddr.dai,
     //     tokenB: allAddr.weth
     // });
+};
 
-    console.log()
+const provisionLiquidity = async () => {
+    console.log();
     const tokenJsons = [DAI_JSON, BNB_JSON, ZRX_JSON];
     const tokenAddrs = [allAddr.dai, allAddr.bnb, allAddr.zrx];
 
@@ -208,15 +233,42 @@ const deploy = async () => {
         const adminTokenBalance = await tokenContract.methods.balanceOf(admin).call();
         console.log(`admin has`, adminTokenBalance, 'token units =', web3.utils.toBN(adminTokenBalance) / (10 ** decimals), symbol);
 
+        await addLiquidityExactWETH({
+            ethAmount: 2,
+            msgSender: admin,
+            tokenAddr: tokenAddrs[i],
+            tokenJson: tokenJsons[i],
+            routerAddr: allAddr.uniswapRouter
+        });
+
+        await getReservesWETH_ERC20(allAddr, symbol, true);
+        console.log()
+    }
+}
+
+const setUp = async () => {
+    if(Object.keys(allAddr).length == 0) {
+        allAddr = loadAddresses()
     }
 
-    //-------------------------------------
-
-    storeAddresses(allAddr);
-
+    await setUpETF();
+    await mintTokens();
+    await provisionLiquidity();
 };
 
-deploy().then(() => {
+const main = async () => {
+    const accounts = await web3.eth.getAccounts();
+    admin = accounts[0];
+
+    // await deploy();
+    await setUp()
+};
+
+
+let allAddr = {};
+let admin;
+
+main().then(() => {
     web3.currentProvider.disconnect();
     console.log('Done');
 });
