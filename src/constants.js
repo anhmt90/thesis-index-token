@@ -1,7 +1,8 @@
 const path = require('path')
 
-const DAI_JSON = require(`./token-jsons/Dai.json`);
+const DAI_JSON = require(`./token-jsons/DAI.json`);
 const BNB_JSON = require(`./token-jsons/BNB.json`);
+const ZRX_JSON = require(`./token-jsons/ZRX.json`);
 
 const WETH_JSON = require('@uniswap/v2-periphery/build/WETH9.json');
 const UNISWAP_FACTORY_JSON = require('@uniswap/v2-core/build/UniswapV2Factory.json');
@@ -18,6 +19,8 @@ module.exports = {
     ADDRESS_FILE,
     DAI_JSON,
     BNB_JSON,
+    ZRX_JSON,
+
     WETH_JSON,
     UNISWAP_FACTORY_JSON,
     UNISWAP_PAIR_JSON,

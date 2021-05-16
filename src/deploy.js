@@ -1,17 +1,19 @@
 const fs = require('fs');
 
-const web3 = require('./getWeb3')
+const web3 = require('./getWeb3');
 
 const {
     DAI_JSON,
     BNB_JSON,
+    ZRX_JSON,
+
     WETH_JSON,
     UNISWAP_FACTORY_JSON,
     UNISWAP_ROUTER_JSON,
     INDEX_TOKEN_JSON,
     ORACLE_JSON,
     ETF_JSON
-} = require ('./constants.js')
+} = require('./constants.js');
 
 
 // if (fs.existsSync(ADDRESS_FILE)) {
@@ -20,18 +22,15 @@ const {
 // }
 
 const { storeAddresses } = require('./utils');
-const allAddr = {}
+const allAddr = {};
 
 const mintDaiToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
     const daiContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
     const decimals = parseInt(await daiContract.methods.decimals().call());
-    console.log('DAI decimals: ', decimals)
-    await daiContract.methods.mint(msgSender, web3.utils.toBN(String(value) + '0'.repeat(18))).send({
+    await daiContract.methods.mint(msgSender, web3.utils.toBN(String(value) + '0'.repeat(decimals))).send({
         from: msgSender,
         gas: '3000000'
     });
-    const daiBalance = await daiContract.methods.balanceOf(msgSender).call();
-    console.log(`${msgSender} has`, daiBalance, 'wad = ', web3.utils.toBN(daiBalance) / (10 ** decimals), 'dai');
 };
 
 const mintBnbToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
@@ -45,6 +44,9 @@ const mintBnbToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
     console.log(`${msgSender} has`, bnbBalance, ' jager = ', web3.utils.toBN(bnbBalance) / (10 ** decimals), 'bnb');
 };
 
+
+
+/* **************************************************************************************************** */
 
 const createPool = async ({ msgSender, tokenA, tokenB, factoryAddr = allAddr.uniswapFactory }) => {
     const factoryInstance = new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, factoryAddr);
@@ -123,6 +125,13 @@ const deploy = async () => {
         args: ['1000000' + '0'.repeat(18), 'BNB', 18, 'BNB']
     });
 
+    allAddr.zrx = await deployContract({
+        name: 'ZRX',
+        msgSender: admin,
+        contractJson: ZRX_JSON,
+        args: []
+    });
+
     allAddr.weth = await deployContract({
         name: 'WETH',
         msgSender: admin,
@@ -167,8 +176,6 @@ const deploy = async () => {
         gas: '3000000'
     });
 
-    const tokenJsons = [DAI_JSON, BNB_JSON]
-
     await mintDaiToAdmin({
         msgSender: admin,
         value: 1000000,
@@ -176,19 +183,32 @@ const deploy = async () => {
         tokenJson: DAI_JSON
     });
 
-    await mintBnbToAdmin({
-        msgSender: admin,
-        value: 1000000,
-        tokenAddr: allAddr.bnb,
-        tokenJson: BNB_JSON
-    });
+    // await mintBnbToAdmin({
+    //     msgSender: admin,
+    //     value: 1000000,
+    //     tokenAddr: allAddr.bnb,
+    //     tokenJson: BNB_JSON
+    // });
 
-    await createPool({
-        msgSender: admin,
-        tokenA: allAddr.dai,
-        tokenB: allAddr.weth
-    });
+    // await createPool({
+    //     msgSender: admin,
+    //     tokenA: allAddr.dai,
+    //     tokenB: allAddr.weth
+    // });
 
+    console.log()
+    const tokenJsons = [DAI_JSON, BNB_JSON, ZRX_JSON];
+    const tokenAddrs = [allAddr.dai, allAddr.bnb, allAddr.zrx];
+
+    for (i = 0; i < tokenAddrs.length; i++) {
+        const tokenContract = new web3.eth.Contract(tokenJsons[i].abi, tokenAddrs[i]);
+        const decimals = parseInt(await tokenContract.methods.decimals().call());
+        const symbol = await tokenContract.methods.symbol().call();
+
+        const adminTokenBalance = await tokenContract.methods.balanceOf(admin).call();
+        console.log(`admin has`, adminTokenBalance, 'token units =', web3.utils.toBN(adminTokenBalance) / (10 ** decimals), symbol);
+
+    }
 
     //-------------------------------------
 
