@@ -2,30 +2,51 @@ const fs = require('fs');
 
 const web3 = require('./getWeb3');
 const {
-    ADDRESS_FILE,
+    PATH_ADDRESS_FILE,
+    PATH_TOKENPRICE_FILE,
     UNISWAP_FACTORY_JSON,
     UNISWAP_PAIR_JSON
 } = require('./constants.js');
 
 const storeAddresses = (addresses) => {
-    const contractAddressJson = JSON.stringify(addresses, null, 4);
-    fs.writeFileSync(ADDRESS_FILE, contractAddressJson, (err) => {
+    pickle(addresses, PATH_ADDRESS_FILE);
+};
+
+const storeTokenPrices = (tokenPrices) => {
+    pickle(tokenPrices, PATH_TOKENPRICE_FILE);
+};
+
+const pickle = (obj, path) => {
+    const json = JSON.stringify(obj, null, 4);
+    fs.writeFileSync(path, json, (err) => {
         if (err) throw err;
-        console.log('\nJson file of contract addresses saved at:', savePath);
+        console.log('\nJson file saved at:', savePath);
     });
 };
 
+
 const loadAddresses = () => {
-    let allAddr = {};
-    if (fs.existsSync(ADDRESS_FILE)) {
-        const jsonData = fs.readFileSync(ADDRESS_FILE, 'utf-8');
-        allAddr = JSON.parse(jsonData.toString());
-    } else {
-        console.log('INFO: Skip loading contract addresses!');
-        console.log('INFO: All addresses: ', allAddr);
-    }
-    return allAddr;
+    return load(PATH_ADDRESS_FILE, 'Contract Addresses');
 };
+
+const loadTokenPrices = () => {
+    return load(PATH_TOKENPRICE_FILE, 'Token Prices');
+};
+
+const load = (path, objName) => {
+    let obj = {};
+    if (fs.existsSync(path)) {
+        const jsonData = fs.readFileSync(path, 'utf-8');
+        obj = JSON.parse(jsonData.toString());
+        console.log(`INFO: ${objName} Loaded: `, obj);
+    } else {
+        console.log(`INFO: Skip loading ${objName}!`);
+    }
+    return obj;
+};
+
+
+/* ************************************************************************* */
 
 const getEthBalance = async (account) => {
     return web3.utils.fromWei(await web3.eth.getBalance(account), 'ether');
@@ -64,11 +85,22 @@ const getReservesWETH_ERC20 = async (allAddr, tokenSymbol, print = false) => {
     return resWeth, resErc20;
 };
 
+const float2TokenUnits = (num, decimals) => {
+    const [integral, fractional] = String(num).split('.');
+    if (fractional === undefined)
+        return integral + '0'.repeat(decimals);
+    return integral + fractional + '0'.repeat(decimals - fractional.length);
+};
+
+
 module.exports = {
     storeAddresses,
+    storeTokenPrices,
     loadAddresses,
+    loadTokenPrices,
     getEthBalance,
     getERC20Balance,
     getPairAddress,
-    getReservesWETH_ERC20
+    getReservesWETH_ERC20,
+    float2TokenUnits
 };
