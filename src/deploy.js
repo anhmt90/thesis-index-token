@@ -17,11 +17,13 @@ const {
 
 
 const {
+    _setUtilsGlobalVars,
     storeAddresses,
-    getReservesWETH_ERC20,
-    loadAddresses,
+    queryReserves,
+    getAllAddrs,
     loadTokenPrices,
-    float2TokenUnits
+    float2TokenUnits,
+    assembleTokenSet
 } = require('./utils');
 
 const mintDaiToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
@@ -82,8 +84,8 @@ const addLiquidityExactWETH = async ({ ethAmount, rate, msgSender, tokenAddr, to
     console.log(`******** ADD LIQUIDITY ${symbol}/WETH ********`);
 
     /** Approve before adding liquidity */
-    const tokenAmount = ethAmount * rate
-    const tokenAmountInUnit = float2TokenUnits(tokenAmount, decimals)
+    const tokenAmount = ethAmount * rate;
+    const tokenAmountInUnit = float2TokenUnits(tokenAmount, decimals);
     console.log('APRROVING', ethAmount * rate, `${symbol} to Uniswap Router...`);
     await tokenContract.methods.approve(routerAddr, web3.utils.toBN(tokenAmountInUnit)).send({
         from: msgSender,
@@ -228,35 +230,32 @@ const mintTokens = async () => {
 
 const provisionLiquidity = async () => {
     console.log();
-    const tokenJsons = [DAI_JSON, BNB_JSON, ZRX_JSON];
-    const tokenAddrs = [allAddr.dai, allAddr.bnb, allAddr.zrx];
-    const tokenPrices = loadTokenPrices();
-
-    for (i = 0; i < tokenAddrs.length; i++) {
-        const tokenContract = new web3.eth.Contract(tokenJsons[i].abi, tokenAddrs[i]);
+    const tokenSet = assembleTokenSet();
+    for (const [symbol, token] of Object.entries(tokenSet)) {
+        const tokenContract = new web3.eth.Contract(token.json.abi, token.address);
         const decimals = parseInt(await tokenContract.methods.decimals().call());
-        const symbol = await tokenContract.methods.symbol().call();
 
         const adminTokenBalance = await tokenContract.methods.balanceOf(admin).call();
         console.log(`admin has`, adminTokenBalance, 'token units =', web3.utils.toBN(adminTokenBalance) / (10 ** decimals), symbol);
 
         await addLiquidityExactWETH({
             ethAmount: 3,
-            rate: tokenPrices[symbol.toLowerCase()],
+            rate: token.price,
             msgSender: admin,
-            tokenAddr: tokenAddrs[i],
-            tokenJson: tokenJsons[i],
+            tokenAddr: token.address,
+            tokenJson: token.json,
             routerAddr: allAddr.uniswapRouter
         });
 
-        await getReservesWETH_ERC20(allAddr, symbol, true);
+        await queryReserves({ tokenSymbol: symbol, print: true });
         console.log();
-    }
+    };
 };
 
 const setUp = async () => {
+    _setUtilsGlobalVars();
     if (Object.keys(allAddr).length == 0) {
-        allAddr = loadAddresses();
+        allAddr = getAllAddrs();
     }
 
     await setUpETF();
@@ -264,11 +263,12 @@ const setUp = async () => {
     await provisionLiquidity();
 };
 
+
 const main = async () => {
     const accounts = await web3.eth.getAccounts();
     admin = accounts[0];
 
-    await deploy();
+    // await deploy();
     await setUp();
 };
 

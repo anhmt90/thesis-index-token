@@ -1,4 +1,4 @@
-const path = require('path')
+const path = require('path');
 
 const DAI_JSON = require(`./token-jsons/DAI.json`);
 const BNB_JSON = require(`./token-jsons/BNB.json`);
@@ -17,10 +17,16 @@ const PATH_ADDRESS_FILE = path.join(__dirname, '../data/contractAddresses.json')
 const PATH_TOKENPRICE_FILE = path.join(__dirname, '../data/tokenPrices.json');
 
 const COINGECKO_ID_SYM_MAP = {
-    'binancecoin' : 'bnb',
+    'binancecoin': 'bnb',
     'dai': 'dai',
     '0x': 'zrx'
-}
+};
+
+const TOKEN_JSONS = {
+    'dai': DAI_JSON,
+    'bnb': BNB_JSON,
+    'zrx': ZRX_JSON,
+};
 
 module.exports = {
     PATH_ADDRESS_FILE,
@@ -37,5 +43,6 @@ module.exports = {
     ORACLE_JSON,
     ETF_JSON,
 
-    COINGECKO_ID_SYM_MAP
-}
+    COINGECKO_ID_SYM_MAP,
+    TOKEN_JSONS
+};

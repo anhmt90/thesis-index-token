@@ -5,8 +5,14 @@ const {
     PATH_ADDRESS_FILE,
     PATH_TOKENPRICE_FILE,
     UNISWAP_FACTORY_JSON,
-    UNISWAP_PAIR_JSON
+    UNISWAP_PAIR_JSON,
+    TOKEN_JSONS
 } = require('./constants.js');
+
+let _tokenSet = {};
+let _allAddr = {};
+
+/* ************************************************************************* */
 
 const storeAddresses = (addresses) => {
     pickle(addresses, PATH_ADDRESS_FILE);
@@ -25,7 +31,7 @@ const pickle = (obj, path) => {
 };
 
 
-const loadAddresses = () => {
+const _loadAddresses = () => {
     return load(PATH_ADDRESS_FILE, 'Contract Addresses');
 };
 
@@ -48,42 +54,47 @@ const load = (path, objName) => {
 
 /* ************************************************************************* */
 
-const getEthBalance = async (account) => {
+const queryEthBalance = async (account) => {
     return web3.utils.fromWei(await web3.eth.getBalance(account), 'ether');
 };
 
-const getERC20Balance = async ({ tokenJson, tokenAddr, account }) => {
-    const tokenContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
+const queryTokenBalance = async ({ tokenSymbol, account }) => {
+    const token = _tokenSet[tokenSymbol.toLowerCase()];
+    const tokenContract = new web3.eth.Contract(token.json.abi, token.address);
     return (await tokenContract.methods.balanceOf(account).call());
 
 };
 
-const getPairAddress = async (allAddr, tokenSymbol) => {
-    const factoryContract = new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, allAddr.uniswapFactory);
-    const pairAddress = await factoryContract.methods.getPair(allAddr[tokenSymbol.toLowerCase()], allAddr.weth).call();
+const queryPairAddress = async (tokenSymbol) => {
+    const token = _tokenSet[tokenSymbol.toLowerCase()];
+    const factoryContract = new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, _allAddr.uniswapFactory);
+    const pairAddress = await factoryContract.methods.getPair(token.address, _allAddr.weth).call();
     return pairAddress;
 };
 
-const getReservesWETH_ERC20 = async (allAddr, tokenSymbol, print = false) => {
-    const pairAddr = await getPairAddress(allAddr, tokenSymbol);
+const queryReserves = async ({ tokenSymbol, print = false }) => {
+    const symbol = tokenSymbol.toLowerCase()
+    const pairAddr = await queryPairAddress(symbol);
     const pairContract = new web3.eth.Contract(UNISWAP_PAIR_JSON.abi, pairAddr);
     const reserves = await pairContract.methods.getReserves().call();
-    let resWeth, resErc20;
+    let resWeth, resToken;
     if (reserves[0] !== '0' && reserves[1] !== '0') {
         const token0Addr = await pairContract.methods.token0().call();
-        resWeth = reserves[(token0Addr == allAddr.weth) ? 0 : 1];
-        resErc20 = reserves[(token0Addr == allAddr.weth) ? 1 : 0];
+        resWeth = reserves[(token0Addr == _allAddr.weth) ? 0 : 1];
+        resToken = reserves[(token0Addr == _allAddr.weth) ? 1 : 0];
 
         if (print) {
             console.log('reserve WETH =', web3.utils.fromWei(resWeth),
-                `, reserve ${tokenSymbol} =`, web3.utils.fromWei(resErc20),
-                `--> price: WETH/${tokenSymbol} = ${resWeth / resErc20} and`, `${tokenSymbol}/WETH=${resErc20 / resWeth}`);
+                `, reserve ${symbol} =`, web3.utils.fromWei(resToken),
+                `--> price: WETH/${symbol} = ${resWeth / resToken} and`, `${symbol}/WETH=${resToken / resWeth}`);
         }
     } else {
         console.log('WARNING: One of the reserves is 0');
     }
-    return resWeth, resErc20;
+    return resWeth, resToken;
 };
+
+/* ************************************************************************* */
 
 const float2TokenUnits = (num, decimals) => {
     const [integral, fractional] = String(num).split('.');
@@ -92,15 +103,49 @@ const float2TokenUnits = (num, decimals) => {
     return integral + fractional + '0'.repeat(decimals - fractional.length);
 };
 
+/* ************************************************************************* */
+
+const getAllAddrs = () => {
+    if (Object.keys(_allAddr).length === 0) {
+        _allAddr = _loadAddresses()
+    }
+    return _allAddr;
+};
+
+const assembleTokenSet = () => {
+    if (Object.keys(_tokenSet).length === 0) {
+        _allAddr = getAllAddrs();
+        const prices = loadTokenPrices();
+
+        Object.entries(TOKEN_JSONS).forEach(([symbol, json]) => {
+            _tokenSet[symbol] = {
+                json,
+                address: _allAddr[symbol],
+                price: prices[symbol]
+            };
+        });
+    }
+    return _tokenSet;
+};
+
+const _setUtilsGlobalVars = () => {
+    console.log("Setting Utils Global Vars")
+    _allAddr = _loadAddresses();
+    _tokenSet = assembleTokenSet();
+};
+
+/* ************************************************************************* */
 
 module.exports = {
+    _setUtilsGlobalVars,
     storeAddresses,
     storeTokenPrices,
-    loadAddresses,
     loadTokenPrices,
-    getEthBalance,
-    getERC20Balance,
-    getPairAddress,
-    getReservesWETH_ERC20,
+    assembleTokenSet,
+    queryEthBalance,
+    queryTokenBalance,
+    queryPairAddress,
+    queryReserves,
+    getAllAddrs,
     float2TokenUnits
 };
