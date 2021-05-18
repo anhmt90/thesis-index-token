@@ -13,10 +13,18 @@ const INDEX_TOKEN_JSON = require('../build/contracts/IndexToken.json');
 const ORACLE_JSON = require('../build/contracts/Oracle.json');
 const ETF_JSON = require('../build/contracts/ETF.json');
 
-const ADDRESS_FILE = path.join(__dirname, '../data/contractAddresses.json');
+const PATH_ADDRESS_FILE = path.join(__dirname, '../data/contractAddresses.json');
+const PATH_TOKENPRICE_FILE = path.join(__dirname, '../data/tokenPrices.json');
+
+const COINGECKO_ID_SYM_MAP = {
+    'binancecoin' : 'bnb',
+    'dai': 'dai',
+    '0x': 'zrx'
+}
 
 module.exports = {
-    ADDRESS_FILE,
+    PATH_ADDRESS_FILE,
+    PATH_TOKENPRICE_FILE,
     DAI_JSON,
     BNB_JSON,
     ZRX_JSON,
@@ -27,5 +35,7 @@ module.exports = {
     UNISWAP_ROUTER_JSON,
     INDEX_TOKEN_JSON,
     ORACLE_JSON,
-    ETF_JSON
+    ETF_JSON,
+
+    COINGECKO_ID_SYM_MAP
 }
