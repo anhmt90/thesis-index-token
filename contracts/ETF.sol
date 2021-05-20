@@ -17,14 +17,14 @@ contract ETF is Ownable, IOracleClient {
     struct Purchase {
         uint256 _id;
         address _buyer;
-        uint256 _numberOfTokens;
+        uint256 _amount;
         uint256 _price;
     }
 
     uint256 constant MAX_UINT256 = 2**256 - 1;
 
     // instance of the ERC20 Index Token contract
-    IndexToken public tokenContract = IndexToken(address(0));
+    IndexToken public indexToken = IndexToken(address(0));
 
     // instance of the price Oracle contract
     Oracle public oracleContract = Oracle(address(0));
@@ -43,7 +43,7 @@ contract ETF is Ownable, IOracleClient {
 
     // <token_name> is at <address>
     mapping(string => address) public portfolio;
-    string[] tokenNames;
+    string[] public tokenNames;
 
     // keep track of the token amount sold out to the market
     uint256 public tokensSold;
@@ -72,12 +72,12 @@ contract ETF is Ownable, IOracleClient {
     }
 
     constructor(
-        IndexToken _tokenContract,
+        IndexToken _indexToken,
         IUniswapV2Factory _factory,
         IUniswapV2Router02 _router,
         address _weth
     ) {
-        tokenContract = _tokenContract;
+        indexToken = _indexToken;
         factory = _factory;
         router = _router;
         weth = IWETH(_weth);
@@ -98,14 +98,30 @@ contract ETF is Ownable, IOracleClient {
         emit PortfolioChanged(names, addresses);
     }
 
+    function getIndexPrice() public view properPortfolio returns (uint256 _price){
+        string memory tokenName;
+        address tokenAddress = address(0);
+
+        for (uint256 i = 0; i < tokenNames.length; i++) {
+            tokenName = tokenNames[i];
+            tokenAddress = portfolio[tokenName];
+
+            uint256 poolMidPrice = getPriceFromPoolTokenAndWETH(tokenAddress);
+            uint256 tokenBalanceOfETF = IERC20(tokenAddress).balanceOf(address(this));
+            _price += poolMidPrice * tokenBalanceOfETF;
+        }
+        uint256 indexTokenAmountInCirculation = indexToken.totalSupply();
+        _price /= indexTokenAmountInCirculation;
+    }
+
     // payable: function can exec Tx
-    function orderTokens(uint256 _numberOfTokens) public payable properPortfolio {
+    function orderTokens(uint256 _amount) public payable properPortfolio {
         uint256 _reqId = assignRequestId();
 
         pendingPurchases[_reqId] = Purchase(
             _reqId,
             msg.sender,
-            _numberOfTokens,
+            _amount,
             MAX_UINT256
         );
 
@@ -123,54 +139,54 @@ contract ETF is Ownable, IOracleClient {
         // require that the function caller is the buyer placing token order earlier with this _reqId
         require(
             pendingPurchases[_reqId]._buyer == msg.sender,
-            "Unauthorized purchase claim"
+            "ETF: Unauthorized purchase claim"
         );
 
         // require that the contract has enough tokens
         require(
-            tokenContract.balanceOf(address(this)) >=
-                pendingPurchases[_reqId]._numberOfTokens,
-            "Unable to purchase more tokens than totally available"
+            indexToken.balanceOf(address(this)) >=
+                pendingPurchases[_reqId]._amount,
+            "ETF: Unable to purchase more tokens than totally available"
         );
 
         // require that actual price has been queried and received from the oracle
         // require(pendingPurchases[_reqId]._price != MAX_UINT256, "Price is yet to set");
-        address pairAddress = factory.getPair(address(weth), portfolio[tokenNames[0]]);
-        pendingPurchases[_reqId]._price = getTokenPrice(pairAddress);
+        pendingPurchases[_reqId]._price = getIndexPrice();
 
         // require that the calling entity has enough funds to buy tokens
-        require(msg.value >= (pendingPurchases[_reqId]._numberOfTokens * pendingPurchases[_reqId]._price),
-            "Not enough funds to buy tokens"
+        require(msg.value >= (pendingPurchases[_reqId]._amount * pendingPurchases[_reqId]._price) / (10 ** indexToken.decimals()),
+            "ETF: Not enough funds to buy tokens"
         );
 
         swapExactETHForTokens();
 
         // require that the transfer is successful
         require(
-            tokenContract.transfer(
+            indexToken.transfer(
                 msg.sender,
-                pendingPurchases[_reqId]._numberOfTokens
+                pendingPurchases[_reqId]._amount
             ),
             "Unable to transfer tokens to buyer"
         );
 
-        tokensSold += pendingPurchases[_reqId]._numberOfTokens;
+        tokensSold += pendingPurchases[_reqId]._amount;
 
         emit Purchased(
             _reqId,
             msg.sender,
-            pendingPurchases[_reqId]._numberOfTokens,
+            pendingPurchases[_reqId]._amount,
             pendingPurchases[_reqId]._price
         );
 
         return true;
     }
 
-    function getTokenPrice(address pairAddress)
+    function getPriceFromPoolTokenAndWETH(address tokenAddress)
         public
         view
-        returns (uint256 price)
+        returns (uint256 _price)
     {
+        address pairAddress = factory.getPair(tokenAddress, address(weth));
         IUniswapV2Pair pair = IUniswapV2Pair(pairAddress);
         address token0Addr = pair.token0();
         address token1Addr = pair.token1();
@@ -185,38 +201,42 @@ contract ETF is Ownable, IOracleClient {
 
         // return amount of WETH needed to buy one token1
         if (token0Addr == address(weth)) {
-            price = ((Res0 * (10**token1.decimals())) / Res1);
+            _price = ((Res0 * (10**token1.decimals())) / Res1);
         } else {
-            price = ((Res1 * (10**token0.decimals())) / Res0);
+            _price = ((Res1 * (10**token0.decimals())) / Res0);
         }
     }
 
     function swapExactETHForTokens() internal  {
         require(
-            portfolio[tokenNames[0]] != address(0),
-            "ETF: DAI Token not set"
+            address(weth) != address(0),
+            "ETF: WETH Token not set"
         );
-
-        string memory tokenName = tokenNames[0];
-        address tokenAddr = portfolio[tokenName];
-        address[] memory path = new address[](tokenNames.length + 1);
+        address[] memory path = new address[](2);
         path[0] = address(weth);
-        path[1] = tokenAddr;
-
-        IERC20Extended token = IERC20Extended(tokenAddr);
-
-        uint256[] memory amounts =
-            router.swapExactETHForTokens{value: msg.value}(
-                1 * (10**token.decimals()),
-                path,
-                address(this),
-                block.timestamp + 10
+        for (uint256 i = 0; i < tokenNames.length; i++) {
+            address tokenAddr = portfolio[tokenNames[i]];
+            require(
+                tokenAddr != address(0),
+                "ETF: A token has address 0"
             );
+            path[1] = tokenAddr;
+            IERC20Extended token = IERC20Extended(tokenAddr);
+            uint256[] memory amounts =
+                router.swapExactETHForTokens{value: (msg.value / tokenNames.length)}(
+                    1 * (10**token.decimals()),
+                    path,
+                    address(this),
+                    block.timestamp + 10
+                );
 
-        emit Swap(amounts);
+            emit Swap(amounts);
+        }
+
+
     }
 
-    function getAmountsOutForExactETH(uint256 amountIn) public view properPortfolio returns (uint256[] memory amounts) {
+    function getAmountsOutForExactETH(uint256 ethIn) public view properPortfolio returns (uint256[] memory amounts) {
         require(address(router) != address(0), "ETF: Router contract not set!");
         string memory tokenName;
         address tokenAddress = address(0);
@@ -234,7 +254,7 @@ contract ETF is Ownable, IOracleClient {
             (uint reserve0, uint reserve1,) = pair.getReserves();
             (uint reserveIn, uint reserveOut) = wethAddress == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
 
-            amounts[i] = UniswapV2LibraryUpdated.getAmountOut(amountIn, reserveIn, reserveOut);
+            amounts[i] = UniswapV2LibraryUpdated.getAmountOut(ethIn, reserveIn, reserveOut);
         }
     }
 
@@ -258,9 +278,9 @@ contract ETF is Ownable, IOracleClient {
     function endSale() public onlyOwner {
         // transfer remaining dapp tokens to admin
         require(
-            tokenContract.transfer(
+            indexToken.transfer(
                 payable(owner()),
-                tokenContract.balanceOf(address(this))
+                indexToken.balanceOf(address(this))
             ),
             "Unsold tokens not correctly returned to owner"
         );
@@ -272,12 +292,12 @@ contract ETF is Ownable, IOracleClient {
         selfdestruct(payable(owner()));
     }
 
-    function setTokenContract(address _tokenContract)
+    function setTokenContract(address _indexToken)
         external
         onlyOwner
         returns (bool)
     {
-        tokenContract = IndexToken(_tokenContract);
+        indexToken = IndexToken(_indexToken);
         return true;
     }
 
@@ -289,5 +309,17 @@ contract ETF is Ownable, IOracleClient {
     {
         oracleContract = Oracle(_oracleContract);
         return true;
+    }
+
+    function getNamesInPortfolio() external view returns (string[] memory) {
+        return tokenNames;
+    }
+
+    function getAddressesInPortfolio() external view returns (address[] memory _addrs) {
+        _addrs = new address[](tokenNames.length);
+        for (uint256 i = 0; i < tokenNames.length; i++) {
+            require(portfolio[tokenNames[i]] != address(0), "ETF: A token in portfolio has address 0");
+            _addrs[i] = portfolio[tokenNames[i]];
+        }
     }
 }
