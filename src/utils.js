@@ -6,7 +6,8 @@ const {
     PATH_TOKENPRICE_FILE,
     UNISWAP_FACTORY_JSON,
     UNISWAP_PAIR_JSON,
-    TOKEN_JSONS
+    TOKEN_JSONS,
+    INDEX_TOKEN_JSON
 } = require('./constants.js');
 
 let _tokenSet = {};
@@ -62,6 +63,11 @@ const queryTokenBalance = async ({ tokenSymbol, account }) => {
     const token = _tokenSet[tokenSymbol.toLowerCase()];
     const tokenContract = new web3.eth.Contract(token.json.abi, token.address);
     return (await tokenContract.methods.balanceOf(account).call());
+};
+
+const queryIndexBalance = async (account) => {
+    const indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, _allAddr.indexToken);
+    return (await indexContract.methods.balanceOf(account).call());
 
 };
 
@@ -96,7 +102,7 @@ const queryReserves = async ({ tokenSymbol, print = false }) => {
 
 /* ************************************************************************* */
 
-const float2TokenUnits = (num, decimals) => {
+const float2TokenUnits = (num, decimals=18) => {
     const [integral, fractional] = String(num).split('.');
     if (fractional === undefined)
         return integral + '0'.repeat(decimals);
@@ -143,6 +149,7 @@ module.exports = {
     loadTokenPrices,
     assembleTokenSet,
     queryEthBalance,
+    queryIndexBalance,
     queryTokenBalance,
     queryPairAddress,
     queryReserves,

@@ -7,128 +7,100 @@ const {
     UNISWAP_FACTORY_JSON,
     UNISWAP_ROUTER_JSON,
     DAI_JSON,
+    INDEX_TOKEN_JSON,
     ETF_JSON
 } = require('./constants');
 
 const {
-    getEthBalance,
-    getERC20Balance,
-    loadAddresses,
-    getPairAddress,
-    getReservesWETH_ERC20
+    queryEthBalance,
+    queryIndexBalance,
+    queryTokenBalance,
+    getAllAddrs,
+    assembleTokenSet,
+    float2TokenUnits
 } = require("./utils");
-const allAddr = loadAddresses();
 
-
-const addLiquidityExactWETH = async ({ ethAmount, msgSender, tokenAddr, tokenJson, routerAddr = allAddr.uniswapRouter }) => {
-    console.log("\n******** ADD LIQUIDITY ********");
-    console.log('==== Current Price:');
-    await getReservesWETH_ERC20(tokenAddr, true);
-
-    const tokenContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
-    let msgSenderTokenBalance = await tokenContract.methods.balanceOf(msgSender).call();
-    console.log('Token balance of', msgSender, '(before adding liquidity): ', msgSenderTokenBalance);
-
-    /** Approve before adding liquidity */
-    const tokenDecimals = await tokenContract.methods.decimals().call();
-
-    const approvedAmount = 3724;
-    console.log('APRROVING', approvedAmount, ' DAI TO ROUTER...');
-    await tokenContract.methods.approve(routerAddr, web3.utils.toBN(String(approvedAmount) + "0".repeat(tokenDecimals))).send({
-        from: msgSender,
-        gas: '3000000'
-    });
-
-    const amountTokenDesired = web3.utils.toBN(String(approvedAmount) + '0'.repeat(tokenDecimals));
-    const amountTokenMin = web3.utils.toBN('1' + '0'.repeat(tokenDecimals));
-    const amountETHMin = web3.utils.toBN('1' + '0'.repeat(tokenDecimals));
-    const to = msgSender;
-    const deadline = String(Math.floor(Date.now() / 1000) + 10);
-
-    console.log("Adding", ethAmount, "ethers to pool with desired tokens", approvedAmount);
-    const routerInstance = new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, routerAddr);
-    await routerInstance.methods.addLiquidityETH(
-        tokenAddr,
-        amountTokenDesired,
-        amountTokenMin,
-        amountETHMin,
-        to,
-        deadline
-    ).send({
-        from: msgSender,
-        value: web3.utils.toWei(String(ethAmount), "ether"),
-        gas: '5000000'
-    });
-
-    msgSenderTokenBalance = await tokenContract.methods.balanceOf(msgSender).call();
-    console.log('Token balance of', msgSender, '(after adding liquidity): ', msgSenderTokenBalance);
-
-    console.log('==== New Price:');
-    await getReservesWETH_ERC20(tokenAddr, true);
-    console.log("******** LIQUIDITY ADDED ********\n");
-};
-
-const run = async () => {
-    const accounts = await web3.eth.getAccounts();
-    const admin = accounts[0];
-    const investor = accounts[2];
-
-    /**
-     * Add Liquidity into DAI/WETH pool with LP being admin
-     */
-    await addLiquidityExactWETH({
-        ethAmount: 1,
-        msgSender: admin,
-        tokenAddr: allAddr.dai,
-        tokenJson: DAI_JSON,
-        routerAddr: allAddr.uniswapRouter
-    });
-
-    /** ================================================================= */
+const testGetIndexPrice = async () => {
     const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
-    /**
-     * Set portfolio
-     */
-    const tokenNames = ['DAI'];
-    const tokenAddresses = [allAddr.dai];
-    await etfContract.methods.setPorfolio(tokenNames, tokenAddresses).send({
-        from: admin,
-        gas: '3000000'
-    });
-    console.log('SUCCESS: Portfolio set!');
-    /** ================================================================= */
+    const indexPrice = await etfContract.methods.getIndexPrice().call();
+    console.log('INDEX PRICE:', indexPrice);
+}
 
-    let amountsOut = await etfContract.methods.getAmountsOutForExactETH('1' + '0'.repeat(18)).call();
-    console.log("Real amount outputs (before swap):", web3.utils.fromWei(amountsOut[0]));
+const testSwap = async () => {
+    const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
+    const decimals = (new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken)).methods.decimals().call();
+
+    const ethIn = (1 / 0.997);
+    let amountsOut = await etfContract.methods.getAmountsOutForExactETH(float2TokenUnits(ethIn, decimals)).call();
+    console.log("Real amount outputs (before swap):", amountsOut);
 
     /**
      * Test token ordering
      */
-    console.log('DAI balance of ETF (before swap):', await getERC20Balance({ tokenJson: DAI_JSON, tokenAddr: allAddr.dai, account: allAddr.etf }));
-    console.log('ETH balance of ETF (before swap):', await getEthBalance(allAddr.etf));
-    console.log('Wallet balance of Investor (before swap):', await getEthBalance(investor));
+    console.log('DAI balance of ETF (before swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.etf }));
+    console.log('ETH balance of ETF (before swap):', await queryEthBalance(allAddr.etf));
+    console.log('INDEX balance of ETF (before swap):', await queryIndexBalance(allAddr.etf));
 
+    console.log('Wallet balance of Investor (before swap):', await queryEthBalance(investor));
+    const tokenSet = assembleTokenSet()
 
-    const ethToSwap = 1;
-    console.log('Swapping', ethToSwap, 'ethers for DAI');
-    await etfContract.methods.orderTokens(1).send({
+    const ethToSwap = (1 / 0.997) * Object.keys(tokenSet).length;
+    console.log('Swapping', ethToSwap, `ETH (= ${float2TokenUnits(ethToSwap)} wei) for DAI`);
+    await etfContract.methods.orderTokens(float2TokenUnits(ethToSwap)).send({
         from: investor,
         value: web3.utils.toWei(String(ethToSwap), "ether"),
-        gas: '3000000'
+        gas: '5000000'
     });
 
-    console.log('DAI balance of ETF (after swap):', await getERC20Balance({ tokenJson: DAI_JSON, tokenAddr: allAddr.dai, account: allAddr.etf }));
-    console.log('ETH balance of ETF (after swap):', await getEthBalance(allAddr.etf));
-    console.log('Wallet balance of Investor (after swap):', await getEthBalance(investor));
-
-    console.log('==== Price changed: ');
-    await printPrice(allAddr.dai);
+    console.log('DAI balance of ETF (after swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.etf }));
+    console.log('ETH balance of ETF (after swap):', await queryEthBalance(allAddr.etf));
+    console.log('Wallet balance of Investor (after swap):', await queryEthBalance(investor));
 
     console.log("******************************************************");
 
     amountsOut = await etfContract.methods.getAmountsOutForExactETH('1' + '0'.repeat(18)).call();
     console.log("Real amount outputs (after swap):", web3.utils.fromWei(amountsOut[0]));
 };
+
+const setPortfolio = async () => {
+    const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
+    /**
+     * Set portfolio
+     */
+    const tokenSet = assembleTokenSet();
+    const tokenNames = Object.keys(tokenSet).map(symbol => symbol.toUpperCase());
+    const tokenAddresses = Object.values(tokenSet).map(({ address }) => address);
+    await etfContract.methods.setPorfolio(tokenNames, tokenAddresses).send({
+        from: admin,
+        gas: '3000000'
+    });
+    console.log('SUCCESS: Portfolio set!');
+    const portfolioNamesOnchain = await etfContract.methods.getNamesInPortfolio().call();
+    console.log('PORTFOLIO NAMES ONCHAIN:', portfolioNamesOnchain);
+
+    const portfolioAddrsOnchain = await etfContract.methods.getAddressesInPortfolio().call();
+    console.log('PORTFOLIO ADDRS ONCHAIN:', portfolioAddrsOnchain);
+};
+
+const run = async () => {
+    // _setUtilsGlobalVars();
+
+    const accounts = await web3.eth.getAccounts();
+    admin = accounts[0];
+    investor = accounts[2];
+
+    await setPortfolio();
+    await testGetIndexPrice();
+    await testSwap();
+    /** ================================================================= */
+
+    /** ================================================================= */
+
+};
+
+const allAddr = getAllAddrs();
+let admin;
+let investor;
 
 run().finally(() => {
     // console.log("Active Handles: ", process._getActiveHandles())

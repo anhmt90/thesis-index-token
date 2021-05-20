@@ -35,16 +35,17 @@ const mintDaiToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
     });
 };
 
-// const mintBnbToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
-//     const bnbContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
-//     await bnbContract.methods.transfer(msgSender, web3.utils.toBN(String(value) + "0".repeat(18))).send({
-//         from: msgSender,
-//         gas: '3000000'
-//     });
-//     let bnbBalance = await bnbContract.methods.balanceOf(msgSender).call();
-//     const decimals = parseInt(await bnbContract.methods.decimals().call());
-//     console.log(`${msgSender} has`, bnbBalance, ' jager = ', web3.utils.toBN(bnbBalance) / (10 ** decimals), 'bnb');
-// };
+const transferToken = async ({ tokenSymbol, value, msgSender }) => {
+    const token = assembleTokenSet()[tokenSymbol.toLowerCase()]
+    const tokenContract = new web3.eth.Contract(token.json.abi, tokem.address);
+    const decimals = await tokenContract.methods.decimals().call();
+    await tokenContract.methods.transfer(msgSender, web3.utils.toBN(String(value) + "0".repeat(decimals))).send({
+        from: msgSender,
+        gas: '3000000'
+    });
+    let balance = await tokenContract.methods.balanceOf(msgSender).call();
+    console.log(`${msgSender} has`, balance, ' token units = ', web3.utils.toBN(balance) / (10 ** parseInt(decimals)), tokenSymbol);
+};
 
 
 
@@ -124,7 +125,7 @@ const deploy = async () => {
         name: 'Index Token',
         msgSender: admin,
         contractJson: INDEX_TOKEN_JSON,
-        args: ["1000000000"]
+        args: [float2TokenUnits(initialIndexSupply)]
     });
 
     allAddr.oracle = await deployContract({
@@ -200,18 +201,19 @@ const setUpETF = async () => {
     });
 
     const indexTokenInstance = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken);
-    await indexTokenInstance.methods.transfer(allAddr.etf, 1000000).send({
+    await indexTokenInstance.methods.transfer(allAddr.etf, float2TokenUnits(initialIndexSupply)).send({
         from: admin,
         gas: '3000000'
     });
 };
 
-const mintTokens = async () => {
+const mintTokens = async ({tokenSymbol, value, receiver}) => {
+    const token = assembleTokenSet()[tokenSymbol]
     await mintDaiToAdmin({
-        msgSender: admin,
-        value: 1000000,
-        tokenAddr: allAddr.dai,
-        tokenJson: DAI_JSON
+        msgSender: receiver,
+        value,
+        tokenAddr: token.address,
+        tokenJson: token.json
     });
 
     // await mintBnbToAdmin({
@@ -219,12 +221,6 @@ const mintTokens = async () => {
     //     value: 1000000,
     //     tokenAddr: allAddr.bnb,
     //     tokenJson: BNB_JSON
-    // });
-
-    // await createPool({
-    //     msgSender: receiver,
-    //     tokenA: allAddr.dai,
-    //     tokenB: allAddr.weth
     // });
 };
 
@@ -239,7 +235,7 @@ const provisionLiquidity = async () => {
         console.log(`admin has`, adminTokenBalance, 'token units =', web3.utils.toBN(adminTokenBalance) / (10 ** decimals), symbol);
 
         await addLiquidityExactWETH({
-            ethAmount: 3,
+            ethAmount: 4,
             rate: token.price,
             msgSender: admin,
             tokenAddr: token.address,
@@ -259,7 +255,7 @@ const setUp = async () => {
     }
 
     await setUpETF();
-    await mintTokens();
+    await mintTokens({tokenSymbol: 'dai', value: 1000000, receiver: admin});
     await provisionLiquidity();
 };
 
@@ -268,13 +264,14 @@ const main = async () => {
     const accounts = await web3.eth.getAccounts();
     admin = accounts[0];
 
-    // await deploy();
+    await deploy();
     await setUp();
 };
 
 
 let allAddr = {};
 let admin;
+const initialIndexSupply = 1000000
 
 main().then(() => {
     web3.currentProvider.disconnect();
