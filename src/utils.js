@@ -8,7 +8,7 @@ const {
     UNISWAP_PAIR_JSON,
     TOKEN_JSONS,
     INDEX_TOKEN_JSON
-} = require('./constants.js');
+} = require(process.argv[1].includes('mocha') ? '../test/fixtures/constants.js' : './constants.js');
 
 let _tokenSet = {};
 let _allAddr = {};
@@ -78,7 +78,7 @@ const queryPairAddress = async (tokenSymbol) => {
     return pairAddress;
 };
 
-const queryReserves = async ({ tokenSymbol, print = false }) => {
+const queryReserves = async (tokenSymbol, print = false ) => {
     const symbol = tokenSymbol.toLowerCase()
     const pairAddr = await queryPairAddress(symbol);
     const pairContract = new web3.eth.Contract(UNISWAP_PAIR_JSON.abi, pairAddr);
@@ -97,7 +97,7 @@ const queryReserves = async ({ tokenSymbol, print = false }) => {
     } else {
         console.log('WARNING: One of the reserves is 0');
     }
-    return resWeth, resToken;
+    return [resWeth, resToken];
 };
 
 /* ************************************************************************* */
@@ -140,6 +140,11 @@ const _setUtilsGlobalVars = () => {
     _tokenSet = assembleTokenSet();
 };
 
+const log = (msg, debug=true) => {
+    if(debug)
+        console.log(msg)
+}
+
 /* ************************************************************************* */
 
 module.exports = {
@@ -154,5 +159,6 @@ module.exports = {
     queryPairAddress,
     queryReserves,
     getAllAddrs,
-    float2TokenUnits
+    float2TokenUnits,
+    log
 };
