@@ -9,7 +9,7 @@ const {
     UNISWAP_PAIR_JSON,
     TOKEN_JSONS,
     INDEX_TOKEN_JSON
-} = require(process.argv[1].includes('mocha') ? '../test/fixtures/constants.js' : './constants.js');
+} = require((process.env.NODE_ENV).toUpperCase() === 'TEST' ? '../test/fixtures/constants.js' : './constants.js');
 
 let _tokenSet = {};
 let _allAddr = {};
@@ -34,14 +34,14 @@ const pickle = (obj, path) => {
 
 
 const _loadAddresses = () => {
-    return load(PATH_ADDRESS_FILE, 'Contract Addresses');
+    return _load(PATH_ADDRESS_FILE, 'Contract Addresses');
 };
 
 const loadTokenPrices = () => {
-    return load(PATH_TOKENPRICE_FILE, 'Token Prices');
+    return _load(PATH_TOKENPRICE_FILE, 'Token Prices');
 };
 
-const load = (path, objName) => {
+const _load = (path, objName) => {
     let obj = {};
     if (fs.existsSync(path)) {
         const jsonData = fs.readFileSync(path, 'utf-8');

@@ -1,5 +1,5 @@
 const web3 = require('./getWeb3');
-const log = require('../config/logger')
+const log = require('../config/logger');
 
 const {
     DAI_JSON,
@@ -242,8 +242,8 @@ const setDeployGlobalVars = () => {
         allAddr = getAllAddrs();
     }
     tokenSet = assembleTokenSet();
-    return [allAddr, tokenSet]
-}
+    return [allAddr, tokenSet];
+};
 
 const setUp = async () => {
     setDeployGlobalVars();
@@ -263,12 +263,11 @@ const main = async () => {
 let allAddr = {};
 let tokenSet = {};
 const initialSupply = 1000000;
-let isTesting = process.argv[2] !== 'main'
 
 let admin;
-(async () => { admin = (await web3.eth.getAccounts())[0] })();
+(async () => { admin = (await web3.eth.getAccounts())[0]; })();
 
-if (!isTesting) {
+if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
     main().finally(() => {
         web3.currentProvider.disconnect();
     });

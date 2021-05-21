@@ -1,5 +1,5 @@
 // var wtf = require('wtfnode');
-const log = require('../config/logger')
+const log = require('../config/logger');
 
 
 const web3 = require('./getWeb3');
@@ -22,13 +22,13 @@ const {
     float2TokenUnits
 } = require("./utils");
 
-const testGetIndexPrice = async () => {
+const queryIndexPrice = async () => {
     const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
     const indexPrice = await etfContract.methods.getIndexPrice().call();
     log.debug('INDEX PRICE:', indexPrice);
-}
+};
 
-const testSwap = async () => {
+const swap = async () => {
     const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
     const decimals = (new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken)).methods.decimals().call();
 
@@ -44,7 +44,7 @@ const testSwap = async () => {
     log.debug('INDEX balance of ETF (before swap):', await queryIndexBalance(allAddr.etf));
 
     log.debug('Wallet balance of Investor (before swap):', await queryEthBalance(investor));
-    const tokenSet = assembleTokenSet()
+    const tokenSet = assembleTokenSet();
 
     const ethToSwap = (1 / 0.997) * Object.keys(tokenSet).length;
     log.debug('Swapping', ethToSwap, `ETH (= ${float2TokenUnits(ethToSwap)} wei) for DAI`);
@@ -84,31 +84,42 @@ const setPortfolio = async () => {
     log.debug('PORTFOLIO ADDRS ONCHAIN:', portfolioAddrsOnchain);
 };
 
-const run = async () => {
-    // _setUtilsGlobalVars();
-
+const setEtfDemoGlobalVars = async () => {
     const accounts = await web3.eth.getAccounts();
     admin = accounts[0];
     investor = accounts[2];
+    allAddr = getAllAddrs();
+}
+
+const run = async () => {
+    await setEtfDemoGlobalVars();
 
     await setPortfolio();
-    await testGetIndexPrice();
-    await testSwap();
+    await queryIndexPrice();
+    await swap();
     /** ================================================================= */
 
     /** ================================================================= */
 
 };
 
-const allAddr = getAllAddrs();
+let allAddr;
 let admin;
 let investor;
 
-run().finally(() => {
-    // log.debug("Active Handles: ", process._getActiveHandles())
-    // log.debug("Active Reqs: ", process._getActiveRequests())
-    web3.currentProvider.disconnect();
-    // wtf.dump()
-    // process.exit();
-});
+if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
+    run().finally(() => {
+        // log.debug("Active Handles: ", process._getActiveHandles())
+        // log.debug("Active Reqs: ", process._getActiveRequests())
+        web3.currentProvider.disconnect();
+        // wtf.dump()
+        // process.exit();
+    });
+}
 
+module.exports = {
+    setEtfDemoGlobalVars,
+    setPortfolio,
+    queryIndexPrice,
+    swap
+};
