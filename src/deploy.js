@@ -1,4 +1,5 @@
 const web3 = require('./getWeb3');
+const log = require('../config/logger')
 
 const {
     DAI_JSON,
@@ -20,7 +21,6 @@ const {
     getAllAddrs,
     float2TokenUnits,
     assembleTokenSet,
-    log
 } = require('./utils');
 
 const mintDaiToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
@@ -41,7 +41,7 @@ const transferToken = async ({ tokenSymbol, value, msgSender }) => {
         gas: '3000000'
     });
     let balance = await tokenContract.methods.balanceOf(msgSender).call();
-    console.log(`${msgSender} has`, balance, ' token units = ', web3.utils.toBN(balance) / (10 ** parseInt(decimals)), tokenSymbol);
+    log.debug(`${msgSender} has`, balance, ' token units = ', web3.utils.toBN(balance) / (10 ** parseInt(decimals)), tokenSymbol);
 };
 
 
@@ -51,8 +51,8 @@ const transferToken = async ({ tokenSymbol, value, msgSender }) => {
 
 
 const deployContract = async ({ name, msgSender, contractJson, args }) => {
-    console.log(`\nDeploying ${name} contract  ...`);
-    console.log("Using account: ", msgSender);
+    log.debug(`\nDeploying ${name} contract  ...`);
+    log.debug("Using account:", msgSender);
 
     let contractAddress;
     const contractInstance = new web3.eth.Contract(contractJson.abi);
@@ -68,9 +68,9 @@ const deployContract = async ({ name, msgSender, contractJson, args }) => {
             if (txReceipt.contractAddress) {
                 contractAddress = txReceipt.contractAddress;
             }
-            console.log(`Gas used (${name}): `, txReceipt.gasUsed);
+            log.debug(`Gas used (${name}): `, txReceipt.gasUsed);
         });
-    console.log(`Contract ${name} deployed at: `, contractAddress);
+    log.debug(`Contract ${name} deployed at: `, contractAddress);
     return contractAddress;
 };
 
@@ -79,12 +79,12 @@ const addLiquidityExactWETH = async ({ ethAmount, rate, msgSender, tokenAddr, to
     const tokenContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
     const symbol = await tokenContract.methods.symbol().call();
     const decimals = await tokenContract.methods.decimals().call();
-    log(`******** ADD LIQUIDITY ${symbol}/WETH ********`, debug);
+    log.info(`******** ADD LIQUIDITY ${symbol}/WETH ********`);
 
     /** Approve before adding liquidity */
     const tokenAmount = ethAmount * rate;
     const tokenAmountInUnit = float2TokenUnits(tokenAmount, decimals);
-    log('APRROVING', ethAmount * rate, `${symbol} to Uniswap Router...`, debug);
+    log.debug('APRROVING', ethAmount * rate, `${symbol} to Uniswap Router...`);
     await tokenContract.methods.approve(routerAddr, web3.utils.toBN(tokenAmountInUnit)).send({
         from: msgSender,
         gas: '3000000'
@@ -96,7 +96,7 @@ const addLiquidityExactWETH = async ({ ethAmount, rate, msgSender, tokenAddr, to
     const to = msgSender;
     const deadline = String(Math.floor(Date.now() / 1000) + 5);
 
-    log(`Adding ${ethAmount} ETH and ${tokenAmount} ${symbol} to pool`, debug);
+    log.debug(`Adding ${ethAmount} ETH and ${tokenAmount} ${symbol} to pool`);
     const routerContract = new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, routerAddr);
     await routerContract.methods.addLiquidityETH(
         tokenAddr,
@@ -111,7 +111,7 @@ const addLiquidityExactWETH = async ({ ethAmount, rate, msgSender, tokenAddr, to
         gas: '5000000'
     });
 
-    log("***************************************", debug);
+    log.debug("***************************************");
 };
 
 const deploy = async () => {
@@ -188,7 +188,7 @@ const deploy = async () => {
 
 
     storeAddresses(allAddr);
-    console.log('Finished contract deployments');
+    log.debug('Finished contract deployments');
 };
 
 const setUpETF = async () => {
@@ -214,23 +214,15 @@ const mintTokens = async ({ tokenSymbol, value, receiver }) => {
         tokenAddr: token.address,
         tokenJson: token.json
     });
-
-    // await mintBnbToAdmin({
-    //     msgSender: receiver,
-    //     value: 1000000,
-    //     tokenAddr: allAddr.bnb,
-    //     tokenJson: BNB_JSON
-    // });
 };
 
 const provisionLiquidity = async (ethAmount) => {
-    console.log();
     for (const [symbol, token] of Object.entries(tokenSet)) {
         const tokenContract = new web3.eth.Contract(token.json.abi, token.address);
         const decimals = parseInt(await tokenContract.methods.decimals().call());
 
         const adminTokenBalance = await tokenContract.methods.balanceOf(admin).call();
-        console.log(`admin has`, adminTokenBalance, 'token units =', web3.utils.toBN(adminTokenBalance) / (10 ** decimals), symbol);
+        log.debug(`\nadmin has ${adminTokenBalance} token units = ${web3.utils.toBN(adminTokenBalance) / (10 ** decimals)} ${symbol}\n`);
 
         await addLiquidityExactWETH({
             ethAmount,
@@ -242,7 +234,6 @@ const provisionLiquidity = async (ethAmount) => {
         });
 
         await queryReserves(symbol, true);
-        console.log();
     };
 };
 
@@ -273,13 +264,11 @@ let allAddr = {};
 let tokenSet = {};
 const initialSupply = 1000000;
 let isTesting = process.argv[2] !== 'main'
-const debug = false;
 
 let admin;
 (async () => { admin = (await web3.eth.getAccounts())[0] })();
 
 if (!isTesting) {
-    console.log('>>>>>> IN MAIN <<<<<<<<')
     main().finally(() => {
         web3.currentProvider.disconnect();
     });

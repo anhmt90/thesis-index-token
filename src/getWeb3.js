@@ -10,7 +10,7 @@ const Web3 = require('web3');
 
 let web3;
 
-if(process.argv[1].includes('mocha')) {
+if(process.argv[1].includes('mocha') && process.env.NODE_ENV === 'TEST') {
     // && process.env.npm_lifecycle_event === 'test'
     web3 = new Web3(ganache.provider());
 } else {

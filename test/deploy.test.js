@@ -41,6 +41,8 @@ let indexContract;
 
 
 before(async () => {
+    console.log('LOG_LEVEL:', process.env.LOG_LEVEL)
+
     if (fs.existsSync(PATH_ADDRESS_FILE))
         fs.unlinkSync(PATH_ADDRESS_FILE);
 

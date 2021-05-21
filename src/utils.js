@@ -1,4 +1,5 @@
 const fs = require('fs');
+const log = require('../config/logger')
 
 const web3 = require('./getWeb3');
 const {
@@ -27,7 +28,7 @@ const pickle = (obj, path) => {
     const json = JSON.stringify(obj, null, 4);
     fs.writeFileSync(path, json, (err) => {
         if (err) throw err;
-        console.log('\nJson file saved at:', savePath);
+        log.debug('\nJson file saved at:', savePath);
     });
 };
 
@@ -45,9 +46,9 @@ const load = (path, objName) => {
     if (fs.existsSync(path)) {
         const jsonData = fs.readFileSync(path, 'utf-8');
         obj = JSON.parse(jsonData.toString());
-        console.log(`INFO: ${objName} Loaded: `, obj);
+        log.debug(`INFO: ${objName} Loaded: `, obj);
     } else {
-        console.log(`INFO: Skip loading ${objName}!`);
+        log.debug(`INFO: Skip loading ${objName}!`);
     }
     return obj;
 };
@@ -90,12 +91,12 @@ const queryReserves = async (tokenSymbol, print = false ) => {
         resToken = reserves[(token0Addr == _allAddr.weth) ? 1 : 0];
 
         if (print) {
-            console.log('reserve WETH =', web3.utils.fromWei(resWeth),
+            log.debug('reserve WETH =', web3.utils.fromWei(resWeth),
                 `, reserve ${symbol} =`, web3.utils.fromWei(resToken),
                 `--> price: WETH/${symbol} = ${resWeth / resToken} and`, `${symbol}/WETH=${resToken / resWeth}`);
         }
     } else {
-        console.log('WARNING: One of the reserves is 0');
+        log.debug('WARNING: One of the reserves is 0');
     }
     return [resWeth, resToken];
 };
@@ -134,21 +135,9 @@ const assembleTokenSet = () => {
     return _tokenSet;
 };
 
-const _setUtilsGlobalVars = () => {
-    console.log("Setting Utils Global Vars")
-    _allAddr = _loadAddresses();
-    _tokenSet = assembleTokenSet();
-};
-
-const log = (msg, debug=true) => {
-    if(debug)
-        console.log(msg)
-}
-
 /* ************************************************************************* */
 
 module.exports = {
-    _setUtilsGlobalVars,
     storeAddresses,
     storeTokenPrices,
     loadTokenPrices,

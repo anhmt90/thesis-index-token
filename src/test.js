@@ -1,4 +1,6 @@
-var wtf = require('wtfnode');
+// var wtf = require('wtfnode');
+const log = require('../config/logger')
+
 
 const web3 = require('./getWeb3');
 
@@ -23,7 +25,7 @@ const {
 const testGetIndexPrice = async () => {
     const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
     const indexPrice = await etfContract.methods.getIndexPrice().call();
-    console.log('INDEX PRICE:', indexPrice);
+    log.debug('INDEX PRICE:', indexPrice);
 }
 
 const testSwap = async () => {
@@ -32,34 +34,34 @@ const testSwap = async () => {
 
     const ethIn = (1 / 0.997);
     let amountsOut = await etfContract.methods.getAmountsOutForExactETH(float2TokenUnits(ethIn, decimals)).call();
-    console.log("Real amount outputs (before swap):", amountsOut);
+    log.debug("Real amount outputs (before swap):", amountsOut);
 
     /**
      * Test token ordering
      */
-    console.log('DAI balance of ETF (before swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.etf }));
-    console.log('ETH balance of ETF (before swap):', await queryEthBalance(allAddr.etf));
-    console.log('INDEX balance of ETF (before swap):', await queryIndexBalance(allAddr.etf));
+    log.debug('DAI balance of ETF (before swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.etf }));
+    log.debug('ETH balance of ETF (before swap):', await queryEthBalance(allAddr.etf));
+    log.debug('INDEX balance of ETF (before swap):', await queryIndexBalance(allAddr.etf));
 
-    console.log('Wallet balance of Investor (before swap):', await queryEthBalance(investor));
+    log.debug('Wallet balance of Investor (before swap):', await queryEthBalance(investor));
     const tokenSet = assembleTokenSet()
 
     const ethToSwap = (1 / 0.997) * Object.keys(tokenSet).length;
-    console.log('Swapping', ethToSwap, `ETH (= ${float2TokenUnits(ethToSwap)} wei) for DAI`);
+    log.debug('Swapping', ethToSwap, `ETH (= ${float2TokenUnits(ethToSwap)} wei) for DAI`);
     await etfContract.methods.orderTokens(float2TokenUnits(ethToSwap)).send({
         from: investor,
         value: web3.utils.toWei(String(ethToSwap), "ether"),
         gas: '5000000'
     });
 
-    console.log('DAI balance of ETF (after swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.etf }));
-    console.log('ETH balance of ETF (after swap):', await queryEthBalance(allAddr.etf));
-    console.log('Wallet balance of Investor (after swap):', await queryEthBalance(investor));
+    log.debug('DAI balance of ETF (after swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.etf }));
+    log.debug('ETH balance of ETF (after swap):', await queryEthBalance(allAddr.etf));
+    log.debug('Wallet balance of Investor (after swap):', await queryEthBalance(investor));
 
-    console.log("******************************************************");
+    log.debug("******************************************************");
 
     amountsOut = await etfContract.methods.getAmountsOutForExactETH('1' + '0'.repeat(18)).call();
-    console.log("Real amount outputs (after swap):", web3.utils.fromWei(amountsOut[0]));
+    log.debug("Real amount outputs (after swap):", web3.utils.fromWei(amountsOut[0]));
 };
 
 const setPortfolio = async () => {
@@ -74,12 +76,12 @@ const setPortfolio = async () => {
         from: admin,
         gas: '3000000'
     });
-    console.log('SUCCESS: Portfolio set!');
+    log.debug('SUCCESS: Portfolio set!');
     const portfolioNamesOnchain = await etfContract.methods.getNamesInPortfolio().call();
-    console.log('PORTFOLIO NAMES ONCHAIN:', portfolioNamesOnchain);
+    log.debug('PORTFOLIO NAMES ONCHAIN:', portfolioNamesOnchain);
 
     const portfolioAddrsOnchain = await etfContract.methods.getAddressesInPortfolio().call();
-    console.log('PORTFOLIO ADDRS ONCHAIN:', portfolioAddrsOnchain);
+    log.debug('PORTFOLIO ADDRS ONCHAIN:', portfolioAddrsOnchain);
 };
 
 const run = async () => {
@@ -103,8 +105,8 @@ let admin;
 let investor;
 
 run().finally(() => {
-    // console.log("Active Handles: ", process._getActiveHandles())
-    // console.log("Active Reqs: ", process._getActiveRequests())
+    // log.debug("Active Handles: ", process._getActiveHandles())
+    // log.debug("Active Reqs: ", process._getActiveRequests())
     web3.currentProvider.disconnect();
     // wtf.dump()
     // process.exit();
