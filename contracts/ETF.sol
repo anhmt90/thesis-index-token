@@ -99,19 +99,21 @@ contract ETF is Ownable, IOracleClient {
     }
 
     function getIndexPrice() public view properPortfolio returns (uint256 _price){
-        string memory tokenName;
-        address tokenAddress = address(0);
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
 
         for (uint256 i = 0; i < tokenNames.length; i++) {
-            tokenName = tokenNames[i];
-            tokenAddress = portfolio[tokenName];
+            path[1] = portfolio[tokenNames[i]];
 
-            uint256 poolMidPrice = getPriceFromPoolTokenAndWETH(tokenAddress);
-            uint256 tokenBalanceOfETF = IERC20(tokenAddress).balanceOf(address(this));
-            _price += poolMidPrice * tokenBalanceOfETF;
+            // uint256 poolMidPrice = getMidPriceFromPoolTokenAndWETH(tokenAddress);
+
+            // uint[] memory amounts = router.getAmountsOut(10**18, path);
+            // uint tokenPrice = amounts[1];
+            // uint tokenBalanceOfETF = IERC20Extended(tokenAddress).balanceOf(address(this));
+            // _price += tokenPrice * tokenBalanceOfETF;
         }
-        uint256 indexTokenAmountInCirculation = indexToken.totalSupply();
-        _price /= indexTokenAmountInCirculation;
+        // uint indexTokenAmountInCirculation = indexToken.totalSupply();
+        // _price /= indexTokenAmountInCirculation;
     }
 
     // payable: function can exec Tx
@@ -181,7 +183,7 @@ contract ETF is Ownable, IOracleClient {
         return true;
     }
 
-    function getPriceFromPoolTokenAndWETH(address tokenAddress)
+    function getMidPriceFromPoolTokenAndWETH(address tokenAddress)
         public
         view
         returns (uint256 _price)

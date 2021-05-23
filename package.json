@@ -11,7 +11,7 @@
     "migrate": "truffle migrate",
     "chain": "ganache-cli --allowUnlimitedContractSize -l 90000000 -d",
     "deploy": "env-cmd -f config/.env node -r dotenv/config src/deploy.js main",
-    "test": "env-cmd -f config/.env.test mocha --timeout 10000"
+    "test": "env-cmd -f config/.env.test mocha --timeout 10000 --watch"
   },
   "author": "Tuan Anh Ma",
   "license": "ISC",
