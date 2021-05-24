@@ -1,14 +1,11 @@
 const fs = require('fs');
 const assert = require('assert');
 const web3 = require('../src/getWeb3');
-const BN = web3.utils.toBN;
 
 const {
     DAI_JSON,
     INDEX_TOKEN_JSON,
-    ETF_JSON,
     PATH_ADDRESS_FILE,
-    UNISWAP_ROUTER_JSON,
 } = require('./fixtures/constants');
 
 const {
@@ -19,13 +16,6 @@ const {
     provisionLiquidity,
     initialSupply,
 } = require('../src/deploy');
-
-const {
-    setEtfDemoGlobalVars,
-    setPortfolio,
-    queryIndexPrice,
-    swap
-} = require('../src/test');
 
 
 const {
@@ -38,26 +28,22 @@ let allAddrs;
 let tokenSet;
 let admin;
 let indexContract;
-let etfContract;
 
 
-before(async () => {
-    console.log('LOG_LEVEL:', process.env.LOG_LEVEL);
+// beforeEach(async () => {
+//     console.log('Contract Deployment test cases');
 
-    if (fs.existsSync(PATH_ADDRESS_FILE))
-        fs.unlinkSync(PATH_ADDRESS_FILE);
+//     if (fs.existsSync(PATH_ADDRESS_FILE))
+//         fs.unlinkSync(PATH_ADDRESS_FILE);
 
-    await deploy();
-    [allAddrs, tokenSet] = setDeployGlobalVars();
-    indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddrs.indexToken);
-    etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddrs.etf);
-    setEtfDemoGlobalVars();
+//     await deploy();
+//     [allAddrs, tokenSet] = setDeployGlobalVars();
+//     indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddrs.indexToken);
 
-    accounts = await web3.eth.getAccounts();
-    admin = accounts[0];
+//     accounts = await web3.eth.getAccounts();
+//     admin = accounts[0];
 
-    await setPortfolio();
-});
+// });
 
 
 // describe('Deploy and setup smart contracts', () => {
@@ -97,58 +83,3 @@ before(async () => {
 
 //     });
 // });
-
-describe('ETF functionalities', () => {
-    // it('checks if portfolio is properly set in ETF smart contract', async () => {
-    //     const expectedTokenNames = Object.keys(tokenSet).map(name => name.toLowerCase());
-    //     const actualTokenNames = (await etfContract.methods.getNamesInPortfolio().call()).map(name => name.toLowerCase());
-
-    //     assert.deepStrictEqual(actualTokenNames, expectedTokenNames, 'Token names not match');
-
-    //     const expectedTokenAddrs = Object.values(tokenSet).map(token => token.address);
-    //     const actualTokenAddrs = await etfContract.methods.getAddressesInPortfolio().call();
-    //     assert.deepStrictEqual(actualTokenAddrs, expectedTokenAddrs, 'Token addresses not match');
-    // });
-
-    it('checks Index price', async () => {
-        await setUpETF();
-        await mintTokens({ tokenSymbol: 'dai', value: 1000000, receiver: admin });
-        await provisionLiquidity(4);
-
-        const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddrs.etf);
-        console.log(0);
-        const actualIndexPrice = await etfContract.methods.getIndexPrice().call();
-
-        console.log(1);
-        const routerContract = new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, allAddrs.uniswapRouter);
-
-        let expectedIndexPrice = BN(0);
-        const path = ['', allAddrs.weth];
-        const tokenAddrs = Object.values(tokenSet).map(token => token.address);
-        const tokenJsons = Object.values(tokenSet).map(token => token.json);
-        for (i = 0; i < tokenAddrs.length; i++) {
-            const tokenContract = new web3.eth.Contract(tokenJsons[i].abi, tokenAddrs[i]);
-            const decimals = 18;
-
-            path[0] = tokenAddrs[i];
-            const amounts = await routerContract.methods.getAmountsOut(float2TokenUnits(1, decimals), path).call();
-            console.log('amounts', amounts);
-            const tokenPrice = BN(amounts[1]);
-            // console.log('tokenPrice', tokenPrice);
-            const tokenBalanceOfETF = BN(await tokenContract.methods.balanceOf(allAddrs.etf).call());
-            expectedIndexPrice = expectedIndexPrice.add(tokenPrice.mul(tokenBalanceOfETF));
-        }
-        console.log(4);
-        const indexTokenAmountInCirculation = BN(await indexContract.methods.totalSupply().call());
-        expectedIndexPrice = expectedIndexPrice.div(indexTokenAmountInCirculation);
-
-        console.log('actual:', actualIndexPrice);
-        console.log('expected:', expectedIndexPrice.toString());
-        console.log('expected:', expectedIndexPrice.toString());
-
-        // assert.deepStrictEqual(actualIndexPrice, expectedIndexPrice, 'Incorrect Index Price');
-        assert.ok(actualIndexPrice === expectedIndexPrice, 'Incorrect Index Price');
-
-    });
-
-});
