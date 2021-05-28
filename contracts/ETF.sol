@@ -107,8 +107,6 @@ contract ETF is Ownable, IOracleClient {
             address tokenAddress = portfolio[tokenNames[i]];
             path[1] = tokenAddress;
 
-            // uint256 poolMidPrice = getMidPriceFromPoolTokenAndWETH(tokenAddress);
-
             uint[] memory amounts = router.getAmountsOut(10**18, path);
             uint tokenPrice = amounts[1];
             uint tokenBalanceOfETF = IERC20Extended(tokenAddress).balanceOf(address(this));
@@ -175,32 +173,6 @@ contract ETF is Ownable, IOracleClient {
         );
 
         return true;
-    }
-
-    function getMidPriceFromPoolTokenAndWETH(address tokenAddress)
-        public
-        view
-        returns (uint256 _price)
-    {
-        address pairAddress = factory.getPair(tokenAddress, address(weth));
-        IUniswapV2Pair pair = IUniswapV2Pair(pairAddress);
-        address token0Addr = pair.token0();
-        address token1Addr = pair.token1();
-        require(
-            address(weth) == token0Addr || address(weth) == token1Addr,
-            "ETF: Not an ERC20/WETH pair"
-        );
-
-        IERC20Extended token0 = IERC20Extended(token0Addr);
-        IERC20Extended token1 = IERC20Extended(token1Addr);
-        (uint256 Res0, uint256 Res1, ) = pair.getReserves();
-
-        // return amount of WETH needed to buy one token1
-        if (token0Addr == address(weth)) {
-            _price = ((Res0 * (10**token1.decimals())) / Res1);
-        } else {
-            _price = ((Res1 * (10**token0.decimals())) / Res0);
-        }
     }
 
     function swapExactETHForPortfolioTokens() internal  {
