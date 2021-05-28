@@ -21,7 +21,7 @@ const {
 } = require('../src/deploy');
 
 const {
-    setEtfDemoGlobalVars,
+    setEtfClientGlobalVars,
     setPortfolio,
 } = require('../src/test');
 
@@ -69,7 +69,7 @@ before(async () => {
     indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddrs.indexToken);
     etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddrs.etf);
     routerContract = new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, allAddrs.uniswapRouter);
-    setEtfDemoGlobalVars();
+    setEtfClientGlobalVars();
 
     accounts = await web3.eth.getAccounts();
     admin = accounts[0];
@@ -88,18 +88,18 @@ before(async () => {
 
 describe('Deploy and setup smart contracts', () => {
 
-    it('checks Index Token and ETF has been deployed', () => {
+    it('should deploy Index Token and ETF Contracts', () => {
         assert.ok(allAddrs.indexToken);
         assert.ok(allAddrs.etf);
     });
 
-    it(`checks ETF receives ${initialSupply} Index Tokens`, async () => {
+    it(`should mint ${initialSupply} Index Tokens for ETF Contract`, async () => {
         await setUpETF();
         const etfIndexBalance = await indexContract.methods.balanceOf(allAddrs.etf).call();
         assert.strictEqual(float2TokenUnits(initialSupply), etfIndexBalance);
     });
 
-    it(`checks if ${initialSupply} DAI are minted correctly to admin`, async () => {
+    it(`should mint ${initialSupply} DAI to admin`, async () => {
         await mintTokens({ tokenSymbol: 'dai', value: initialSupply, receiver: admin });
         const daiContract = new web3.eth.Contract(DAI_JSON.abi, allAddrs.dai);
         const adminDaiBalance = await daiContract.methods.balanceOf(admin).call();
@@ -109,7 +109,7 @@ describe('Deploy and setup smart contracts', () => {
 });
 
 describe('Uniswap lidquidity provision', () => {
-    it('checks if all Uniswap ERC20/WETH pools are provisioned with the expected liquidity', async () => {
+    it(' should provision all Uniswap ERC20/WETH pools with the expected liquidity', async () => {
         const ethAmount = 5;
         await provisionLiquidity(ethAmount);
 
@@ -138,11 +138,11 @@ describe('ETF functionalities', () => {
         assert.deepStrictEqual(actualTokenAddrs, expectedTokenAddrs, 'Token addresses not match');
     });
 
-    it('purchases Index Tokens properly', async () => {
+    it('should purchase Index Tokens properly', async () => {
         const expectedAmountsOut = await calcExpectedAmountsOut();
 
         const ethAmount = tokenAddrs.length;
-        await etfContract.methods.orderTokens(1).send({
+        await etfContract.methods.orderWithExactETH().send({
             from: investor,
             value: web3.utils.toWei(String(ethAmount), "ether"),
             gas: '5000000'
@@ -158,7 +158,7 @@ describe('ETF functionalities', () => {
         }
     });
 
-    it('checks Index price', async () => {
+    it('should check Index price', async () => {
         const expectedAmountsOut = await calcExpectedAmountsOut();
 
         let expectedIndexPrice = BN(0);
@@ -170,8 +170,8 @@ describe('ETF functionalities', () => {
             expectedIndexPrice = expectedIndexPrice.add(tokenPrice.mul(tokenBalanceOfETF));
         }
 
-        const indexTokenAmountInCirculation = BN(await indexContract.methods.totalSupply().call());
-        expectedIndexPrice = expectedIndexPrice.div(indexTokenAmountInCirculation);
+        const circulation = BN(await etfContract.methods.circulation().call());
+        expectedIndexPrice = expectedIndexPrice.div(circulation);
 
         const actualIndexPrice = await etfContract.methods.getIndexPrice().call();
 

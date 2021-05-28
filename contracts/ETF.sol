@@ -154,6 +154,13 @@ contract ETF is Ownable, IOracleClient {
 
         //require that the calling entity has enough funds to buy tokens
         // require(msg.value >= (_amount * pendingPurchases[_reqId]._price) / (10 ** indexToken.decimals()),  "ETF: Not enough funds to buy tokens");
+        uint _amountToMint;
+        if (_amount > indexToken.balanceOf(address(this))) {
+            require(indexToken.owner() == address(this), "ETF: ETF Contract is not the owner of Index Token Contract");
+
+            _amountToMint = _amount - indexToken.balanceOf(address(this));
+            require(indexToken.mint(_amountToMint), "Unable to mint new Index tokens for buyer");
+        }
 
         // require that the transfer is successful
         require(indexToken.transfer(msg.sender, _amount), "Unable to transfer tokens to buyer");

@@ -48,7 +48,7 @@ const swap = async () => {
 
     const ethToSwap = (1 / 0.997) * Object.keys(tokenSet).length;
     log.debug('Swapping', ethToSwap, `ETH (= ${float2TokenUnits(ethToSwap)} wei) for DAI`);
-    await etfContract.methods.orderTokens(float2TokenUnits(ethToSwap)).send({
+    await etfContract.methods.orderWithExactETH().send({
         from: investor,
         value: web3.utils.toWei(String(ethToSwap), "ether"),
         gas: '5000000'
@@ -84,7 +84,7 @@ const setPortfolio = async () => {
     log.debug('PORTFOLIO ADDRS ONCHAIN:', portfolioAddrsOnchain);
 };
 
-const setEtfDemoGlobalVars = async () => {
+const setEtfClientGlobalVars = async () => {
     const accounts = await web3.eth.getAccounts();
     admin = accounts[0];
     investor = accounts[2];
@@ -92,7 +92,7 @@ const setEtfDemoGlobalVars = async () => {
 }
 
 const run = async () => {
-    await setEtfDemoGlobalVars();
+    await setEtfClientGlobalVars();
 
     await setPortfolio();
     await queryIndexPrice();
@@ -118,7 +118,7 @@ if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
 }
 
 module.exports = {
-    setEtfDemoGlobalVars,
+    setEtfClientGlobalVars,
     setPortfolio,
     queryIndexPrice,
     swap
