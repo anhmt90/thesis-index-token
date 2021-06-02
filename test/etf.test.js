@@ -44,7 +44,7 @@ let path;
 let tokenAddrs;
 let tokenJsons;
 
-const calcExpectedAmountsOut = async () => {
+const calcAmountsOutForOneETH = async () => {
     const expectedAmountsOut = [];
     for (i = 0; i < tokenAddrs.length; i++) {
         const tokenContract = new web3.eth.Contract(tokenJsons[i].abi, tokenAddrs[i]);
@@ -93,10 +93,10 @@ describe('Deploy and setup smart contracts', () => {
         assert.ok(allAddrs.etf);
     });
 
-    it(`should mint ${initialSupply} Index Tokens for ETF Contract`, async () => {
-        await setUpETF();
+    it(`should mint 1 Index Token unit (10^-18) for ETF Contract`, async () => {
+        // await setUpETF();
         const etfIndexBalance = await indexContract.methods.balanceOf(allAddrs.etf).call();
-        assert.strictEqual(float2TokenUnits(initialSupply), etfIndexBalance);
+        assert.strictEqual('1', etfIndexBalance);
     });
 
     it(`should mint ${initialSupply} DAI to admin`, async () => {
@@ -139,12 +139,12 @@ describe('ETF functionalities', () => {
     });
 
     it('should purchase Index Tokens properly', async () => {
-        const expectedAmountsOut = await calcExpectedAmountsOut();
+        const expectedAmountsOut = await calcAmountsOutForOneETH();
 
-        const ethAmount = tokenAddrs.length;
+        const ethAmount = web3.utils.toWei(String(tokenAddrs.length), "ether");
         await etfContract.methods.orderWithExactETH().send({
             from: investor,
-            value: web3.utils.toWei(String(ethAmount), "ether"),
+            value: ethAmount,
             gas: '5000000'
         });
 
@@ -156,10 +156,13 @@ describe('ETF functionalities', () => {
             const actualAmountOut = await tokenContract.methods.balanceOf(allAddrs.etf).call();
             assert.strictEqual(actualAmountOut, expectedAmountsOut[i]);
         }
+
+        const investorIndexBalance = await indexContract.methods.balanceOf(investor).call();
+        assert.strictEqual(investorIndexBalance,ethAmount, `Expected ${ethAmount} itokens but got ${investorIndexBalance}`)
     });
 
     it('should check Index price', async () => {
-        const expectedAmountsOut = await calcExpectedAmountsOut();
+        const expectedAmountsOut = await calcAmountsOutForOneETH();
 
         let expectedIndexPrice = BN(0);
         for (let i = 0; i < expectedAmountsOut.length; i++) {

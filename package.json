@@ -10,8 +10,8 @@
     "compile": "truffle compile",
     "migrate": "truffle migrate",
     "chain": "ganache-cli --allowUnlimitedContractSize -l 90000000 -d",
-    "deploy": "env-cmd -f config/.env node -r dotenv/config src/deploy.js main",
-    "test": "env-cmd -f config/.env.test mocha --timeout 10000 --watch"
+    "deploy": "env-cmd -f config/.env node src/deploy.js main",
+    "test": "env-cmd -f config/.env.test mocha --timeout 10000"
   },
   "author": "Tuan Anh Ma",
   "license": "ISC",

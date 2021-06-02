@@ -62,7 +62,7 @@ const deployContract = async ({ name, msgSender, contractJson, args }) => {
     })
         .send({
             from: msgSender,
-            gas: '5000000'
+            gas: '9000000'
         })
         .on('receipt', async (txReceipt) => {
             if (txReceipt.contractAddress) {
@@ -118,19 +118,19 @@ const deploy = async () => {
     const accounts = await web3.eth.getAccounts();
     const trustedOracleServer = accounts[1];
 
-    allAddr.indexToken = await deployContract({
-        name: 'Index Token',
-        msgSender: admin,
-        contractJson: INDEX_TOKEN_JSON,
-        args: [float2TokenUnits(initialSupply)]
-    });
+    // allAddr.indexToken = await deployContract({
+    //     name: 'Index Token',
+    //     msgSender: admin,
+    //     contractJson: INDEX_TOKEN_JSON,
+    //     args: [float2TokenUnits(initialSupply)]
+    // });
 
-    allAddr.oracle = await deployContract({
-        name: 'Oracle',
-        msgSender: admin,
-        contractJson: ORACLE_JSON,
-        args: [trustedOracleServer]
-    });
+    // allAddr.oracle = await deployContract({
+    //     name: 'Oracle',
+    //     msgSender: admin,
+    //     contractJson: ORACLE_JSON,
+    //     args: [trustedOracleServer]
+    // });
 
 
     // --------------------------------
@@ -183,26 +183,28 @@ const deploy = async () => {
         name: 'ETF',
         msgSender: admin,
         contractJson: ETF_JSON,
-        args: [allAddr.indexToken, allAddr.uniswapFactory, allAddr.uniswapRouter, allAddr.weth]
+        args: [allAddr.uniswapRouter]
     });
 
+    const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
+    allAddr.indexToken = await etfContract.methods.indexToken().call();
 
     storeAddresses(allAddr);
     log.debug('Finished contract deployments');
 };
 
 const setUpETF = async () => {
-    const oracleInstance = new web3.eth.Contract(ORACLE_JSON.abi, allAddr.oracle);
-    await oracleInstance.methods.addClient(allAddr.etf).send({
-        from: admin,
-        gas: '3000000'
-    });
+    // const oracleInstance = new web3.eth.Contract(ORACLE_JSON.abi, allAddr.oracle);
+    // await oracleInstance.methods.addClient(allAddr.etf).send({
+    //     from: admin,
+    //     gas: '3000000'
+    // });
 
-    const indexTokenInstance = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken);
-    await indexTokenInstance.methods.transfer(allAddr.etf, float2TokenUnits(initialSupply)).send({
-        from: admin,
-        gas: '3000000'
-    });
+    // const indexTokenInstance = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken);
+    // await indexTokenInstance.methods.transfer(allAddr.etf, float2TokenUnits(initialSupply)).send({
+    //     from: admin,
+    //     gas: '3000000'
+    // });
 };
 
 const mintTokens = async ({ tokenSymbol, value, receiver }) => {

@@ -5,14 +5,15 @@
 
 // Ref.: https://hanezu.net/posts/Enable-WebSocket-support-of-Ganache-CLI-and-Subscribe-to-Events.html
 
-const ganache = require('ganache-cli');
 const Web3 = require('web3');
+const ganache = require('ganache-cli');
 
 let web3;
 
 if(process.argv[1].includes('mocha') && process.env.NODE_ENV === 'TEST') {
     // && process.env.npm_lifecycle_event === 'test'
-    web3 = new Web3(ganache.provider());
+    web3 = new Web3(ganache.provider({ gasLimit: 10000000 }));
+
 } else {
     web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8545'));
 }
