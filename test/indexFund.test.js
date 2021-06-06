@@ -142,7 +142,8 @@ describe('Index Fund functionalities', () => {
         const expectedAmountsOut = await calcAmountsOutForOneETH();
 
         const ethAmount = web3.utils.toWei(String(tokenAddrs.length), "ether");
-        await fundContract.methods.orderWithExactETH().send({
+        const offchainPrices = []
+        await fundContract.methods.orderWithExactETH(offchainPrices).send({
             from: investor,
             value: ethAmount,
             gas: '5000000'

@@ -110,7 +110,10 @@ contract IndexFund is Ownable, IOracleClient {
     }
 
     // payable: function can exec Tx
-    function orderWithExactETH() public payable properPortfolio {
+    function orderWithExactETH(uint256[] calldata offchainPrices) public payable properPortfolio {
+        require(offchainPrices.length == 0 || offchainPrices.length == tokenNames.length,
+            "IndexToken: offchainPrices must either be empty or have many entries as the portfolio"
+        );
         uint256 _reqId = assignRequestId();
 
         pendingPurchases[_reqId] = Purchase(
@@ -120,14 +123,14 @@ contract IndexFund is Ownable, IOracleClient {
             MAX_UINT256
         );
 
-        _finalize(_reqId);
+        _finalize(_reqId, offchainPrices);
 
         // oracleContract.request(_reqId);
 
         // emit PriceRequest(_reqId, msg.sender);
     }
 
-    function _finalize(uint256 _reqId) internal returns (bool) {
+    function _finalize(uint256 _reqId, uint256[] calldata offchainPrices) internal returns (bool) {
         // require that the request Id passed in is available
         require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
 
@@ -159,7 +162,7 @@ contract IndexFund is Ownable, IOracleClient {
         }
         require(_indexToken.balanceOf(address(this)) >= _amount, "IndexFund : Not enough Index Token balance");
 
-        swapExactETH();
+        _swapExactETH(offchainPrices);
         require(_indexToken.transfer(msg.sender, _amount), "Unable to transfer tokens to buyer");
 
         circulation += _amount;
@@ -174,23 +177,27 @@ contract IndexFund is Ownable, IOracleClient {
         return true;
     }
 
-    function swapExactETH() internal  {
+    function _swapExactETH(uint256[] calldata offchainPrices) internal  {
         require(weth != address(0), "IndexFund : WETH Token not set");
         address[] memory path = new address[](2);
         path[0] = weth;
-        uint256 ethAmountForEachToken = msg.value / tokenNames.length;
-
+        uint256 ethAmountForOneTokenComponent = msg.value / tokenNames.length;
+        uint256 amountOutMin = 1;
         for (uint256 i = 0; i < tokenNames.length; i++) {
             address tokenAddr = portfolio[tokenNames[i]];
             require(tokenAddr != address(0), "IndexFund : Token has address 0");
             path[1] = tokenAddr;
-            uint256[] memory amounts =
-                IUniswapV2Router02(router).swapExactETHForTokens{value: ethAmountForEachToken}(
-                    1 * (10 ** IERC20Extended(tokenAddr).decimals()),
-                    path,
-                    address(this),
-                    block.timestamp + 10
-                );
+
+            if (offchainPrices.length > 0) {
+                amountOutMin = ethAmountForOneTokenComponent / offchainPrices[i];
+            }
+
+            uint256[] memory amounts = IUniswapV2Router02(router).swapExactETHForTokens{value: ethAmountForOneTokenComponent}(
+                                            amountOutMin * (10 ** IERC20Extended(tokenAddr).decimals()),
+                                            path,
+                                            address(this),
+                                            block.timestamp + 10
+                                        );
 
             emit Swap(amounts);
         }
