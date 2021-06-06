@@ -10,7 +10,7 @@ const {
 
 const {
     deploy,
-    setUpETF,
+    setUpIndexFund,
     setDeployGlobalVars,
     mintTokens,
     provisionLiquidity,
@@ -48,15 +48,15 @@ let indexContract;
 
 // describe('Deploy and setup smart contracts', () => {
 
-//     it('checks Index Token and ETF has been deployed', () => {
+//     it('checks Index Token and Index Fund has been deployed', () => {
 //         assert.ok(allAddrs.indexToken);
-//         assert.ok(allAddrs.etf);
+//         assert.ok(allAddrs.indexFund);
 //     });
 
-//     it(`checks ETF receives ${initialSupply} Index Tokens`, async () => {
-//         await setUpETF();
-//         const etfIndexBalance = await indexContract.methods.balanceOf(allAddrs.etf).call();
-//         assert.strictEqual(float2TokenUnits(initialSupply), etfIndexBalance);
+//     it(`checks Index Fund receives ${initialSupply} Index Tokens`, async () => {
+//         await setUpIndexFund();
+//         const indexFundIndexBalance = await indexContract.methods.balanceOf(allAddrs.indexFund).call();
+//         assert.strictEqual(float2TokenUnits(initialSupply), indexFundIndexBalance);
 //     });
 
 //     it(`checks if ${initialSupply} DAI are minted correctly to admin`, async () => {

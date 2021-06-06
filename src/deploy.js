@@ -11,7 +11,7 @@ const {
     UNISWAP_ROUTER_JSON,
     INDEX_TOKEN_JSON,
     ORACLE_JSON,
-    ETF_JSON
+    INDEX_FUND_JSON
 } = require('./constants.js');
 
 
@@ -179,29 +179,29 @@ const deploy = async () => {
         args: [allAddr.uniswapFactory, allAddr.weth]
     });
 
-    allAddr.etf = await deployContract({
-        name: 'ETF',
+    allAddr.indexFund = await deployContract({
+        name: 'IndexFund',
         msgSender: admin,
-        contractJson: ETF_JSON,
+        contractJson: INDEX_FUND_JSON,
         args: [allAddr.uniswapRouter]
     });
 
-    const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
-    allAddr.indexToken = await etfContract.methods.indexToken().call();
+    const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddr.indexFund);
+    allAddr.indexToken = await indexFundContract.methods.indexToken().call();
 
     storeAddresses(allAddr);
     log.debug('Finished contract deployments');
 };
 
-const setUpETF = async () => {
+const setUpIndexFund = async () => {
     // const oracleInstance = new web3.eth.Contract(ORACLE_JSON.abi, allAddr.oracle);
-    // await oracleInstance.methods.addClient(allAddr.etf).send({
+    // await oracleInstance.methods.addClient(allAddr.indexFund).send({
     //     from: admin,
     //     gas: '3000000'
     // });
 
     // const indexTokenInstance = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken);
-    // await indexTokenInstance.methods.transfer(allAddr.etf, float2TokenUnits(initialSupply)).send({
+    // await indexTokenInstance.methods.transfer(allAddr.indexFund, float2TokenUnits(initialSupply)).send({
     //     from: admin,
     //     gas: '3000000'
     // });
@@ -250,7 +250,7 @@ const setDeployGlobalVars = () => {
 const setUp = async () => {
     setDeployGlobalVars();
 
-    await setUpETF();
+    await setUpIndexFund();
     await mintTokens({ tokenSymbol: 'dai', value: 1000000, receiver: admin });
     await provisionLiquidity(4);
 };
@@ -278,7 +278,7 @@ if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
 module.exports = {
     deploy,
     setUp,
-    setUpETF,
+    setUpIndexFund,
     setDeployGlobalVars,
     mintTokens,
     provisionLiquidity,

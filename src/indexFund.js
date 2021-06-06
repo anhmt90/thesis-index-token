@@ -10,7 +10,7 @@ const {
     UNISWAP_ROUTER_JSON,
     DAI_JSON,
     INDEX_TOKEN_JSON,
-    ETF_JSON
+    INDEX_FUND_JSON
 } = require('./constants');
 
 const {
@@ -23,68 +23,68 @@ const {
 } = require("./utils");
 
 const queryIndexPrice = async () => {
-    const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
-    const indexPrice = await etfContract.methods.getIndexPrice().call();
+    const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddr.indexFund);
+    const indexPrice = await indexFundContract.methods.getIndexPrice().call();
     log.debug('INDEX PRICE:', indexPrice);
 };
 
 const swap = async () => {
-    const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
+    const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddr.indexFund);
     const decimals = (new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken)).methods.decimals().call();
 
     const ethIn = (1 / 0.997);
-    let amountsOut = await etfContract.methods.getAmountsOutForExactETH(float2TokenUnits(ethIn, decimals)).call();
+    let amountsOut = await indexFundContract.methods.getAmountsOutForExactETH(float2TokenUnits(ethIn, decimals)).call();
     log.debug("Real amount outputs (before swap):", amountsOut);
 
     /**
      * Test token ordering
      */
-    log.debug('DAI balance of ETF (before swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.etf }));
-    log.debug('ETH balance of ETF (before swap):', await queryEthBalance(allAddr.etf));
-    log.debug('INDEX balance of ETF (before swap):', await queryIndexBalance(allAddr.etf));
+    log.debug('DAI balance of IndexFund (before swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.indexFund }));
+    log.debug('ETH balance of IndexFund (before swap):', await queryEthBalance(allAddr.indexFund));
+    log.debug('INDEX balance of IndexFund (before swap):', await queryIndexBalance(allAddr.indexFund));
 
     log.debug('Wallet balance of Investor (before swap):', await queryEthBalance(investor));
     const tokenSet = assembleTokenSet();
 
     const ethToSwap = (1 / 0.997) * Object.keys(tokenSet).length;
     log.debug('Swapping', ethToSwap, `ETH (= ${float2TokenUnits(ethToSwap)} wei) for DAI`);
-    await etfContract.methods.orderWithExactETH().send({
+    await indexFundContract.methods.orderWithExactETH().send({
         from: investor,
         value: web3.utils.toWei(String(ethToSwap), "ether"),
         gas: '5000000'
     });
 
-    log.debug('DAI balance of ETF (after swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.etf }));
-    log.debug('ETH balance of ETF (after swap):', await queryEthBalance(allAddr.etf));
+    log.debug('DAI balance of IndexFund (after swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.indexFund }));
+    log.debug('ETH balance of IndexFund (after swap):', await queryEthBalance(allAddr.indexFund));
     log.debug('Wallet balance of Investor (after swap):', await queryEthBalance(investor));
 
     log.debug("******************************************************");
 
-    amountsOut = await etfContract.methods.getAmountsOutForExactETH('1' + '0'.repeat(18)).call();
+    amountsOut = await indexFundContract.methods.getAmountsOutForExactETH('1' + '0'.repeat(18)).call();
     log.debug("Real amount outputs (after swap):", web3.utils.fromWei(amountsOut[0]));
 };
 
 const setPortfolio = async () => {
-    const etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddr.etf);
+    const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddr.indexFund);
     /**
      * Set portfolio
      */
     const tokenSet = assembleTokenSet();
     const tokenNames = Object.keys(tokenSet).map(symbol => symbol.toUpperCase());
     const tokenAddresses = Object.values(tokenSet).map(({ address }) => address);
-    await etfContract.methods.setPorfolio(tokenNames, tokenAddresses).send({
+    await indexFundContract.methods.setPorfolio(tokenNames, tokenAddresses).send({
         from: admin,
         gas: '3000000'
     });
     log.debug('SUCCESS: Portfolio set!');
-    const portfolioNamesOnchain = await etfContract.methods.getNamesInPortfolio().call();
+    const portfolioNamesOnchain = await indexFundContract.methods.getNamesInPortfolio().call();
     log.debug('PORTFOLIO NAMES ONCHAIN:', portfolioNamesOnchain);
 
-    const portfolioAddrsOnchain = await etfContract.methods.getAddressesInPortfolio().call();
+    const portfolioAddrsOnchain = await indexFundContract.methods.getAddressesInPortfolio().call();
     log.debug('PORTFOLIO ADDRS ONCHAIN:', portfolioAddrsOnchain);
 };
 
-const setEtfClientGlobalVars = async () => {
+const setIndexFundGlobalVars = async () => {
     const accounts = await web3.eth.getAccounts();
     admin = accounts[0];
     investor = accounts[2];
@@ -92,7 +92,7 @@ const setEtfClientGlobalVars = async () => {
 }
 
 const run = async () => {
-    await setEtfClientGlobalVars();
+    await setIndexFundGlobalVars();
 
     await setPortfolio();
     await queryIndexPrice();
@@ -118,7 +118,7 @@ if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
 }
 
 module.exports = {
-    setEtfClientGlobalVars,
+    setIndexFundGlobalVars,
     setPortfolio,
     queryIndexPrice,
     swap

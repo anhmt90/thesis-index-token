@@ -11,7 +11,7 @@ const {
     UNISWAP_ROUTER_JSON,
     INDEX_TOKEN_JSON,
     ORACLE_JSON,
-    ETF_JSON,
+    INDEX_FUND_JSON,
 
     TOKEN_JSONS
 } = require('../../src/constants');
@@ -34,7 +34,7 @@ module.exports = {
     UNISWAP_ROUTER_JSON,
     INDEX_TOKEN_JSON,
     ORACLE_JSON,
-    ETF_JSON,
+    INDEX_FUND_JSON,
 
     TOKEN_JSONS
 };

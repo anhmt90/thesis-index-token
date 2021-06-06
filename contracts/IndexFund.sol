@@ -13,7 +13,7 @@ import "./IndexToken.sol";
 import "./oracle/IOracleClient.sol";
 import "./oracle/Oracle.sol";
 
-contract ETF is Ownable, IOracleClient {
+contract IndexFund is Ownable, IOracleClient {
     struct Purchase {
         uint256 _id;
         address _buyer;
@@ -62,9 +62,9 @@ contract ETF is Ownable, IOracleClient {
     event Swap(uint256[] amounts);
 
     modifier properPortfolio() {
-        require(tokenNames.length > 0, "ETF: No token names found in portfolio");
+        require(tokenNames.length > 0, "IndexFund : No token names found in portfolio");
         // for (uint256 i = 0; i < tokenNames.length; i++) {
-        //     require(portfolio[tokenNames[i]] != address(0), "ETF: A token in portfolio has address 0");
+        //     require(portfolio[tokenNames[i]] != address(0), "IndexFund : A token in portfolio has address 0");
         // }
         _;
     }
@@ -82,7 +82,7 @@ contract ETF is Ownable, IOracleClient {
     {
         require(
             names.length == addresses.length,
-            "ETF: Arrays not equal in length!"
+            "IndexFund : Arrays not equal in length!"
         );
         tokenNames = names;
         for (uint256 i = 0; i < names.length; i++) {
@@ -92,8 +92,8 @@ contract ETF is Ownable, IOracleClient {
     }
 
     function getIndexPrice() public view returns (uint256 _price){
-        require(weth != address(0), "ETF: Contract WETH not set");
-        require(circulation > 0, "ETF: Circulation is 0");
+        require(weth != address(0), "IndexFund : Contract WETH not set");
+        require(circulation > 0, "IndexFund : Circulation is 0");
         address[] memory path = new address[](2);
         path[0] = weth;
 
@@ -103,8 +103,8 @@ contract ETF is Ownable, IOracleClient {
 
             uint[] memory amounts = IUniswapV2Router02(router).getAmountsOut(10**18, path);
             uint tokenPrice = amounts[1];
-            uint tokenBalanceOfETF = IERC20Extended(tokenAddress).balanceOf(address(this));
-            _price += tokenPrice * tokenBalanceOfETF;
+            uint tokenBalanceOfIndexFund  = IERC20Extended(tokenAddress).balanceOf(address(this));
+            _price += tokenPrice * tokenBalanceOfIndexFund ;
         }
         _price /= circulation;
     }
@@ -132,7 +132,7 @@ contract ETF is Ownable, IOracleClient {
         require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
 
         // require that the function caller is the buyer placing token order earlier with this _reqId
-        require(pendingPurchases[_reqId]._buyer == msg.sender, "ETF: Unauthorized purchase claim");
+        require(pendingPurchases[_reqId]._buyer == msg.sender, "IndexFund : Unauthorized purchase claim");
 
         // require that actual price has been queried and received from the oracle
         // require(pendingPurchases[_reqId]._price != MAX_UINT256, "Price is yet to set");
@@ -143,21 +143,21 @@ contract ETF is Ownable, IOracleClient {
         }
 
         // require that the contract has enough tokens
-        // require(indexToken.balanceOf(address(this)) >= pendingPurchases[_reqId]._ethAmount, "ETF: Unable to purchase more tokens than totally available");
+        // require(indexToken.balanceOf(address(this)) >= pendingPurchases[_reqId]._ethAmount, "IndexFund : Unable to purchase more tokens than totally available");
         uint256 _amount = msg.value / pendingPurchases[_reqId]._price;
 
         //require that the calling entity has enough funds to buy tokens
-        // require(msg.value >= (_amount * pendingPurchases[_reqId]._price) / (10 ** indexToken.decimals()),  "ETF: Not enough funds to buy tokens");
+        // require(msg.value >= (_amount * pendingPurchases[_reqId]._price) / (10 ** indexToken.decimals()),  "IndexFund : Not enough funds to buy tokens");
         uint _amountToMint = 0;
         IndexToken _indexToken = IndexToken(indexToken);
 
         if (_amount > _indexToken.balanceOf(address(this))) {
-            require(_indexToken.owner() == address(this), "ETF: ETF Contract is not the owner of Index Token Contract");
+            require(_indexToken.owner() == address(this), "IndexFund : IndexFund  Contract is not the owner of Index Token Contract");
 
             _amountToMint = _amount - _indexToken.balanceOf(address(this));
             require(_indexToken.mint(_amountToMint), "Unable to mint new Index tokens for buyer");
         }
-        require(_indexToken.balanceOf(address(this)) >= _amount, "ETF: Not enough Index Token balance");
+        require(_indexToken.balanceOf(address(this)) >= _amount, "IndexFund : Not enough Index Token balance");
 
         swapExactETH();
         require(_indexToken.transfer(msg.sender, _amount), "Unable to transfer tokens to buyer");
@@ -175,14 +175,14 @@ contract ETF is Ownable, IOracleClient {
     }
 
     function swapExactETH() internal  {
-        require(weth != address(0), "ETF: WETH Token not set");
+        require(weth != address(0), "IndexFund : WETH Token not set");
         address[] memory path = new address[](2);
         path[0] = weth;
         uint256 ethAmountForEachToken = msg.value / tokenNames.length;
 
         for (uint256 i = 0; i < tokenNames.length; i++) {
             address tokenAddr = portfolio[tokenNames[i]];
-            require(tokenAddr != address(0), "ETF: Token has address 0");
+            require(tokenAddr != address(0), "IndexFund : Token has address 0");
             path[1] = tokenAddr;
             uint256[] memory amounts =
                 IUniswapV2Router02(router).swapExactETHForTokens{value: ethAmountForEachToken}(
@@ -199,7 +199,7 @@ contract ETF is Ownable, IOracleClient {
     }
 
     function getAmountsOutForExactETH(uint256 ethIn) public view properPortfolio returns (uint256[] memory amounts) {
-        require(router != address(0), "ETF: Router contract not set!");
+        require(router != address(0), "IndexFund : Router contract not set!");
         string memory tokenName;
         address tokenAddress = address(0);
         amounts = new uint[](tokenNames.length);
@@ -277,7 +277,7 @@ contract ETF is Ownable, IOracleClient {
     function getAddressesInPortfolio() external view returns (address[] memory _addrs) {
         _addrs = new address[](tokenNames.length);
         for (uint256 i = 0; i < tokenNames.length; i++) {
-            require(portfolio[tokenNames[i]] != address(0), "ETF: A token in portfolio has address 0");
+            require(portfolio[tokenNames[i]] != address(0), "IndexFund : A token in portfolio has address 0");
             _addrs[i] = portfolio[tokenNames[i]];
         }
     }

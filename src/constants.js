@@ -11,7 +11,7 @@ const UNISWAP_PAIR_JSON = require('@uniswap/v2-core/build/UniswapV2Pair.json');
 
 const INDEX_TOKEN_JSON = require('../build/contracts/IndexToken.json');
 const ORACLE_JSON = require('../build/contracts/Oracle.json');
-const ETF_JSON = require('../build/contracts/ETF.json');
+const INDEX_FUND_JSON = require('../build/contracts/IndexFund.json');
 
 const PATH_ADDRESS_FILE = path.join(__dirname, '../data/contractAddresses.json');
 const PATH_TOKENPRICE_FILE = path.join(__dirname, '../data/tokenPrices.json');
@@ -41,7 +41,7 @@ module.exports = {
     UNISWAP_ROUTER_JSON,
     INDEX_TOKEN_JSON,
     ORACLE_JSON,
-    ETF_JSON,
+    INDEX_FUND_JSON,
 
     COINGECKO_ID_SYM_MAP,
     TOKEN_JSONS

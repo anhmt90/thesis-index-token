@@ -5,7 +5,7 @@ const BN = web3.utils.toBN;
 
 const {
     INDEX_TOKEN_JSON,
-    ETF_JSON,
+    INDEX_FUND_JSON,
     PATH_ADDRESS_FILE,
     UNISWAP_ROUTER_JSON,
     DAI_JSON
@@ -13,7 +13,7 @@ const {
 
 const {
     deploy,
-    setUpETF,
+    setUpIndexFund,
     setDeployGlobalVars,
     mintTokens,
     provisionLiquidity,
@@ -21,9 +21,9 @@ const {
 } = require('../src/deploy');
 
 const {
-    setEtfClientGlobalVars,
+    setIndexFundGlobalVars,
     setPortfolio,
-} = require('../src/test');
+} = require('../src/indexFund');
 
 
 const {
@@ -38,7 +38,7 @@ let tokenSet;
 let admin;
 let investor;
 let indexContract;
-let etfContract;
+let fundContract;
 let routerContract;
 let path;
 let tokenAddrs;
@@ -49,7 +49,7 @@ const calcAmountsOutForOneETH = async () => {
     for (i = 0; i < tokenAddrs.length; i++) {
         const tokenContract = new web3.eth.Contract(tokenJsons[i].abi, tokenAddrs[i]);
         const decimals = await tokenContract.methods.decimals().call();
-        const balance = await tokenContract.methods.balanceOf(allAddrs.etf).call();
+        const balance = await tokenContract.methods.balanceOf(allAddrs.indexFund).call();
 
         path[1] = tokenAddrs[i];
         const amounts = await routerContract.methods.getAmountsOut(float2TokenUnits(1, decimals), path).call();
@@ -59,7 +59,7 @@ const calcAmountsOutForOneETH = async () => {
 };
 
 before(async () => {
-    console.log('ETF Test Cases');
+    console.log('Index Fund Test Cases');
 
     if (fs.existsSync(PATH_ADDRESS_FILE))
         fs.unlinkSync(PATH_ADDRESS_FILE);
@@ -67,16 +67,16 @@ before(async () => {
     await deploy();
     [allAddrs, tokenSet] = setDeployGlobalVars();
     indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddrs.indexToken);
-    etfContract = new web3.eth.Contract(ETF_JSON.abi, allAddrs.etf);
+    fundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
     routerContract = new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, allAddrs.uniswapRouter);
-    setEtfClientGlobalVars();
+    setIndexFundGlobalVars();
 
     accounts = await web3.eth.getAccounts();
     admin = accounts[0];
     investor = accounts[2];
 
     await setPortfolio();
-    // await setUpETF();
+    // await setUpIndexFund();
     // await mintTokens({ tokenSymbol: 'dai', value: 1000000, receiver: admin });
     // await provisionLiquidity(ethProvisioned);
 
@@ -88,15 +88,15 @@ before(async () => {
 
 describe('Deploy and setup smart contracts', () => {
 
-    it('should deploy Index Token and ETF Contracts', () => {
+    it('should deploy Index Token and Index Fund Contracts', () => {
         assert.ok(allAddrs.indexToken);
-        assert.ok(allAddrs.etf);
+        assert.ok(allAddrs.indexFund);
     });
 
-    it(`should mint 1 Index Token unit (10^-18) for ETF Contract`, async () => {
-        // await setUpETF();
-        const etfIndexBalance = await indexContract.methods.balanceOf(allAddrs.etf).call();
-        assert.strictEqual('1', etfIndexBalance);
+    it(`should mint 1 Index Token unit (10^-18) for Index Fund Contract`, async () => {
+        // await setUpIndexFund();
+        const indexFundIdxBalance = await indexContract.methods.balanceOf(allAddrs.indexFund).call();
+        assert.strictEqual('1', indexFundIdxBalance);
     });
 
     it(`should mint ${initialSupply} DAI to admin`, async () => {
@@ -126,15 +126,15 @@ describe('Uniswap lidquidity provision', () => {
 
 
 
-describe('ETF functionalities', () => {
-    it('checks if portfolio is properly set in ETF smart contract', async () => {
+describe('Index Fund functionalities', () => {
+    it('checks if portfolio is properly set in Index Fund smart contract', async () => {
         const expectedTokenNames = Object.keys(tokenSet).map(name => name.toLowerCase());
-        const actualTokenNames = (await etfContract.methods.getNamesInPortfolio().call()).map(name => name.toLowerCase());
+        const actualTokenNames = (await fundContract.methods.getNamesInPortfolio().call()).map(name => name.toLowerCase());
 
         assert.deepStrictEqual(actualTokenNames, expectedTokenNames, 'Token names not match');
 
         const expectedTokenAddrs = Object.values(tokenSet).map(token => token.address);
-        const actualTokenAddrs = await etfContract.methods.getAddressesInPortfolio().call();
+        const actualTokenAddrs = await fundContract.methods.getAddressesInPortfolio().call();
         assert.deepStrictEqual(actualTokenAddrs, expectedTokenAddrs, 'Token addresses not match');
     });
 
@@ -142,18 +142,18 @@ describe('ETF functionalities', () => {
         const expectedAmountsOut = await calcAmountsOutForOneETH();
 
         const ethAmount = web3.utils.toWei(String(tokenAddrs.length), "ether");
-        await etfContract.methods.orderWithExactETH().send({
+        await fundContract.methods.orderWithExactETH().send({
             from: investor,
             value: ethAmount,
             gas: '5000000'
         });
 
-        const etfEthBalance = await web3.eth.getBalance(allAddrs.etf);
-        assert.strictEqual(etfEthBalance, '0');
+        const indexFundEthBalance = await web3.eth.getBalance(allAddrs.indexFund);
+        assert.strictEqual(indexFundEthBalance, '0');
 
         for (i = 0; i < tokenAddrs.length; i++) {
             const tokenContract = new web3.eth.Contract(tokenJsons[i].abi, tokenAddrs[i]);
-            const actualAmountOut = await tokenContract.methods.balanceOf(allAddrs.etf).call();
+            const actualAmountOut = await tokenContract.methods.balanceOf(allAddrs.indexFund).call();
             assert.strictEqual(actualAmountOut, expectedAmountsOut[i]);
         }
 
@@ -169,14 +169,14 @@ describe('ETF functionalities', () => {
             const tokenContract = new web3.eth.Contract(tokenJsons[i].abi, tokenAddrs[i]);
             const tokenPrice = BN(expectedAmountsOut[i]);
             // console.log('tokenPrice', tokenPrice);
-            const tokenBalanceOfETF = BN(await tokenContract.methods.balanceOf(allAddrs.etf).call());
-            expectedIndexPrice = expectedIndexPrice.add(tokenPrice.mul(tokenBalanceOfETF));
+            const tokenBalanceOfIndexFund = BN(await tokenContract.methods.balanceOf(allAddrs.indexFund).call());
+            expectedIndexPrice = expectedIndexPrice.add(tokenPrice.mul(tokenBalanceOfIndexFund));
         }
 
-        const circulation = BN(await etfContract.methods.circulation().call());
+        const circulation = BN(await fundContract.methods.circulation().call());
         expectedIndexPrice = expectedIndexPrice.div(circulation);
 
-        const actualIndexPrice = await etfContract.methods.getIndexPrice().call();
+        const actualIndexPrice = await fundContract.methods.getIndexPrice().call();
 
         assert.deepStrictEqual(actualIndexPrice, expectedIndexPrice.toString(), `Incorrect Index Price expected ${expectedIndexPrice}, but got ${actualIndexPrice}`);
     });
