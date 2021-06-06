@@ -201,29 +201,17 @@ contract IndexFund is Ownable, IOracleClient {
 
             emit Swap(amounts);
         }
-
-
     }
 
-    function getAmountsOutForExactETH(uint256 ethIn) public view properPortfolio returns (uint256[] memory amounts) {
+    function getUniswapAmountsOutForExactETH(uint256 ethIn) public view properPortfolio returns (uint256[] memory amounts) {
         require(router != address(0), "IndexFund : Router contract not set!");
-        string memory tokenName;
-        address tokenAddress = address(0);
+        address[] memory path = new address[](2);
+        path[0] = weth;
+
         amounts = new uint[](tokenNames.length);
-        address factory = IUniswapV2Router02(router).factory();
-
         for (uint256 i = 0; i < tokenNames.length; i++) {
-            tokenName = tokenNames[i];
-            tokenAddress = portfolio[tokenName];
-            address pairAddress = UniswapV2LibraryUpdated.pairFor(factory, weth, tokenAddress);
-
-            IUniswapV2Pair pair = IUniswapV2Pair(pairAddress);
-            address token0 = pair.token0();
-
-            (uint reserve0, uint reserve1,) = pair.getReserves();
-            (uint reserveIn, uint reserveOut) = weth == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
-
-            amounts[i] = UniswapV2LibraryUpdated.getAmountOut(ethIn, reserveIn, reserveOut);
+            path[1] = portfolio[tokenNames[i]];
+            amounts[i] = IUniswapV2Router02(router).getAmountsOut(ethIn, path)[1];
         }
     }
 

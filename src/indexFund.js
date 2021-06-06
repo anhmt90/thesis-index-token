@@ -33,7 +33,7 @@ const swap = async () => {
     const decimals = (new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken)).methods.decimals().call();
 
     const ethIn = (1 / 0.997);
-    let amountsOut = await indexFundContract.methods.getAmountsOutForExactETH(float2TokenUnits(ethIn, decimals)).call();
+    let amountsOut = await indexFundContract.methods.getUniswapAmountsOutForExactETH(float2TokenUnits(ethIn, decimals)).call();
     log.debug("Real amount outputs (before swap):", amountsOut);
 
     /**
@@ -60,7 +60,7 @@ const swap = async () => {
 
     log.debug("******************************************************");
 
-    amountsOut = await indexFundContract.methods.getAmountsOutForExactETH('1' + '0'.repeat(18)).call();
+    amountsOut = await indexFundContract.methods.getUniswapAmountsOutForExactETH('1' + '0'.repeat(18)).call();
     log.debug("Real amount outputs (after swap):", web3.utils.fromWei(amountsOut[0]));
 };
 
