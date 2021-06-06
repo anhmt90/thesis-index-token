@@ -49,7 +49,6 @@ const calcAmountsOutForOneETH = async () => {
     for (i = 0; i < tokenAddrs.length; i++) {
         const tokenContract = new web3.eth.Contract(tokenJsons[i].abi, tokenAddrs[i]);
         const decimals = await tokenContract.methods.decimals().call();
-        const balance = await tokenContract.methods.balanceOf(allAddrs.indexFund).call();
 
         path[1] = tokenAddrs[i];
         const amounts = await routerContract.methods.getAmountsOut(float2TokenUnits(1, decimals), path).call();
@@ -180,6 +179,37 @@ describe('Index Fund functionalities', () => {
         const actualIndexPrice = await fundContract.methods.getIndexPrice().call();
 
         assert.deepStrictEqual(actualIndexPrice, expectedIndexPrice.toString(), `Incorrect Index Price expected ${expectedIndexPrice}, but got ${actualIndexPrice}`);
+    });
+
+    it('should purchase Index Tokens properly (with frontrunning prevention)', async () => {
+        const expectedAmountsOut = await calcAmountsOutForOneETH();
+
+        const tokenBalancesOfIndexFundBefore = []
+        for (i = 0; i < tokenAddrs.length; i++) {
+            const tokenContract = new web3.eth.Contract(tokenJsons[i].abi, tokenAddrs[i]);
+            tokenBalancesOfIndexFundBefore[i] = BN(await tokenContract.methods.balanceOf(allAddrs.indexFund).call());
+        }
+
+        const ethAmount = web3.utils.toWei(String(tokenAddrs.length), "ether");
+        const offchainPrices = expectedAmountsOut
+        await fundContract.methods.orderWithExactETH(offchainPrices).send({
+            from: investor,
+            value: ethAmount,
+            gas: '5000000'
+        });
+
+        const indexFundEthBalance = await web3.eth.getBalance(allAddrs.indexFund);
+        assert.strictEqual(indexFundEthBalance, '0');
+
+        for (i = 0; i < tokenAddrs.length; i++) {
+            const tokenContract = new web3.eth.Contract(tokenJsons[i].abi, tokenAddrs[i]);
+            const tokenBalanceOfIndexFundAfter = BN(await tokenContract.methods.balanceOf(allAddrs.indexFund).call());
+            const actualAmountOut = tokenBalanceOfIndexFundAfter.sub(tokenBalancesOfIndexFundBefore[i]).toString();
+            assert.strictEqual(actualAmountOut, expectedAmountsOut[i]);
+        }
+
+        const investorIndexBalance = await indexContract.methods.balanceOf(investor).call();
+        assert.strictEqual(investorIndexBalance,ethAmount, `Expected ${ethAmount} itokens but got ${investorIndexBalance}`)
     });
 
 });
