@@ -123,14 +123,14 @@ contract IndexFund is Ownable, IOracleClient {
             MAX_UINT256
         );
 
-        _finalize(_reqId, offchainPrices);
+        _finalizePurchase(_reqId, offchainPrices);
 
         // oracleContract.request(_reqId);
 
         // emit PriceRequest(_reqId, msg.sender);
     }
 
-    function _finalize(uint256 _reqId, uint256[] calldata offchainPrices) internal returns (bool) {
+    function _finalizePurchase(uint256 _reqId, uint256[] calldata offchainPrices) internal returns (bool) {
         // require that the request Id passed in is available
         require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
 
@@ -162,7 +162,7 @@ contract IndexFund is Ownable, IOracleClient {
         }
         require(_indexToken.balanceOf(address(this)) >= _amount, "IndexFund : Not enough Index Token balance");
 
-        _swapExactETH(offchainPrices);
+        _swapExactETHForTokens(offchainPrices);
         require(_indexToken.transfer(msg.sender, _amount), "Unable to transfer tokens to buyer");
 
         circulation += _amount;
@@ -177,7 +177,7 @@ contract IndexFund is Ownable, IOracleClient {
         return true;
     }
 
-    function _swapExactETH(uint256[] calldata offchainPrices) internal  {
+    function _swapExactETHForTokens(uint256[] calldata offchainPrices) internal  {
         require(weth != address(0), "IndexFund : WETH Token not set");
         address[] memory path = new address[](2);
         path[0] = weth;
@@ -215,6 +215,77 @@ contract IndexFund is Ownable, IOracleClient {
         }
     }
 
+    /** ########################################################################################################## */
+    function rebalance(uint16[] calldata allocation) external onlyOwner {
+        require(allocation.length == tokenNames.length, "IndxToken: Wrong size of allocation array");
+        uint16 sumAllocation;
+        for (uint256 i = 0; i < allocation.length; i++) {
+            sumAllocation += allocation[i];
+        }
+        require(sumAllocation == 1000 || sumAllocation == 999, "IndexToken: Wrong sum of allocation");
+
+        address[] memory path = new address[](2);
+        path[1] = weth;
+
+        uint256[] memory ethAmountsOut = new uint256[](tokenNames.length);
+        uint256 ethSum;
+        for (uint256 i = 0; i < tokenNames.length; i++) {
+            address tokenAddr = portfolio[tokenNames[i]];
+            path[0] = tokenAddr;
+            uint256 tokenBalance = IERC20(tokenAddr).balanceOf(address(this));
+            ethAmountsOut[i] = IUniswapV2Router02(router).getAmountsOut(tokenBalance, path)[1];
+            ethSum += ethAmountsOut[i];
+        }
+        uint256 ethAvg = ethSum / tokenNames.length;
+
+        // SELLING `overperforming` tokens for ETH
+        for (uint256 i = 0; i < ethAmountsOut.length; i++) {
+            if (ethAvg < ethAmountsOut[i]) {
+                address tokenAddr = portfolio[tokenNames[i]];
+
+                uint256 ethDiff = ethAmountsOut[i] - ethAvg;
+                path[0] = weth;
+                path[1] = tokenAddr;
+
+                uint256 tokensToSell = IUniswapV2Router02(router).getAmountsOut(ethDiff, path)[1];
+
+                path[0] = tokenAddr;
+                path[1] = weth;
+                 IUniswapV2Router02(router).swapTokensForExactETH(
+                    ethDiff,
+                    tokensToSell,
+                    path,
+                    address(this),
+                    block.timestamp + 10
+                );
+                // amountsOut[1] // == ethDiff
+            }
+        }
+
+        // BUYING `underperforming` tokens with the ETH received
+        for (uint256 i = 0; i < ethAmountsOut.length; i++) {
+            if (ethAvg > ethAmountsOut[i]) {
+                address tokenAddr = portfolio[tokenNames[i]];
+                uint256 ethDiff = ethAvg - ethAmountsOut[i];
+                path[0] = weth;
+                path[1] = tokenAddr;
+
+                uint256 tokensToBuy = IUniswapV2Router02(router).getAmountsOut(ethDiff, path)[1];
+
+                IUniswapV2Router02(router).swapExactETHForTokens{value: ethDiff}(
+                    tokensToBuy,
+                    path,
+                    address(this),
+                    block.timestamp + 10
+                );
+            }
+        }
+        require(address(this).balance == 0, "IndexToken: There's still ETH left unspent");
+
+    }
+
+
+    /** ########################################################################################################## */
     // @notice a callback for Oracle contract to call once the requested data is ready
     function __oracleCallback(uint256 _reqId, uint256 _price)
         external
