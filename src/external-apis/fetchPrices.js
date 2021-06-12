@@ -1,6 +1,6 @@
 const { CoinGeckoClient } = require('coingecko-api-v3');
-const { storeTokenPrices } = require('./utils')
-const { COINGECKO_ID_SYM_MAP } = require('./constants')
+const { storeTokenPrices } = require('../utils')
+const { COINGECKO_ID_SYM_MAP } = require('../constants')
 
 const client = new CoinGeckoClient({
     timeout: 10000,

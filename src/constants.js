@@ -15,6 +15,7 @@ const INDEX_FUND_JSON = require('../build/contracts/IndexFund.json');
 
 const PATH_ADDRESS_FILE = path.join(__dirname, '../data/contractAddresses.json');
 const PATH_TOKENPRICE_FILE = path.join(__dirname, '../data/tokenPrices.json');
+const PATH_ITC_ERC20_TOKENS_FILE = path.join(__dirname, '../data/itc_erc20_tokens.json');
 
 const COINGECKO_ID_SYM_MAP = {
     'binancecoin': 'bnb',
@@ -31,6 +32,8 @@ const TOKEN_JSONS = {
 module.exports = {
     PATH_ADDRESS_FILE,
     PATH_TOKENPRICE_FILE,
+    PATH_ITC_ERC20_TOKENS_FILE,
+
     DAI_JSON,
     BNB_JSON,
     ZRX_JSON,

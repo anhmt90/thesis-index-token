@@ -34,8 +34,14 @@ const logLevels = {
   debug: 3
 };
 
-const configLevel = logLevels[(process.env.LOG_LEVEL).toLowerCase()];
-if (configLevel === undefined) throw new Error('ERROR: Got undefined log level!');
+const DEFAULT_LEVEL = logLevels.info
+const configLevel = DEFAULT_LEVEL
+
+if(process.env.LOG_LEVEL) {
+  configLevel = logLevels[(process.env.LOG_LEVEL).toLowerCase()];
+  if (configLevel === undefined) throw new Error(`ERROR: ${process.env.LOG_LEVEL} is an invalid log level!`);
+}
+
 
 
 const _log = (level, ...msgs) => {

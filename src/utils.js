@@ -5,11 +5,12 @@ const web3 = require('./getWeb3');
 const {
     PATH_ADDRESS_FILE,
     PATH_TOKENPRICE_FILE,
+    PATH_ITC_ERC20_TOKENS_FILE,
     UNISWAP_FACTORY_JSON,
     UNISWAP_PAIR_JSON,
     TOKEN_JSONS,
     INDEX_TOKEN_JSON
-} = require((process.env.NODE_ENV).toUpperCase() === 'TEST' ? '../test/fixtures/constants.js' : './constants.js');
+} = require(process.env.NODE_ENV && (process.env.NODE_ENV).toUpperCase() === 'TEST' ? '../test/fixtures/constants.js' : './constants.js');
 
 let _tokenSet = {};
 let _allAddr = {};
@@ -23,6 +24,10 @@ const storeAddresses = (addresses) => {
 const storeTokenPrices = (tokenPrices) => {
     pickle(tokenPrices, PATH_TOKENPRICE_FILE);
 };
+
+const storeItcTokens = (tokens) => {
+    pickle(tokens, PATH_ITC_ERC20_TOKENS_FILE);
+}
 
 const pickle = (obj, path) => {
     const json = JSON.stringify(obj, null, 4);
@@ -140,6 +145,8 @@ const assembleTokenSet = () => {
 module.exports = {
     storeAddresses,
     storeTokenPrices,
+    storeItcTokens,
+    
     loadTokenPrices,
     assembleTokenSet,
     queryEthBalance,
