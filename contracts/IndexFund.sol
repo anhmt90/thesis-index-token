@@ -13,14 +13,7 @@ import "./IndexToken.sol";
 import "./oracle/IOracleClient.sol";
 import "./oracle/Oracle.sol";
 
-contract IndexFund is Ownable, IOracleClient {
-    struct Purchase {
-        uint256 _id;
-        address _buyer;
-        uint256 _ethAmount;
-        uint256 _price;
-    }
-
+contract IndexFund is Ownable {
     uint256 constant MAX_UINT256 = 2**256 - 1;
 
     // instance of the ERC20 Index Token contract
@@ -35,9 +28,6 @@ contract IndexFund is Ownable, IOracleClient {
     // instance of WETH
     address public weth;
 
-    // set of pending purchases that are yet to finalize
-    mapping(uint256 => Purchase) pendingPurchases;
-
     // <token_name> is at <address>
     mapping(string => address) public portfolio;
     string[] public tokenNames;
@@ -46,18 +36,8 @@ contract IndexFund is Ownable, IOracleClient {
     // default to 1 unit (= 10^-18 tokens) to avoid dividing by 0 when bootstrapping
     // uint256 public circulation;
 
-    event PriceRequest(
-        uint256 indexed _reqId,
-        address indexed _buyer
-    );
 
-    event PurchaseReady(
-        uint256 indexed _reqId,
-        address indexed _buyer,
-        uint256 _price
-    );
-
-    event Purchased(
+    event Purchase(
         address indexed _buyer,
         uint256 _amount,
         uint256 _price
@@ -138,7 +118,7 @@ contract IndexFund is Ownable, IOracleClient {
          // mint new <_amount> IndexTokens
         require(IndexToken(indexToken).mint(msg.sender, _amount), "Unable to mint new Index tokens for buyer");
 
-        emit Purchased(
+        emit Purchase(
             msg.sender,
             _amount,
             _price
@@ -255,19 +235,19 @@ contract IndexFund is Ownable, IOracleClient {
 
     /** ---------------------------------------------------------------------------------------------------- */
     // @notice a callback for Oracle contract to call once the requested data is ready
-    function __oracleCallback(uint256 _reqId, uint256 _price)
-        external
-        override
-        returns (bool)
-    {
-        require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
+    // function __oracleCallback(uint256 _reqId, uint256 _price)
+    //     external
+    //     override
+    //     returns (bool)
+    // {
+    //     require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
 
-        pendingPurchases[_reqId]._price = _price;
+    //     pendingPurchases[_reqId]._price = _price;
 
-        emit PurchaseReady(_reqId, pendingPurchases[_reqId]._buyer, _price);
+    //     emit PurchaseReady(_reqId, pendingPurchases[_reqId]._buyer, _price);
 
-        return true;
-    }
+    //     return true;
+    // }
 
 
     //Ending Token DappTokenSale
