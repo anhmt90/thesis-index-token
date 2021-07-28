@@ -12,7 +12,7 @@ const {
 } = require('./fixtures/constants');
 
 const {
-    deploy,
+    deployAllContracts,
     setUpIndexFund,
     setDeployGlobalVars,
     mintTokens,
@@ -52,7 +52,8 @@ const calcAmountsOutForOneETH = async () => {
 
         path[1] = tokenAddrs[i];
         const amounts = await routerContract.methods.getAmountsOut(float2TokenUnits(1, decimals), path).call();
-        expectedAmountsOut.push(amounts[1]);
+        const amountComponentToken = amounts[1];
+        expectedAmountsOut.push(amountComponentToken);
     }
     return expectedAmountsOut;
 };
@@ -63,7 +64,7 @@ before(async () => {
     if (fs.existsSync(PATH_ADDRESS_FILE))
         fs.unlinkSync(PATH_ADDRESS_FILE);
 
-    await deploy();
+    await deployAllContracts();
     [allAddrs, tokenSet] = setDeployGlobalVars();
     indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddrs.indexToken);
     fundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
@@ -92,10 +93,13 @@ describe('Deploy and setup smart contracts', () => {
         assert.ok(allAddrs.indexFund);
     });
 
-    it(`should mint 1 Index Token unit (10^-18) for Index Fund Contract`, async () => {
+    it(`should have 0 totalSupply in IndexToken after deployment`, async () => {
         // await setUpIndexFund();
+        const totalSupply = await indexContract.methods.totalSupply().call();
+        assert.strictEqual('0', totalSupply);
+
         const indexFundIdxBalance = await indexContract.methods.balanceOf(allAddrs.indexFund).call();
-        assert.strictEqual('1', indexFundIdxBalance);
+        assert.strictEqual('0', indexFundIdxBalance);
     });
 
     it(`should mint ${initialSupply} DAI to admin`, async () => {
@@ -173,8 +177,9 @@ describe('Index Fund functionalities', () => {
             expectedIndexPrice = expectedIndexPrice.add(tokenPrice.mul(tokenBalanceOfIndexFund));
         }
 
-        const circulation = BN(await fundContract.methods.circulation().call());
-        expectedIndexPrice = expectedIndexPrice.div(circulation);
+        // const circulation = BN(await fundContract.methods.circulation().call());
+        const totalSupply = BN(await indexContract.methods.totalSupply().call());
+        expectedIndexPrice = expectedIndexPrice.div(totalSupply);
 
         const actualIndexPrice = await fundContract.methods.getIndexPrice().call();
 

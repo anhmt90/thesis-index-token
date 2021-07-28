@@ -114,7 +114,7 @@ const addLiquidityExactWETH = async ({ ethAmount, rate, msgSender, tokenAddr, to
     log.debug("***************************************");
 };
 
-const deploy = async () => {
+const deployAllContracts = async () => {
     const accounts = await web3.eth.getAccounts();
     const trustedOracleServer = accounts[1];
 
@@ -179,6 +179,8 @@ const deploy = async () => {
         args: [allAddr.uniswapFactory, allAddr.weth]
     });
 
+    // --------------------------------
+
     allAddr.indexFund = await deployContract({
         name: 'IndexFund',
         msgSender: admin,
@@ -190,7 +192,8 @@ const deploy = async () => {
     allAddr.indexToken = await indexFundContract.methods.indexToken().call();
 
     storeAddresses(allAddr);
-    log.debug('Finished contract deployments');
+    log.info('Finished contract deployments');
+    log.info('-------------------------------------------------------------');
 };
 
 const setUpIndexFund = async () => {
@@ -276,7 +279,7 @@ if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
 }
 
 module.exports = {
-    deploy,
+    deployAllContracts,
     setUp,
     setUpIndexFund,
     setDeployGlobalVars,

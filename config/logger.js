@@ -35,7 +35,7 @@ const logLevels = {
 };
 
 const DEFAULT_LEVEL = logLevels.info
-const configLevel = DEFAULT_LEVEL
+let configLevel = DEFAULT_LEVEL
 
 if(process.env.LOG_LEVEL) {
   configLevel = logLevels[(process.env.LOG_LEVEL).toLowerCase()];

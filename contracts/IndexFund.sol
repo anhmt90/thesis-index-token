@@ -24,16 +24,16 @@ contract IndexFund is Ownable, IOracleClient {
     uint256 constant MAX_UINT256 = 2**256 - 1;
 
     // instance of the ERC20 Index Token contract
-    address public indexToken = address(0);
+    address public indexToken;
 
     // instance of the price Oracle contract
-    address public oracleContract = address(0);
+    address public oracleContract;
 
     // instance of uniswap v2 router02
-    address public router = address(0);
+    address public router;
 
     // instance of WETH
-    address public weth = address(0);
+    address public weth;
 
     // set of pending purchases that are yet to finalize
     mapping(uint256 => Purchase) pendingPurchases;
@@ -43,22 +43,32 @@ contract IndexFund is Ownable, IOracleClient {
     string[] public tokenNames;
 
     // keep track of the token amount sold out to the market
-    // default to 1 unit (= 10^-18 token) to avoid dividing by 0 when bootstrapping
-    uint256 public circulation;
+    // default to 1 unit (= 10^-18 tokens) to avoid dividing by 0 when bootstrapping
+    // uint256 public circulation;
 
-    event PriceRequest(uint256 indexed _reqId, address indexed _buyer);
+    event PriceRequest(
+        uint256 indexed _reqId,
+        address indexed _buyer
+    );
+
     event PurchaseReady(
         uint256 indexed _reqId,
         address indexed _buyer,
         uint256 _price
     );
+
     event Purchased(
         uint256 indexed _reqId,
         address indexed _buyer,
         uint256 _amount,
         uint256 _price
     );
-    event PortfolioChanged(string[] names, address[] addresses);
+
+    event PortfolioChanged(
+        string[] names,
+        address[] addresses
+    );
+
     event Swap(uint256[] amounts);
 
     modifier properPortfolio() {
@@ -71,19 +81,15 @@ contract IndexFund is Ownable, IOracleClient {
 
     constructor(address _router) {
         router = _router;
-        weth = IUniswapV2Router02(router).WETH();
-        circulation = 1;
-        indexToken = address(new IndexToken(circulation));
+        weth = IUniswapV2Router02(_router).WETH();
+        indexToken = address(new IndexToken());
     }
 
     function setPorfolio(string[] memory names, address[] memory addresses)
         external
         onlyOwner
     {
-        require(
-            names.length == addresses.length,
-            "IndexFund : Arrays not equal in length!"
-        );
+        require(names.length == addresses.length, "IndexFund : Arrays not equal in length!");
         tokenNames = names;
         for (uint256 i = 0; i < names.length; i++) {
             portfolio[names[i]] = addresses[i];
@@ -93,7 +99,6 @@ contract IndexFund is Ownable, IOracleClient {
 
     function getIndexPrice() public view returns (uint256 _price){
         require(weth != address(0), "IndexFund : Contract WETH not set");
-        require(circulation > 0, "IndexFund : Circulation is 0");
         address[] memory path = new address[](2);
         path[0] = weth;
 
@@ -106,12 +111,15 @@ contract IndexFund is Ownable, IOracleClient {
             uint tokenBalanceOfIndexFund  = IERC20Extended(tokenAddress).balanceOf(address(this));
             _price += tokenPrice * tokenBalanceOfIndexFund ;
         }
-        _price /= circulation;
+        uint256 totalSupply = IERC20Extended(indexToken).totalSupply();
+        if (totalSupply > 0) {
+            _price /= totalSupply;
+        }
     }
 
     // payable: function can exec Tx
-    function orderWithExactETH(uint256[] calldata offchainPrices) public payable properPortfolio {
-        require(offchainPrices.length == 0 || offchainPrices.length == tokenNames.length,
+    function orderWithExactETH(uint256[] calldata _minPrices) public payable properPortfolio {
+        require(_minPrices.length == 0 || _minPrices.length == tokenNames.length,
             "IndexToken: offchainPrices must either be empty or have many entries as the portfolio"
         );
         uint256 _reqId = assignRequestId();
@@ -123,14 +131,14 @@ contract IndexFund is Ownable, IOracleClient {
             MAX_UINT256
         );
 
-        _finalizePurchase(_reqId, offchainPrices);
+        _finalizePurchase(_reqId, _minPrices);
 
         // oracleContract.request(_reqId);
 
         // emit PriceRequest(_reqId, msg.sender);
     }
 
-    function _finalizePurchase(uint256 _reqId, uint256[] calldata offchainPrices) internal returns (bool) {
+    function _finalizePurchase(uint256 _reqId, uint256[] calldata _minPrices) internal returns (bool) {
         // require that the request Id passed in is available
         require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
 
@@ -138,34 +146,21 @@ contract IndexFund is Ownable, IOracleClient {
         require(pendingPurchases[_reqId]._buyer == msg.sender, "IndexFund : Unauthorized purchase claim");
 
         // require that actual price has been queried and received from the oracle
-        // require(pendingPurchases[_reqId]._price != MAX_UINT256, "Price is yet to set");
         pendingPurchases[_reqId]._price = getIndexPrice();
 
-        if (pendingPurchases[_reqId]._price == 0) {
-            pendingPurchases[_reqId]._price = 1;
+        uint256 _amount;
+        if (pendingPurchases[_reqId]._price > 0) {
+            _amount = msg.value / pendingPurchases[_reqId]._price;
+        } else {
+            // default price 1 ETH
+            _amount = msg.value;
         }
 
-        // require that the contract has enough tokens
-        // require(indexToken.balanceOf(address(this)) >= pendingPurchases[_reqId]._ethAmount, "IndexFund : Unable to purchase more tokens than totally available");
-        uint256 _amount = msg.value / pendingPurchases[_reqId]._price;
+        _swapExactETHForTokens(_minPrices);
 
-        //require that the calling entity has enough funds to buy tokens
-        // require(msg.value >= (_amount * pendingPurchases[_reqId]._price) / (10 ** indexToken.decimals()),  "IndexFund : Not enough funds to buy tokens");
-        uint _amountToMint = 0;
+         // mint new <_amount> IndexTokens
         IndexToken _indexToken = IndexToken(indexToken);
-
-        if (_amount > _indexToken.balanceOf(address(this))) {
-            require(_indexToken.owner() == address(this), "IndexFund : IndexFund  Contract is not the owner of Index Token Contract");
-
-            _amountToMint = _amount - _indexToken.balanceOf(address(this));
-            require(_indexToken.mint(_amountToMint), "Unable to mint new Index tokens for buyer");
-        }
-        require(_indexToken.balanceOf(address(this)) >= _amount, "IndexFund : Not enough Index Token balance");
-
-        _swapExactETHForTokens(offchainPrices);
-        require(_indexToken.transfer(msg.sender, _amount), "Unable to transfer tokens to buyer");
-
-        circulation += _amount;
+        require(_indexToken.mint(msg.sender, _amount), "Unable to mint new Index tokens for buyer");
 
         emit Purchased(
             _reqId,
@@ -177,27 +172,27 @@ contract IndexFund is Ownable, IOracleClient {
         return true;
     }
 
-    function _swapExactETHForTokens(uint256[] calldata offchainPrices) internal  {
+    function _swapExactETHForTokens(uint256[] calldata _minPrices) internal  {
         require(weth != address(0), "IndexFund : WETH Token not set");
         address[] memory path = new address[](2);
         path[0] = weth;
-        uint256 ethAmountForOneTokenComponent = msg.value / tokenNames.length;
+        uint256 ethForEachComponent = msg.value / tokenNames.length;
         uint256 amountOutMin = 1;
         for (uint256 i = 0; i < tokenNames.length; i++) {
             address tokenAddr = portfolio[tokenNames[i]];
             require(tokenAddr != address(0), "IndexFund : Token has address 0");
             path[1] = tokenAddr;
 
-            if (offchainPrices.length > 0) {
-                amountOutMin = ethAmountForOneTokenComponent / offchainPrices[i];
+            if (_minPrices.length > 0) {
+                amountOutMin = ethForEachComponent / _minPrices[i];
             }
 
-            uint256[] memory amounts = IUniswapV2Router02(router).swapExactETHForTokens{value: ethAmountForOneTokenComponent}(
-                                            amountOutMin * (10 ** IERC20Extended(tokenAddr).decimals()),
-                                            path,
-                                            address(this),
-                                            block.timestamp + 10
-                                        );
+            uint256[] memory amounts = IUniswapV2Router02(router).swapExactETHForTokens{value: ethForEachComponent}(
+                    amountOutMin * (10 ** IERC20Extended(tokenAddr).decimals()),
+                    path,
+                    address(this),
+                    block.timestamp + 10
+                );
 
             emit Swap(amounts);
         }
@@ -215,7 +210,7 @@ contract IndexFund is Ownable, IOracleClient {
         }
     }
 
-    /** ########################################################################################################## */
+    /** ----------------------------------------------------------------------------------------------------- */
     function rebalance(uint16[] calldata allocation) external onlyOwner {
         require(allocation.length == tokenNames.length, "IndxToken: Wrong size of allocation array");
         uint16 sumAllocation;
@@ -285,7 +280,7 @@ contract IndexFund is Ownable, IOracleClient {
     }
 
 
-    /** ########################################################################################################## */
+    /** ---------------------------------------------------------------------------------------------------- */
     // @notice a callback for Oracle contract to call once the requested data is ready
     function __oracleCallback(uint256 _reqId, uint256 _price)
         external
