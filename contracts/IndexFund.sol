@@ -58,7 +58,6 @@ contract IndexFund is Ownable, IOracleClient {
     );
 
     event Purchased(
-        uint256 indexed _reqId,
         address indexed _buyer,
         uint256 _amount,
         uint256 _price
@@ -122,54 +121,28 @@ contract IndexFund is Ownable, IOracleClient {
         require(_minPrices.length == 0 || _minPrices.length == tokenNames.length,
             "IndexToken: offchainPrices must either be empty or have many entries as the portfolio"
         );
-        uint256 _reqId = assignRequestId();
 
-        pendingPurchases[_reqId] = Purchase(
-            _reqId,
-            msg.sender,
-            msg.value,
-            MAX_UINT256
-        );
+        // calculate the current price based on component tokens
+        uint256 _price = getIndexPrice();
 
-        _finalizePurchase(_reqId, _minPrices);
+        // default price 1 ETH
+        uint256 _amount = msg.value;
 
-        // oracleContract.request(_reqId);
-
-        // emit PriceRequest(_reqId, msg.sender);
-    }
-
-    function _finalizePurchase(uint256 _reqId, uint256[] calldata _minPrices) internal returns (bool) {
-        // require that the request Id passed in is available
-        require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
-
-        // require that the function caller is the buyer placing token order earlier with this _reqId
-        require(pendingPurchases[_reqId]._buyer == msg.sender, "IndexFund : Unauthorized purchase claim");
-
-        // require that actual price has been queried and received from the oracle
-        pendingPurchases[_reqId]._price = getIndexPrice();
-
-        uint256 _amount;
-        if (pendingPurchases[_reqId]._price > 0) {
-            _amount = msg.value / pendingPurchases[_reqId]._price;
-        } else {
-            // default price 1 ETH
-            _amount = msg.value;
+        if (_price > 0) {
+            _amount = msg.value / _price;
         }
 
+        // swap the ETH sent with the transaction for component tokens on Uniswap
         _swapExactETHForTokens(_minPrices);
 
          // mint new <_amount> IndexTokens
-        IndexToken _indexToken = IndexToken(indexToken);
-        require(_indexToken.mint(msg.sender, _amount), "Unable to mint new Index tokens for buyer");
+        require(IndexToken(indexToken).mint(msg.sender, _amount), "Unable to mint new Index tokens for buyer");
 
         emit Purchased(
-            _reqId,
             msg.sender,
             _amount,
-            pendingPurchases[_reqId]._price
+            _price
         );
-
-        return true;
     }
 
     function _swapExactETHForTokens(uint256[] calldata _minPrices) internal  {

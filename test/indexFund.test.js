@@ -177,7 +177,6 @@ describe('Index Fund functionalities', () => {
             expectedIndexPrice = expectedIndexPrice.add(tokenPrice.mul(tokenBalanceOfIndexFund));
         }
 
-        // const circulation = BN(await fundContract.methods.circulation().call());
         const totalSupply = BN(await indexContract.methods.totalSupply().call());
         expectedIndexPrice = expectedIndexPrice.div(totalSupply);
 
