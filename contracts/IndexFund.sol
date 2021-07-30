@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: UNLICENSED
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -10,17 +10,11 @@ import "./interfaces/IWETH.sol";
 import "./libraries/UniswapV2LibraryUpdated.sol";
 import "./interfaces/IERC20Extended.sol";
 import "./IndexToken.sol";
+import "./Fund.sol";
 import "./oracle/IOracleClient.sol";
 import "./oracle/Oracle.sol";
 
-contract IndexFund is Ownable {
-    uint256 constant MAX_UINT256 = 2**256 - 1;
-
-    // instance of the ERC20 Index Token contract
-    address public indexToken;
-
-    // instance of the price Oracle contract
-    address public oracleContract;
+contract IndexFund is Fund, Ownable  {
 
     // instance of uniswap v2 router02
     address public router;
@@ -28,33 +22,28 @@ contract IndexFund is Ownable {
     // instance of WETH
     address public weth;
 
-    // <token_name> is at <address>
-    mapping(string => address) public portfolio;
-    string[] public tokenNames;
-
     // keep track of the token amount sold out to the market
     // default to 1 unit (= 10^-18 tokens) to avoid dividing by 0 when bootstrapping
     // uint256 public circulation;
-
-
-    event Purchase(
-        address indexed _buyer,
-        uint256 _amount,
-        uint256 _price
-    );
 
     event PortfolioChanged(
         string[] names,
         address[] addresses
     );
 
-    event Swap(uint256[] amounts);
+    event SwapForComponents(uint256[] amounts);
+    event SwapForEth(uint256[] amounts);
 
     modifier properPortfolio() {
         require(tokenNames.length > 0, "IndexFund : No token names found in portfolio");
         // for (uint256 i = 0; i < tokenNames.length; i++) {
         //     require(portfolio[tokenNames[i]] != address(0), "IndexFund : A token in portfolio has address 0");
         // }
+        _;
+    }
+
+    modifier onlyOracle() {
+        require(msg.sender == oracle, "IndexFund: caller is not a trusted Oracle");
         _;
     }
 
@@ -88,7 +77,7 @@ contract IndexFund is Ownable {
             uint[] memory amounts = IUniswapV2Router02(router).getAmountsOut(10**18, path);
             uint tokenPrice = amounts[1];
             uint tokenBalanceOfIndexFund  = IERC20Extended(tokenAddress).balanceOf(address(this));
-            _price += tokenPrice * tokenBalanceOfIndexFund ;
+            _price += tokenPrice * tokenBalanceOfIndexFund;
         }
         uint256 totalSupply = IERC20Extended(indexToken).totalSupply();
         if (totalSupply > 0) {
@@ -97,19 +86,20 @@ contract IndexFund is Ownable {
     }
 
     // payable: function can exec Tx
-    function orderWithExactETH(uint256[] calldata _minPrices) public payable properPortfolio {
+    function buy(uint256[] calldata _minPrices) external payable override properPortfolio {
+        require(msg.value > 0, "IndexFund: Investment sum must be greater than 0.");
         require(_minPrices.length == 0 || _minPrices.length == tokenNames.length,
             "IndexToken: offchainPrices must either be empty or have many entries as the portfolio"
         );
 
-        // calculate the current price based on component tokens
-        uint256 _price = getIndexPrice();
-
         // default price 1 ETH
         uint256 _amount = msg.value;
 
+        // calculate the current price based on component tokens
+        uint256 _price = getIndexPrice();
+
         if (_price > 0) {
-            _amount = msg.value / _price;
+            _amount /= _price;
         }
 
         // swap the ETH sent with the transaction for component tokens on Uniswap
@@ -147,9 +137,12 @@ contract IndexFund is Ownable {
                     block.timestamp + 10
                 );
 
-            emit Swap(amounts);
+            emit SwapForComponents(amounts);
         }
     }
+
+
+    /** ----------------------------------------------------------------------------------------------------- */
 
     function getUniswapAmountsOutForExactETH(uint256 ethIn) public view properPortfolio returns (uint256[] memory amounts) {
         require(router != address(0), "IndexFund : Router contract not set!");
@@ -250,21 +243,6 @@ contract IndexFund is Ownable {
     // }
 
 
-    //Ending Token DappTokenSale
-    function endSale() public onlyOwner {
-        // transfer remaining dapp tokens to admin
-        require(
-            IndexToken(indexToken).transfer(payable(owner()), IndexToken(indexToken).balanceOf(address(this))),
-            "Unsold tokens not correctly returned to owner"
-        );
-
-        // destroy contract
-        // the code of the contract on blockchain doesn't really get destroyed since
-        // it's immutable. But the contract will be `disabled` and its state variables
-        // will be set the default value of their datatype.
-        selfdestruct(payable(owner()));
-    }
-
     function setTokenContract(address _indexToken)
         external
         onlyOwner
@@ -274,15 +252,15 @@ contract IndexFund is Ownable {
         return true;
     }
 
-    function setOracle(address _oracleContract)
-        external
-        override
-        onlyOwner
-        returns (bool)
-    {
-        oracleContract = _oracleContract;
-        return true;
-    }
+    // function setOracle(address _oracleContract)
+    //     external
+    //     override
+    //     onlyOwner
+    //     returns (bool)
+    // {
+    //     oracleContract = _oracleContract;
+    //     return true;
+    // }
 
     function getNamesInPortfolio() external view returns (string[] memory) {
         return tokenNames;

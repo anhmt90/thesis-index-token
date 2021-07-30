@@ -146,7 +146,7 @@ describe('Index Fund functionalities', () => {
 
         const ethAmount = web3.utils.toWei(String(tokenAddrs.length), "ether");
         const offchainPrices = []
-        await fundContract.methods.orderWithExactETH(offchainPrices).send({
+        await fundContract.methods.buy(offchainPrices).send({
             from: investor,
             value: ethAmount,
             gas: '5000000'
@@ -165,7 +165,7 @@ describe('Index Fund functionalities', () => {
         assert.strictEqual(investorIndexBalance,ethAmount, `Expected ${ethAmount} itokens but got ${investorIndexBalance}`)
     });
 
-    it('should check Index price', async () => {
+    it('should query Index price', async () => {
         const expectedAmountsOut = await calcAmountsOutForOneETH();
 
         let expectedIndexPrice = BN(0);
@@ -196,7 +196,7 @@ describe('Index Fund functionalities', () => {
 
         const ethAmount = web3.utils.toWei(String(tokenAddrs.length), "ether");
         const offchainPrices = expectedAmountsOut
-        await fundContract.methods.orderWithExactETH(offchainPrices).send({
+        await fundContract.methods.buy(offchainPrices).send({
             from: investor,
             value: ethAmount,
             gas: '5000000'
