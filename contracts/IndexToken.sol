@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: UNLICENSED
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -12,4 +12,11 @@ contract IndexToken is ERC20, Ownable {
         _mint(_to, _amount);
         return true;
     }
+
+    function burn(uint256 _amount) external returns (bool) {
+        // can only burn the tokens that the caller owns
+        _burn(msg.sender, _amount);
+        return true;
+    }
+
 }
