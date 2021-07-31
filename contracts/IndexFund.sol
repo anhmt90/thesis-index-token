@@ -83,14 +83,14 @@ contract IndexFund is Fund, Ownable  {
             address componentAddress = portfolio[tokenNames[i]];
             path[1] = componentAddress;
 
-            uint[] memory amounts = IUniswapV2Router02(router).getAmountsOut(10**18, path);
-            uint tokenPrice = (10**36) / amounts[1];
+            uint[] memory amounts = IUniswapV2Router02(router).getAmountsOut(1000000000000000000, path);
+            uint componentPrice = (1000000000000000000000000000000000000) / amounts[1];
 
             if(totalSupply > 0) {
-                uint256 tokenBalanceOfIndexFund = IERC20Extended(componentAddress).balanceOf(address(this));
-                _price += tokenPrice * tokenBalanceOfIndexFund;
+                uint256 componentBalanceOfIndexFund = IERC20Extended(componentAddress).balanceOf(address(this));
+                _price += componentPrice * componentBalanceOfIndexFund;
             } else {
-                _price += tokenPrice;
+                _price += componentPrice;
             }
         }
 
@@ -120,7 +120,7 @@ contract IndexFund is Fund, Ownable  {
         uint256 _price = getIndexPrice();
 
         if (_price > 0) {
-            _amount = msg.value / _price;
+            _amount = (msg.value * 1000000000000000000) / _price;
         }
 
         // swap the ETH sent with the transaction for component tokens on Uniswap
