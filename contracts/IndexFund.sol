@@ -75,21 +75,29 @@ contract IndexFund is Fund, Ownable  {
 
     function getIndexPrice() public view returns (uint256 _price){
         require(weth != address(0), "IndexFund : Contract WETH not set");
+        uint256 totalSupply = IERC20Extended(indexToken).totalSupply();
         address[] memory path = new address[](2);
         path[0] = weth;
 
         for (uint256 i = 0; i < tokenNames.length; i++) {
-            address tokenAddress = portfolio[tokenNames[i]];
-            path[1] = tokenAddress;
+            address componentAddress = portfolio[tokenNames[i]];
+            path[1] = componentAddress;
 
             uint[] memory amounts = IUniswapV2Router02(router).getAmountsOut(10**18, path);
-            uint tokenPrice = amounts[1];
-            uint tokenBalanceOfIndexFund  = IERC20Extended(tokenAddress).balanceOf(address(this));
-            _price += tokenPrice * tokenBalanceOfIndexFund;
+            uint tokenPrice = (10**36) / amounts[1];
+
+            if(totalSupply > 0) {
+                uint256 tokenBalanceOfIndexFund = IERC20Extended(componentAddress).balanceOf(address(this));
+                _price += tokenPrice * tokenBalanceOfIndexFund;
+            } else {
+                _price += tokenPrice;
+            }
         }
-        uint256 totalSupply = IERC20Extended(indexToken).totalSupply();
+
         if (totalSupply > 0) {
             _price /= totalSupply;
+        } else {
+            _price /= tokenNames.length;
         }
     }
 
@@ -106,13 +114,13 @@ contract IndexFund is Fund, Ownable  {
         );
 
         // default price 1 ETH
-        uint256 _amount = msg.value;
+        uint256 _amount;
 
         // calculate the current price based on component tokens
         uint256 _price = getIndexPrice();
 
         if (_price > 0) {
-            _amount /= _price;
+            _amount = msg.value / _price;
         }
 
         // swap the ETH sent with the transaction for component tokens on Uniswap
