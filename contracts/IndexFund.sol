@@ -205,6 +205,8 @@ contract IndexFund is Fund, Ownable  {
                 _amountOutMin = _amountsOutMin[i];
             }
 
+            IERC20Extended(tokenAddr).approve(router, _amountEachComponent);
+
             uint256[] memory amounts = IUniswapV2Router02(router).swapExactTokensForETH(
                 _amountEachComponent,
                 _amountOutMin,
