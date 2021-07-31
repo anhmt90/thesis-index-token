@@ -26,7 +26,6 @@ contract IndexFund is Fund, Ownable  {
     // default to 1 unit (= 10^-18 tokens) to avoid dividing by 0 when bootstrapping
     // uint256 public circulation;
 
-    
 
     modifier properPortfolio() {
         require(tokenNames.length > 0, "IndexFund : No token names found in portfolio");
@@ -59,6 +58,21 @@ contract IndexFund is Fund, Ownable  {
         emit PortfolioChanged(names, addresses);
     }
 
+
+    /** ----------------------------------------------------------------------------------------------------- */
+
+    function getUniswapAmountsOutForExactETH(uint256 ethIn) public view properPortfolio returns (uint256[] memory amounts) {
+        require(router != address(0), "IndexFund : Router contract not set!");
+        address[] memory path = new address[](2);
+        path[0] = weth;
+
+        amounts = new uint[](tokenNames.length);
+        for (uint256 i = 0; i < tokenNames.length; i++) {
+            path[1] = portfolio[tokenNames[i]];
+            amounts[i] = IUniswapV2Router02(router).getAmountsOut(ethIn, path)[1];
+        }
+    }
+
     function getIndexPrice() public view returns (uint256 _price){
         require(weth != address(0), "IndexFund : Contract WETH not set");
         address[] memory path = new address[](2);
@@ -79,10 +93,15 @@ contract IndexFund is Fund, Ownable  {
         }
     }
 
+    /** ----------------------------------------------------------------------------------------------------- */
+
+
+
+
     // payable: function can exec Tx
-    function buy(uint256[] calldata _minPrices) external payable override properPortfolio {
+    function buy(uint256[] calldata _amountsOutMin) external payable override properPortfolio {
         require(msg.value > 0, "IndexFund: Investment sum must be greater than 0.");
-        require(_minPrices.length == 0 || _minPrices.length == tokenNames.length,
+        require(_amountsOutMin.length == 0 || _amountsOutMin.length == tokenNames.length,
             "IndexToken: offchainPrices must either be empty or have many entries as the portfolio"
         );
 
@@ -97,7 +116,7 @@ contract IndexFund is Fund, Ownable  {
         }
 
         // swap the ETH sent with the transaction for component tokens on Uniswap
-        _swapExactETHForTokens(_minPrices);
+        _swapExactETHForTokens(_amountsOutMin);
 
          // mint new <_amount> IndexTokens
         require(IndexToken(indexToken).mint(msg.sender, _amount), "Unable to mint new Index tokens for buyer");
@@ -109,7 +128,7 @@ contract IndexFund is Fund, Ownable  {
         );
     }
 
-    function _swapExactETHForTokens(uint256[] calldata _minPrices) internal  {
+    function _swapExactETHForTokens(uint256[] calldata _amountsOutMin) internal  {
         require(weth != address(0), "IndexFund : WETH Token not set");
         address[] memory path = new address[](2);
         path[0] = weth;
@@ -124,12 +143,12 @@ contract IndexFund is Fund, Ownable  {
             require(tokenAddr != address(0), "IndexFund : Token has address 0");
             path[1] = tokenAddr;
 
-            if (_minPrices.length > 0) {
-                _amountOutMin = _ethForEachComponent / _minPrices[i];
+            if (_amountsOutMin.length > 0) {
+                _amountOutMin = _amountsOutMin[i];
             }
 
             uint256[] memory amounts = IUniswapV2Router02(router).swapExactETHForTokens{value: _ethForEachComponent}(
-                _amountOutMin * (10 ** IERC20Extended(tokenAddr).decimals()),
+                _amountOutMin,
                 path,
                 address(this),
                 block.timestamp + 10
@@ -141,13 +160,20 @@ contract IndexFund is Fund, Ownable  {
         emit SwapForComponents(tokenNames, _amountEth, _amountsOut);
     }
 
+
+
+
     /** ----------------------------------------------------------------------------------------------------- */
-    function sell(uint256[] calldata _minPrices) external override properPortfolio {
+
+
+
+
+    function sell(uint256[] calldata _amountsOutMin) external override properPortfolio {
         IndexToken _indexToken = IndexToken(indexToken);
         uint256 _amount =  _indexToken.allowance(msg.sender, address(this));
         require(_amount > 0, "IndexFund: a non-zero allowance is required");
 
-        _swapExactTokensForETH(_amount, _minPrices);
+        _swapExactTokensForETH(_amount, _amountsOutMin);
         _indexToken.transferFrom(msg.sender, address(this), _amount);
         _indexToken.burn(_amount);
 
@@ -155,26 +181,25 @@ contract IndexFund is Fund, Ownable  {
     }
 
 
-    function _swapExactTokensForETH(uint256 _amountIndexToken, uint256[] calldata _minPrices) internal  {
+    function _swapExactTokensForETH(uint256 _amountIndexToken, uint256[] calldata _amountsOutMin) internal  {
         address[] memory path = new address[](2);
         path[1] = weth;
         uint256 _amountEachComponent = _amountIndexToken / tokenNames.length;
         uint256[] memory _amountsOut = new uint256[](tokenNames.length);
-        uint256 amountOutMin = 1;
-
+        uint256 _amountOutMin = 1;
 
         for (uint256 i = 0; i < tokenNames.length; i++) {
             address tokenAddr = portfolio[tokenNames[i]];
             require(tokenAddr != address(0), "IndexFund: A token has address 0");
             path[0] = tokenAddr;
 
-            if (_minPrices.length > 0) {
-                amountOutMin = _amountEachComponent / _minPrices[i];
+            if (_amountsOutMin.length > 0) {
+                _amountOutMin = _amountsOutMin[i];
             }
 
             uint256[] memory amounts = IUniswapV2Router02(router).swapExactTokensForETH(
                 _amountEachComponent,
-                amountOutMin * (10 ** IERC20Extended(tokenAddr).decimals()),
+                _amountOutMin,
                 path,
                 msg.sender,
                 block.timestamp + 10
@@ -185,19 +210,6 @@ contract IndexFund is Fund, Ownable  {
         emit SwapForEth(tokenNames, _amountEachComponent, _amountsOut);
     }
 
-    /** ----------------------------------------------------------------------------------------------------- */
-
-    function getUniswapAmountsOutForExactETH(uint256 ethIn) public view properPortfolio returns (uint256[] memory amounts) {
-        require(router != address(0), "IndexFund : Router contract not set!");
-        address[] memory path = new address[](2);
-        path[0] = weth;
-
-        amounts = new uint[](tokenNames.length);
-        for (uint256 i = 0; i < tokenNames.length; i++) {
-            path[1] = portfolio[tokenNames[i]];
-            amounts[i] = IUniswapV2Router02(router).getAmountsOut(ethIn, path)[1];
-        }
-    }
 
     /** ----------------------------------------------------------------------------------------------------- */
     function rebalance(uint16[] calldata allocation) external onlyOwner {
