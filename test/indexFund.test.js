@@ -3,6 +3,8 @@ const assert = require('assert');
 const web3 = require('../src/getWeb3');
 const BN = web3.utils.toBN;
 
+const log = require('../config/logger');
+
 const {
     INDEX_TOKEN_JSON,
     INDEX_FUND_JSON,

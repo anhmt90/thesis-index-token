@@ -26,13 +26,7 @@ contract IndexFund is Fund, Ownable  {
     // default to 1 unit (= 10^-18 tokens) to avoid dividing by 0 when bootstrapping
     // uint256 public circulation;
 
-    event PortfolioChanged(
-        string[] names,
-        address[] addresses
-    );
-
-    event SwapForComponents(uint256[] amounts);
-    event SwapForEth(uint256[] amounts);
+    
 
     modifier properPortfolio() {
         require(tokenNames.length > 0, "IndexFund : No token names found in portfolio");
@@ -119,28 +113,77 @@ contract IndexFund is Fund, Ownable  {
         require(weth != address(0), "IndexFund : WETH Token not set");
         address[] memory path = new address[](2);
         path[0] = weth;
-        uint256 ethForEachComponent = msg.value / tokenNames.length;
-        uint256 amountOutMin = 1;
+
+        uint256 _amountEth = msg.value;
+        uint256 _ethForEachComponent = msg.value / tokenNames.length;
+        uint256[] memory _amountsOut = new uint256[](tokenNames.length);
+        uint256 _amountOutMin = 1;
+
         for (uint256 i = 0; i < tokenNames.length; i++) {
             address tokenAddr = portfolio[tokenNames[i]];
             require(tokenAddr != address(0), "IndexFund : Token has address 0");
             path[1] = tokenAddr;
 
             if (_minPrices.length > 0) {
-                amountOutMin = ethForEachComponent / _minPrices[i];
+                _amountOutMin = _ethForEachComponent / _minPrices[i];
             }
 
-            uint256[] memory amounts = IUniswapV2Router02(router).swapExactETHForTokens{value: ethForEachComponent}(
-                    amountOutMin * (10 ** IERC20Extended(tokenAddr).decimals()),
-                    path,
-                    address(this),
-                    block.timestamp + 10
-                );
+            uint256[] memory amounts = IUniswapV2Router02(router).swapExactETHForTokens{value: _ethForEachComponent}(
+                _amountOutMin * (10 ** IERC20Extended(tokenAddr).decimals()),
+                path,
+                address(this),
+                block.timestamp + 10
+            );
 
-            emit SwapForComponents(amounts);
+            _amountsOut[i] = amounts[1];
+
         }
+        emit SwapForComponents(tokenNames, _amountEth, _amountsOut);
     }
 
+    /** ----------------------------------------------------------------------------------------------------- */
+    function sell(uint256[] calldata _minPrices) external override properPortfolio {
+        IndexToken _indexToken = IndexToken(indexToken);
+        uint256 _amount =  _indexToken.allowance(msg.sender, address(this));
+        require(_amount > 0, "IndexFund: a non-zero allowance is required");
+
+        _swapExactTokensForETH(_amount, _minPrices);
+        _indexToken.transferFrom(msg.sender, address(this), _amount);
+        _indexToken.burn(_amount);
+
+        emit Sale(msg.sender, _amount);
+    }
+
+
+    function _swapExactTokensForETH(uint256 _amountIndexToken, uint256[] calldata _minPrices) internal  {
+        address[] memory path = new address[](2);
+        path[1] = weth;
+        uint256 _amountEachComponent = _amountIndexToken / tokenNames.length;
+        uint256[] memory _amountsOut = new uint256[](tokenNames.length);
+        uint256 amountOutMin = 1;
+
+
+        for (uint256 i = 0; i < tokenNames.length; i++) {
+            address tokenAddr = portfolio[tokenNames[i]];
+            require(tokenAddr != address(0), "IndexFund: A token has address 0");
+            path[0] = tokenAddr;
+
+            if (_minPrices.length > 0) {
+                amountOutMin = _amountEachComponent / _minPrices[i];
+            }
+
+            uint256[] memory amounts = IUniswapV2Router02(router).swapExactTokensForETH(
+                _amountEachComponent,
+                amountOutMin * (10 ** IERC20Extended(tokenAddr).decimals()),
+                path,
+                msg.sender,
+                block.timestamp + 10
+            );
+            _amountsOut[i] = amounts[1];
+
+        }
+        emit SwapForEth(tokenNames, _amountEachComponent, _amountsOut);
+    }
 
     /** ----------------------------------------------------------------------------------------------------- */
 

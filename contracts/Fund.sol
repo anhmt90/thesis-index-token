@@ -22,7 +22,29 @@ abstract contract Fund {
         uint256 _price
     );
 
+    event Sale(
+        address indexed _shareholder,
+        uint256 _amount
+    );
+
+    event PortfolioChanged(
+        string[] names,
+        address[] addresses
+    );
+
+    event SwapForComponents(
+        string[] tokens,
+        uint256 amountEth,
+        uint256[] amountsOut
+    );
+
+    event SwapForEth(
+        string[] tokens,
+        uint256 amountEach,
+        uint256[] amountsEth
+    );
+
     function buy(uint256[] calldata _minPrices) external payable virtual;
 
-    // function sell(uint256[] calldata _minPrices) external virtual;
+    function sell(uint256[] calldata _minPrices) external virtual;
 }
