@@ -53,7 +53,7 @@ const expectAmountsOut = async (eth2Component = true, amountEthInEach = '1') => 
         const decimals = await componentContract.methods.decimals().call();
 
         path[eth2Component ? 1 : 0] = componentAddrs[i];
-        const amountIn = (amountEthInEach.length <= 10) ?  float2TokenUnits(amountEthInEach, decimals) : amountEthInEach;
+        const amountIn = (amountEthInEach.length <= 10) ? float2TokenUnits(amountEthInEach, decimals) : amountEthInEach;
         // const amountIn = float2TokenUnits(amountEthInEach, decimals);
         const amountsOut = await routerContract.methods.getAmountsOut(amountIn, path).call();
         expectedAmountsOut.push(amountsOut[1]);
@@ -318,7 +318,8 @@ describe('IndexFund functionalities', () => {
         const saleAmount = BN(indexBalanceOfInvestorBefore).mul(BN(10)).div(BN(100)).toString();
         console.log('SALE AMOUNT: ', saleAmount);
 
-        const expectedEthOut = await expectAmountsOut(false, BN(saleAmount).div(BN(componentAddrs.length)).toString());
+        const swapAmountEachComponent = BN(saleAmount).div(BN(componentAddrs.length));
+        const expectedEthOut = await expectAmountsOut(false, swapAmountEachComponent.toString());
         console.log('EXPECTED AMOUNTS OUT: ', expectedEthOut);
 
         await indexContract.methods.approve(allAddrs.indexFund, saleAmount).send({
@@ -329,8 +330,18 @@ describe('IndexFund functionalities', () => {
         const allowanceOfIndexFund = await indexContract.methods.allowance(investor, allAddrs.indexFund).call();
         assert(allowanceOfIndexFund, saleAmount, 'saleAmount does not match allowance');
 
+        /**
+         * -----------------------------------------------------------------
+         * Get values before execution for later comparison
+         */
         const ethOfInvestorBefore = await web3.eth.getBalance(investor);
         console.log("ethOfInvestorBefore", ethOfInvestorBefore);
+
+        const componentBalancesOfIndexFundBefore = [];
+        for (i = 0; i < componentAddrs.length; i++) {
+            const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
+            componentBalancesOfIndexFundBefore[i] = BN(await componentContract.methods.balanceOf(allAddrs.indexFund).call());
+        }
 
         /**
          * -----------------------------------------------------------------
@@ -368,6 +379,19 @@ describe('IndexFund functionalities', () => {
             `Incorrect investor's Index balance: expected ${expectedIndexBalanceOfInvestor}, but got ${actualIndexBalanceOfInvestor}`
         );
 
-        // Test component balance of index fund
+        // Test component balances of index
+        /**
+         * -----------------------------------------------------------------
+         * check the decreases in component balances of IndexFund
+         */
+        for (i = 0; i < componentAddrs.length; i++) {
+            const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
+            const componentBalanceOfIndexFundAfter = await componentContract.methods.balanceOf(allAddrs.indexFund).call();
+            const expectedComponentBalance = componentBalancesOfIndexFundBefore[i].sub(swapAmountEachComponent).toString();
+            assert.strictEqual(componentBalanceOfIndexFundAfter, expectedComponentBalance,
+                `Wrong resulted component balance with component ${i}, expected ${expectedComponentBalance}, but got ${componentBalanceOfIndexFundAfter}`
+            );
+        }
+
     });
 });
