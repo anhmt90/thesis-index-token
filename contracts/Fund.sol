@@ -12,7 +12,7 @@ abstract contract Fund {
     // instance of the price Oracle contract
     address public oracle;
 
-    // <token_name> is at <address>
+    // <componentToken_name> is at <componentToken_address>
     mapping(string => address) public portfolio;
     string[] public tokenNames;
 

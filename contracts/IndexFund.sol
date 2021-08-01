@@ -43,6 +43,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
 
     constructor(address _router){
+        oracle = address(new Oracle(msg.sender));
         router = _router;
         weth = IUniswapV2Router02(_router).WETH();
         indexToken = address(new IndexToken());
@@ -63,7 +64,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         onlyOracle
         notLocked(Functions.SET_PORTFOLIO)
     {
-        require(componentNames.length == componentAddrs.length, "IndexFund : Arrays not equal in length!");
+        require(componentNames.length == componentAddrs.length, "IndexFund: NAME and ADDRESS arrays not equal in length!");
         tokenNames = componentNames;
         for (uint256 i = 0; i < componentNames.length; i++) {
             require(componentAddrs[i] != address(0), "IndexFund: a component address is 0");
