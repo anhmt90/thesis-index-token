@@ -87,16 +87,85 @@ const getComponentBalancesOfIndexFund = async () => {
     return componentBalanceOfIndexFund;
 };
 
-const assertCorrectDiffTwoArrays = ({ greaterArr, smallerArr, expectedDiffs }) => {
-    assert.strictEqual(greaterArr.length, smallerArr.length,
-        `Two array do not have equal length, greaterArray.length=${greaterArr.length}, smallerArr.length=${smallerArr.length}`
+const assertCorrectDiffTwoArrays = ({ arrBefore, arrCurrent, expectedDiffs }) => {
+    assert.strictEqual(arrBefore.length, arrCurrent.length,
+        `Two array do not have equal length, greaterArray.length=${arrBefore.length}, smallerArr.length=${arrCurrent.length}`
     );
-    for (i = 0; i < greaterArr.length; i++) {
-        const actualDiff = greaterArr[i].sub(smallerArr[i]);
+    for (i = 0; i < arrBefore.length; i++) {
+        const actualDiff = arrCurrent[i].sub(arrBefore[i]);
         assert.deepStrictEqual(actualDiff.toString(), expectedDiffs[i].toString(),
             `Wrong resulted at component ${i}, expected ${expectedDiffs[i]}, but got ${actualDiff}`
         );
     }
+};
+
+const negateBNArray = (arr) => {
+    return arr.map(el => el.neg());
+};
+
+const getTxFees = async (tx) => {
+    const gasUsed = tx.gasUsed;
+    const gasPrice = (await web3.eth.getTransaction(tx.transactionHash)).gasPrice;
+    const txFees = BN(gasUsed).mul(BN(gasPrice));
+    return txFees;
+};
+
+const snapshotInvestor = async () => {
+    const ethBalance = BN(await web3.eth.getBalance(investor));
+    const indexBalance = BN(await indexContract.methods.balanceOf(investor).call());
+    return {
+        ethBalance,
+        indexBalance
+    };
+};
+
+const snapshotIndexFund = async () => {
+    const ethBalance = BN(await web3.eth.getBalance(allAddrs.indexFund));
+    const indexBalance = BN(await indexContract.methods.balanceOf(allAddrs.indexFund).call());
+    const componentBalances = await getComponentBalancesOfIndexFund();
+    return {
+        ethBalance,
+        indexBalance,
+        componentBalances
+    };
+};
+
+const snapshotIndexToken = async () => {
+    const totalSupply = BN(await indexContract.methods.totalSupply().call());
+    return { totalSupply };
+};
+
+const assertAmountDiff = (before, current, expectedDiff) => {
+    const actualDiff = current.sub(before).toString();
+    assert.deepStrictEqual(actualDiff, expectedDiff.toString(),
+        `Expected ${expectedDiff}, but got ${actualDiff}`
+    );
+};
+
+const assertEthAndIndexDiffs = (stateBefore, stateCurrent, expectedDiffs) => {
+    assertAmountDiff(stateBefore.ethBalance, stateCurrent.ethBalance, expectedDiffs.ethBalance);
+    assertAmountDiff(stateBefore.indexBalance, stateCurrent.indexBalance, expectedDiffs.indexBalance);
+};
+
+const assertInvestorState = async (stateBefore, expectedDiffs) => {
+    const stateCurrent = await snapshotInvestor();
+    assertEthAndIndexDiffs(stateBefore, stateCurrent, expectedDiffs);
+};
+
+const assertIndexFundState = async (stateBefore, expectedDiffs) => {
+    const stateCurrent = await snapshotIndexFund();
+    assertEthAndIndexDiffs(stateBefore, stateCurrent, expectedDiffs);
+
+    assertCorrectDiffTwoArrays({
+        arrBefore: stateBefore.componentBalances,
+        arrCurrent: await getComponentBalancesOfIndexFund(),
+        expectedDiffs: expectedDiffs.componentBalances
+    });
+};
+
+const assertIndexTokenState = async (stateBefore, expectedDiffs) => {
+    const stateCurrent = await snapshotIndexToken();
+    assertAmountDiff(stateBefore.totalSupply, stateCurrent.totalSupply, expectedDiffs.totalSupply);
 };
 
 
@@ -188,6 +257,7 @@ describe('IndexFund functionalities', () => {
     });
 
     it('should return correct *nominal* Index price when totalSupply = 0', async () => {
+        snapshotIndexToken();
         const totalSupply = BN(await indexContract.methods.totalSupply().call());
         assert.strictEqual(totalSupply.eq(BN(0)), true, 'Total supply > 0');
 
@@ -204,10 +274,8 @@ describe('IndexFund functionalities', () => {
 
     });
 
-    it('should properly buy Index Tokens (nominal price calc + no frontrunning prevention)', async () => {
-        const totalSupply = BN(await indexContract.methods.totalSupply().call());
-        assert.strictEqual(totalSupply.eq(BN(0)), true, 'Total supply > 0');
 
+    it('should properly buy Index Tokens (nominal price calculation + no frontrunning prevention)', async () => {
         const expectedComponentAmountsOut = await expectAmountsOut();
         const componentPrices = await expectPrices();
         let componentPriceSum = BN(0);
@@ -216,35 +284,44 @@ describe('IndexFund functionalities', () => {
         }
         const indexPrice = componentPriceSum.div(BN(componentPrices.length));
 
-        const ethAmount = web3.utils.toWei(String(componentAddrs.length), "ether");
+        const ethAmount = BN(web3.utils.toWei(String(componentAddrs.length), "ether"));
         const expectedIndexTokenAmount = BN(ethAmount + '0'.repeat(18)).div(indexPrice);
 
-        const componentBalancesOfIndexFundBefore = await getComponentBalancesOfIndexFund();
+        // ---------------------------------------------------
+        const indexFundStateBefore = await snapshotIndexFund();
+        const investorStateBefore = await snapshotInvestor();
+        const indexTokenStateBefore = await snapshotIndexToken();
+        assert.strictEqual(indexTokenStateBefore.totalSupply.eq(BN(0)), true, 'Total supply > 0');
 
-        await fundContract.methods.buy([]).send({
+
+        // ---------------------------------------------------
+        const tx = await fundContract.methods.buy([]).send({
             from: investor,
             value: ethAmount,
             gas: '5000000'
         });
 
-        const indexFundEthBalance = await web3.eth.getBalance(allAddrs.indexFund);
-        assert.strictEqual(indexFundEthBalance, '0');
+        const txFees = await getTxFees(tx);
 
-        const investorIndexBalance = await indexContract.methods.balanceOf(investor).call();
-        assert.strictEqual(investorIndexBalance, expectedIndexTokenAmount.toString(), `Expected ${expectedIndexTokenAmount} itokens but got ${investorIndexBalance}`);
+        const expectedIndexFundDiffs = {
+            ethBalance: BN(0),
+            indexBalance: BN(0),
+            componentBalances: expectedComponentAmountsOut
+        };
 
+        const expectedInvestorDiffs = {
+            ethBalance: ethAmount.add(txFees).neg(),
+            indexBalance: expectedIndexTokenAmount,
+        };
 
-        for (i = 0; i < componentAddrs.length; i++) {
-            const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
-            const actualAmountOut = await componentContract.methods.balanceOf(allAddrs.indexFund).call();
-            assert.strictEqual(actualAmountOut, expectedComponentAmountsOut[i]);
-        }
+        const expectedIndexTokenDiffs = {
+            totalSupply: expectedIndexTokenAmount
+        };
 
-        assertCorrectDiffTwoArrays({
-            greaterArr: await getComponentBalancesOfIndexFund(),
-            smallerArr: componentBalancesOfIndexFundBefore,
-            expectedDiffs: expectedComponentAmountsOut
-        })
+        await assertIndexFundState(indexFundStateBefore, expectedIndexFundDiffs);
+        await assertInvestorState(investorStateBefore, expectedInvestorDiffs);
+        await assertIndexTokenState(indexTokenStateBefore, expectedIndexTokenDiffs);
+
     });
 
 
@@ -253,14 +330,14 @@ describe('IndexFund functionalities', () => {
         assert.strictEqual(totalSupply.gt(BN(0)), true, 'Total supply is 0');
 
 
-        const expectedAmountsOut = await expectPrices();
+        const expectedComponentPrices = await expectPrices();
         let expectedIndexPrice = BN(0);
-        for (let i = 0; i < expectedAmountsOut.length; i++) {
+        for (let i = 0; i < expectedComponentPrices.length; i++) {
             const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
-            const componentPrice = BN(expectedAmountsOut[i]);
+            const componentPrice = BN(expectedComponentPrices[i]);
             // console.log('tokenPrice', tokenPrice);
-            const tokenBalanceOfIndexFund = BN(await componentContract.methods.balanceOf(allAddrs.indexFund).call());
-            expectedIndexPrice = expectedIndexPrice.add(componentPrice.mul(tokenBalanceOfIndexFund));
+            const componentBalanceOfIndexFund = BN(await componentContract.methods.balanceOf(allAddrs.indexFund).call());
+            expectedIndexPrice = expectedIndexPrice.add(componentPrice.mul(componentBalanceOfIndexFund));
         }
 
         expectedIndexPrice = expectedIndexPrice.div(totalSupply);
@@ -273,12 +350,9 @@ describe('IndexFund functionalities', () => {
 
 
 
-    it('should purchase Index Tokens properly (regular price calc + with frontrunning prevention)', async () => {
-        const indexTokenTotalSupplyBefore = BN(await indexContract.methods.totalSupply().call());
-        assert.strictEqual(indexTokenTotalSupplyBefore.gt(BN(0)), true, 'Total supply is 0');
-
-        const expectedComponentAmountsOut = await expectAmountsOut();
-
+    it('should purchase Index Tokens properly (regular price calcualtion + with frontrunning prevention)', async () => {
+        const indexTokenStateBefore = await snapshotIndexToken();
+        assert.strictEqual(indexTokenStateBefore.totalSupply.gt(BN(0)), true, 'Total supply is 0');
         /**
          * -----------------------------------------------------------------
          * compute the expected tokens to mint
@@ -289,143 +363,117 @@ describe('IndexFund functionalities', () => {
         for (i = 0; i < componentPricesBefore.length; i++) {
             indexPrice = indexPrice.add(componentBalancesOfIndexFundBefore[i].mul(BN(componentPricesBefore[i])));
         }
-        indexPrice = indexPrice.div(indexTokenTotalSupplyBefore);
+        indexPrice = indexPrice.div(indexTokenStateBefore.totalSupply);
 
-        const ethAmount = web3.utils.toWei(String(componentAddrs.length), "ether");
-        const expectedAmountToMint = BN(ethAmount + '0'.repeat(18)).div(indexPrice);
+        const ethAmount = BN(web3.utils.toWei(String(componentAddrs.length), "ether"));
+        const expectedAmountToMint = BN(ethAmount.toString() + '0'.repeat(18)).div(indexPrice);
 
         /**
          * -----------------------------------------------------------------
-         * inspect the index token balance of investor before buying for later comparison
+         * calculated expected output amounts of component tokens
          */
-        const balanceOfInvestorBefore = await indexContract.methods.balanceOf(investor).call();
+        const expectedComponentAmountsOut = await expectAmountsOut();
+
+        /**
+         * -----------------------------------------------------------------
+         * snapshots and calculate expected differences after the state transition
+         */
+        // const balanceOfInvestorBefore = await indexContract.methods.balanceOf(investor).call();
+        const indexFundStateBefore = await snapshotIndexFund();
+        const investorStateBefore = await snapshotInvestor();
 
         /**
          * -----------------------------------------------------------------
          * Execute the purchasing process on-chain
          */
-        await fundContract.methods.buy(expectedComponentAmountsOut).send({
+        const tx = await fundContract.methods.buy(expectedComponentAmountsOut).send({
             from: investor,
             value: ethAmount,
             gas: '5000000'
         });
 
-        /**
-         * -----------------------------------------------------------------
-         * Make sure IndexFund does not hold ETH
-         */
-        const indexFundEthBalance = await web3.eth.getBalance(allAddrs.indexFund);
-        assert.strictEqual(indexFundEthBalance, '0');
+        const txFees = await getTxFees(tx);
 
-        /**
-         * -----------------------------------------------------------------
-         * check the increase in index token balance of investor
-         */
-        const expectedInvestorIndexBalance = BN(balanceOfInvestorBefore).add(expectedAmountToMint).toString();
-        const actualInvestorIndexBalance = await indexContract.methods.balanceOf(investor).call();
+        const expectedIndexFundDiffs = {
+            ethBalance: BN(0),
+            indexBalance: BN(0),
+            componentBalances: expectedComponentAmountsOut
+        };
 
-        assert.strictEqual(actualInvestorIndexBalance, expectedInvestorIndexBalance,
-            `Expected ${expectedInvestorIndexBalance} index tokens but got ${actualInvestorIndexBalance}`
-        );
+        const expectedInvestorDiffs = {
+            ethBalance: ethAmount.add(txFees).neg(),
+            indexBalance: expectedAmountToMint,
+        };
 
+        const expectedIndexTokenDiffs = {
+            totalSupply: expectedAmountToMint
+        };
 
-        /**
-         * -----------------------------------------------------------------
-         * check the increases in component balances of IndexFund
-         */
-        assertCorrectDiffTwoArrays({
-            greaterArr: await getComponentBalancesOfIndexFund(),
-            smallerArr: componentBalancesOfIndexFundBefore,
-            expectedDiffs: expectedComponentAmountsOut
-        })
+        await assertIndexFundState(indexFundStateBefore, expectedIndexFundDiffs);
+        await assertInvestorState(investorStateBefore, expectedInvestorDiffs);
+        await assertIndexTokenState(indexTokenStateBefore, expectedIndexTokenDiffs);
+
     });
 
 
-
     it('should sell back Index Tokens properly', async () => {
+        // selling 9 index tokens
+        const saleIndexAmount = BN('9' + '0'.repeat(18));
+        console.log('SALE AMOUNT: ', saleIndexAmount.toString());
 
-        let indexBalanceOfInvestorBefore = await indexContract.methods.balanceOf(investor).call();
-        console.log('INVESTOR BALANCE: ', indexBalanceOfInvestorBefore);
+        const expectedEachComponentAmountIn = saleIndexAmount.div(BN(componentAddrs.length));
+        const expectedEthAmountsOut = await expectAmountsOut(false, expectedEachComponentAmountIn.toString());
+        console.log('EXPECTED ETH AMOUNTS OUT: ', expectedEthAmountsOut);
 
-        // selling 10% of index tokens
-        const saleAmount = BN(indexBalanceOfInvestorBefore).mul(BN(10)).div(BN(100)).toString();
-        console.log('SALE AMOUNT: ', saleAmount);
-
-        const swapAmountEachComponent = BN(saleAmount).div(BN(componentAddrs.length));
-        const expectedEthOut = await expectAmountsOut(false, swapAmountEachComponent.toString());
-        console.log('EXPECTED AMOUNTS OUT: ', expectedEthOut);
-
-        await indexContract.methods.approve(allAddrs.indexFund, saleAmount).send({
+        await indexContract.methods.approve(allAddrs.indexFund, saleIndexAmount.toString()).send({
             from: investor,
             gas: '5000000'
         });
 
         const allowanceOfIndexFund = await indexContract.methods.allowance(investor, allAddrs.indexFund).call();
-        assert(allowanceOfIndexFund, saleAmount, 'saleAmount does not match allowance');
+        assert(allowanceOfIndexFund, saleIndexAmount.toString(), 'saleAmount does not match allowance');
 
         /**
          * -----------------------------------------------------------------
          * Get values before execution for later comparison
          */
-        const ethOfInvestorBefore = await web3.eth.getBalance(investor);
-        console.log("ethOfInvestorBefore", ethOfInvestorBefore);
 
-        const componentBalancesOfIndexFundBefore = await getComponentBalancesOfIndexFund();
+        const indexFundStateBefore = await snapshotIndexFund();
+        const investorStateBefore = await snapshotInvestor();
+        console.log("INVESTOR ETH BALANCE", investorStateBefore.ethBalance.toString());
+        console.log('INVESTOR INDEX BALANCE: ', investorStateBefore.indexBalance.toString());
+        const indexTokenStateBefore = await snapshotIndexToken();
 
         /**
          * -----------------------------------------------------------------
          * Execute the selling process on-chain
          */
-        const tx = await fundContract.methods.sell(expectedEthOut).send({
+        const tx = await fundContract.methods.sell(expectedEthAmountsOut).send({
             from: investor,
             gas: '5000000'
         });
 
-        const gasUsed = tx.gasUsed;
-        const gasPrice = (await web3.eth.getTransaction(tx.transactionHash)).gasPrice;
-        const txFees = BN(gasUsed).mul(BN(gasPrice));
+        const txFees = await getTxFees(tx);
         console.log("txFees", txFees.toString());
 
-        let expectedTotalEthOut = BN(0);
-        expectedEthOut.map(amountOut => expectedTotalEthOut = expectedTotalEthOut.add(BN(amountOut)));
-        console.log("expectedTotalEthOut", expectedTotalEthOut.toString());
+        const expectedIndexFundDiffs = {
+            ethBalance: BN(0),
+            indexBalance: BN(0),
+            componentBalances: Array(componentAddrs.length).fill(expectedEachComponentAmountIn.neg())
+        };
 
-        const expectedEthIncreaseOfInvestor = expectedTotalEthOut.sub(txFees);
-        const expectedCurrentEthOfInvestor = BN(ethOfInvestorBefore).add(expectedEthIncreaseOfInvestor).toString();
+        const expectedInvestorDiffs = {
+            ethBalance: expectedEthAmountsOut.reduce((accum, ethAmount) => accum.add(BN(ethAmount)), BN(0)).sub(txFees),
+            indexBalance: saleIndexAmount.neg(),
+        };
 
-        const actualEthOfInvestor = await web3.eth.getBalance(investor);
-        console.log("actualEthOfInvestor", actualEthOfInvestor);
+        const expectedIndexTokenDiffs = {
+            totalSupply: saleIndexAmount.neg()
+        };
 
-        assert.deepStrictEqual(actualEthOfInvestor, expectedCurrentEthOfInvestor,
-            `Incorrect investor's ETH balance: expected ${expectedCurrentEthOfInvestor}, but got ${actualEthOfInvestor}`
-        );
-
-        const actualIndexBalanceOfInvestor = await indexContract.methods.balanceOf(investor).call();
-        const expectedIndexBalanceOfInvestor = BN(indexBalanceOfInvestorBefore).sub(BN(saleAmount)).toString();
-        assert.deepStrictEqual(actualIndexBalanceOfInvestor, expectedIndexBalanceOfInvestor,
-            `Incorrect investor's Index balance: expected ${expectedIndexBalanceOfInvestor}, but got ${actualIndexBalanceOfInvestor}`
-        );
-
-        // Test component balances of index
-        /**
-         * -----------------------------------------------------------------
-         * check the decreases in component balances of IndexFund
-         */
-        assertCorrectDiffTwoArrays({
-            greaterArr: componentBalancesOfIndexFundBefore,
-            smallerArr: await getComponentBalancesOfIndexFund(),
-            expectedDiffs: Array(componentBalancesOfIndexFundBefore.length).fill(swapAmountEachComponent)
-        });
-
-
-        // for (i = 0; i < componentAddrs.length; i++) {
-        //     const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
-        //     const componentBalanceOfIndexFundAfter = await componentContract.methods.balanceOf(allAddrs.indexFund).call();
-        //     const expectedComponentBalance = componentBalancesOfIndexFundBefore[i].sub(swapAmountEachComponent).toString();
-        //     assert.strictEqual(componentBalanceOfIndexFundAfter, expectedComponentBalance,
-        //         `Wrong resulted component balance with component ${i}, expected ${expectedComponentBalance}, but got ${componentBalanceOfIndexFundAfter}`
-        //     );
-        // }
+        await assertIndexFundState(indexFundStateBefore, expectedIndexFundDiffs);
+        await assertInvestorState(investorStateBefore, expectedInvestorDiffs);
+        await assertIndexTokenState(indexTokenStateBefore, expectedIndexTokenDiffs);
 
     });
 });
