@@ -44,7 +44,7 @@ abstract contract Fund {
         uint256[] amountsEth
     );
 
-    function buy(uint256[] calldata _minPrices) external payable virtual;
+    function buy(uint256[] calldata _amountsOutMin) external payable virtual;
 
-    function sell(uint256[] calldata _minPrices) external virtual;
+    function sell(uint256 _amount, uint256[] calldata _amountsOutMin) external virtual;
 }

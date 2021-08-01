@@ -176,10 +176,11 @@ contract IndexFund is Fund, Ownable  {
 
 
 
-    function sell(uint256[] calldata _amountsOutMin) external override properPortfolio {
-        IndexToken _indexToken = IndexToken(indexToken);
-        uint256 _amount =  _indexToken.allowance(msg.sender, address(this));
+    function sell(uint256 _amount, uint256[] calldata _amountsOutMin) external override properPortfolio {
         require(_amount > 0, "IndexFund: a non-zero allowance is required");
+
+        IndexToken _indexToken = IndexToken(indexToken);
+        require(_amount <= _indexToken.allowance(msg.sender, address(this)), "IndexFund: allowance not enough");
 
         _swapExactTokensForETH(_amount, _amountsOutMin);
         _indexToken.transferFrom(msg.sender, address(this), _amount);
