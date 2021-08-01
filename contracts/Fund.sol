@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: UNLICENSED
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 
@@ -47,4 +47,10 @@ abstract contract Fund {
     function buy(uint256[] calldata _amountsOutMin) external payable virtual;
 
     function sell(uint256 _amount, uint256[] calldata _amountsOutMin) external virtual;
+
+    function announcePortfolioUpdating(string calldata _message) external virtual;
+
+    function announcePortfolioRebalancing(string calldata _message) external virtual;
+
+    function setOracle(address _oracle) external virtual;
 }

@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+// import "@openzeppelin/contracts/access/Ownable.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
@@ -11,10 +11,11 @@ import "./libraries/UniswapV2LibraryUpdated.sol";
 import "./interfaces/IERC20Extended.sol";
 import "./IndexToken.sol";
 import "./Fund.sol";
+import "./TimeLock.sol";
 import "./oracle/IOracleClient.sol";
 import "./oracle/Oracle.sol";
 
-contract IndexFund is Fund, Ownable  {
+contract IndexFund is Fund, TimeLock, Ownable {
 
     // instance of uniswap v2 router02
     address public router;
@@ -36,26 +37,41 @@ contract IndexFund is Fund, Ownable  {
     }
 
     modifier onlyOracle() {
-        require(msg.sender == oracle, "IndexFund: caller is not a trusted Oracle");
+        require(msg.sender == oracle, "IndexFund: caller is not the trusted Oracle");
         _;
     }
 
-    constructor(address _router) {
+
+    constructor(address _router){
         router = _router;
         weth = IUniswapV2Router02(_router).WETH();
         indexToken = address(new IndexToken());
     }
 
-    function setPorfolio(string[] memory names, address[] memory addresses)
+
+    function announcePortfolioUpdating(string calldata _message) external override onlyOracle {
+        lock2days(Functions.SET_PORTFOLIO, _message);
+    }
+
+    function announcePortfolioRebalancing(string calldata _message) external override onlyOwner {
+        lock2days(Functions.REBALANCING, _message);
+    }
+
+
+    function setPorfolio(string[] memory componentNames, address[] memory componentAddrs)
         external
-        onlyOwner
+        onlyOracle
+        notLocked(Functions.SET_PORTFOLIO)
     {
-        require(names.length == addresses.length, "IndexFund : Arrays not equal in length!");
-        tokenNames = names;
-        for (uint256 i = 0; i < names.length; i++) {
-            portfolio[names[i]] = addresses[i];
+        require(componentNames.length == componentAddrs.length, "IndexFund : Arrays not equal in length!");
+        tokenNames = componentNames;
+        for (uint256 i = 0; i < componentNames.length; i++) {
+            require(componentAddrs[i] != address(0), "IndexFund: a component address is 0");
+            portfolio[componentNames[i]] = componentAddrs[i];
         }
-        emit PortfolioChanged(names, addresses);
+        emit PortfolioChanged(componentNames, componentAddrs);
+
+        lockUnlimited(Functions.SET_PORTFOLIO);
     }
 
 
@@ -172,9 +188,6 @@ contract IndexFund is Fund, Ownable  {
 
 
     /** ----------------------------------------------------------------------------------------------------- */
-
-
-
 
     function sell(uint256 _amount, uint256[] calldata _amountsOutMin) external override properPortfolio {
         require(_amount > 0, "IndexFund: a non-zero allowance is required");
@@ -318,15 +331,14 @@ contract IndexFund is Fund, Ownable  {
         return true;
     }
 
-    // function setOracle(address _oracleContract)
-    //     external
-    //     override
-    //     onlyOwner
-    //     returns (bool)
-    // {
-    //     oracleContract = _oracleContract;
-    //     return true;
-    // }
+    function setOracle(address _oracle)
+        external
+        onlyOwner
+        returns (bool)
+    {
+        oracle = _oracle;
+        return true;
+    }
 
     function getNamesInPortfolio() external view returns (string[] memory) {
         return tokenNames;
