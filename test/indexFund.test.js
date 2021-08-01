@@ -45,6 +45,11 @@ let routerContract;
 let componentAddrs;
 let componentJsons;
 
+/**
+ * --------------------------------------------------------------------------------
+ * Helper Functions
+ */
+
 const expectAmountsOut = async (eth2Component = true, amountEthInEach = '1') => {
     const path = eth2Component ? [allAddrs.weth, ''] : ['', allAddrs.weth];
     const expectedAmountsOut = [];
@@ -54,7 +59,6 @@ const expectAmountsOut = async (eth2Component = true, amountEthInEach = '1') => 
 
         path[eth2Component ? 1 : 0] = componentAddrs[i];
         const amountIn = (amountEthInEach.length <= 10) ? float2TokenUnits(amountEthInEach, decimals) : amountEthInEach;
-        // const amountIn = float2TokenUnits(amountEthInEach, decimals);
         const amountsOut = await routerContract.methods.getAmountsOut(amountIn, path).call();
         expectedAmountsOut.push(amountsOut[1]);
     }
@@ -72,6 +76,34 @@ const expectPrices = async (amountEthInEach = '1') => {
     }
     return expectedPrices;
 };
+
+
+const getComponentBalancesOfIndexFund = async () => {
+    const componentBalanceOfIndexFund = [];
+    for (i = 0; i < componentAddrs.length; i++) {
+        const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
+        componentBalanceOfIndexFund[i] = BN(await componentContract.methods.balanceOf(allAddrs.indexFund).call());
+    }
+    return componentBalanceOfIndexFund;
+};
+
+const assertCorrectDiffTwoArrays = ({ greaterArr, smallerArr, expectedDiffs }) => {
+    assert.strictEqual(greaterArr.length, smallerArr.length,
+        `Two array do not have equal length, greaterArray.length=${greaterArr.length}, smallerArr.length=${smallerArr.length}`
+    );
+    for (i = 0; i < greaterArr.length; i++) {
+        const actualDiff = greaterArr[i].sub(smallerArr[i]);
+        assert.deepStrictEqual(actualDiff.toString(), expectedDiffs[i].toString(),
+            `Wrong resulted at component ${i}, expected ${expectedDiffs[i]}, but got ${actualDiff}`
+        );
+    }
+};
+
+
+/**
+ * --------------------------------------------------------------------------------
+ * Helper Functions
+ */
 
 before(async () => {
     console.log('Index Fund Test Cases');
@@ -187,6 +219,8 @@ describe('IndexFund functionalities', () => {
         const ethAmount = web3.utils.toWei(String(componentAddrs.length), "ether");
         const expectedIndexTokenAmount = BN(ethAmount + '0'.repeat(18)).div(indexPrice);
 
+        const componentBalancesOfIndexFundBefore = await getComponentBalancesOfIndexFund();
+
         await fundContract.methods.buy([]).send({
             from: investor,
             value: ethAmount,
@@ -205,6 +239,12 @@ describe('IndexFund functionalities', () => {
             const actualAmountOut = await componentContract.methods.balanceOf(allAddrs.indexFund).call();
             assert.strictEqual(actualAmountOut, expectedComponentAmountsOut[i]);
         }
+
+        assertCorrectDiffTwoArrays({
+            greaterArr: await getComponentBalancesOfIndexFund(),
+            smallerArr: componentBalancesOfIndexFundBefore,
+            expectedDiffs: expectedComponentAmountsOut
+        })
     });
 
 
@@ -244,11 +284,7 @@ describe('IndexFund functionalities', () => {
          * compute the expected tokens to mint
          */
         const componentPricesBefore = await expectPrices();
-        const componentBalancesOfIndexFundBefore = [];
-        for (i = 0; i < componentAddrs.length; i++) {
-            const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
-            componentBalancesOfIndexFundBefore[i] = BN(await componentContract.methods.balanceOf(allAddrs.indexFund).call());
-        }
+        const componentBalancesOfIndexFundBefore = await getComponentBalancesOfIndexFund();
         let indexPrice = BN(0);
         for (i = 0; i < componentPricesBefore.length; i++) {
             indexPrice = indexPrice.add(componentBalancesOfIndexFundBefore[i].mul(BN(componentPricesBefore[i])));
@@ -297,15 +333,12 @@ describe('IndexFund functionalities', () => {
          * -----------------------------------------------------------------
          * check the increases in component balances of IndexFund
          */
-        for (i = 0; i < componentAddrs.length; i++) {
-            const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
-            const componentBalanceOfIndexFundAfter = BN(await componentContract.methods.balanceOf(allAddrs.indexFund).call());
-            const actualAmountOut = componentBalanceOfIndexFundAfter.sub(componentBalancesOfIndexFundBefore[i]).toString();
-            assert.strictEqual(actualAmountOut, expectedComponentAmountsOut[i]);
-        }
+        assertCorrectDiffTwoArrays({
+            greaterArr: await getComponentBalancesOfIndexFund(),
+            smallerArr: componentBalancesOfIndexFundBefore,
+            expectedDiffs: expectedComponentAmountsOut
+        })
     });
-
-
 
 
 
@@ -337,11 +370,7 @@ describe('IndexFund functionalities', () => {
         const ethOfInvestorBefore = await web3.eth.getBalance(investor);
         console.log("ethOfInvestorBefore", ethOfInvestorBefore);
 
-        const componentBalancesOfIndexFundBefore = [];
-        for (i = 0; i < componentAddrs.length; i++) {
-            const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
-            componentBalancesOfIndexFundBefore[i] = BN(await componentContract.methods.balanceOf(allAddrs.indexFund).call());
-        }
+        const componentBalancesOfIndexFundBefore = await getComponentBalancesOfIndexFund();
 
         /**
          * -----------------------------------------------------------------
@@ -351,8 +380,6 @@ describe('IndexFund functionalities', () => {
             from: investor,
             gas: '5000000'
         });
-
-        // console.log("TX", tx);
 
         const gasUsed = tx.gasUsed;
         const gasPrice = (await web3.eth.getTransaction(tx.transactionHash)).gasPrice;
@@ -384,14 +411,21 @@ describe('IndexFund functionalities', () => {
          * -----------------------------------------------------------------
          * check the decreases in component balances of IndexFund
          */
-        for (i = 0; i < componentAddrs.length; i++) {
-            const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
-            const componentBalanceOfIndexFundAfter = await componentContract.methods.balanceOf(allAddrs.indexFund).call();
-            const expectedComponentBalance = componentBalancesOfIndexFundBefore[i].sub(swapAmountEachComponent).toString();
-            assert.strictEqual(componentBalanceOfIndexFundAfter, expectedComponentBalance,
-                `Wrong resulted component balance with component ${i}, expected ${expectedComponentBalance}, but got ${componentBalanceOfIndexFundAfter}`
-            );
-        }
+        assertCorrectDiffTwoArrays({
+            greaterArr: componentBalancesOfIndexFundBefore,
+            smallerArr: await getComponentBalancesOfIndexFund(),
+            expectedDiffs: Array(componentBalancesOfIndexFundBefore.length).fill(swapAmountEachComponent)
+        });
+
+
+        // for (i = 0; i < componentAddrs.length; i++) {
+        //     const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
+        //     const componentBalanceOfIndexFundAfter = await componentContract.methods.balanceOf(allAddrs.indexFund).call();
+        //     const expectedComponentBalance = componentBalancesOfIndexFundBefore[i].sub(swapAmountEachComponent).toString();
+        //     assert.strictEqual(componentBalanceOfIndexFundAfter, expectedComponentBalance,
+        //         `Wrong resulted component balance with component ${i}, expected ${expectedComponentBalance}, but got ${componentBalanceOfIndexFundAfter}`
+        //     );
+        // }
 
     });
 });
