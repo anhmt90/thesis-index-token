@@ -171,7 +171,40 @@ const assertIndexTokenState = async (stateBefore, expectedDiffs) => {
 
 /**
  * --------------------------------------------------------------------------------
- * Helper Functions
+ * Helper Functions for catching errors
+ * Adapted from https://ethereum.stackexchange.com/a/48629/68643
+ */
+
+module.exports.errTypes = {
+    revert: "revert",
+    outOfGas: "out of gas",
+};
+
+const tryCatch = async (asyncFunc, message) => {
+    const PREFIX = ": ";
+    try {
+        await asyncFunc;
+        throw null;
+    }
+    catch (error) {
+        assert(error, "Expected an error but did not get one");
+
+
+        const actualReason = error.results.reason;
+        // console.log('ERROR: ', error)
+
+
+    }
+};
+
+const assertRevert = async (actualErrorMessage, expectedErrorReason) => {
+    assert.strictEqual(actualErrorMessage.includes('revert ' + expectedErrorMessage), `Expected error message "${expectedErrorMessage}", but got "${actualErrorMessage}".`);
+};
+
+
+/**
+ * --------------------------------------------------------------------------------
+ * BEGIN
  */
 
 before(async () => {
@@ -419,11 +452,9 @@ describe('IndexFund functionalities', () => {
     it('should sell back Index Tokens properly', async () => {
         // selling 9 index tokens
         const saleIndexAmount = BN('9' + '0'.repeat(18));
-        console.log('SALE AMOUNT: ', saleIndexAmount.toString());
 
         const expectedEachComponentAmountIn = saleIndexAmount.div(BN(componentAddrs.length));
         const expectedEthAmountsOut = await expectAmountsOut(false, expectedEachComponentAmountIn.toString());
-        console.log('EXPECTED ETH AMOUNTS OUT: ', expectedEthAmountsOut);
 
         await indexContract.methods.approve(allAddrs.indexFund, saleIndexAmount.toString()).send({
             from: investor,
@@ -440,15 +471,13 @@ describe('IndexFund functionalities', () => {
 
         const indexFundStateBefore = await snapshotIndexFund();
         const investorStateBefore = await snapshotInvestor();
-        console.log("INVESTOR ETH BALANCE", investorStateBefore.ethBalance.toString());
-        console.log('INVESTOR INDEX BALANCE: ', investorStateBefore.indexBalance.toString());
         const indexTokenStateBefore = await snapshotIndexToken();
 
         /**
          * -----------------------------------------------------------------
          * Execute the selling process on-chain
          */
-        const tx = await fundContract.methods.sell(expectedEthAmountsOut).send({
+        const tx = await fundContract.methods.sell(saleIndexAmount, expectedEthAmountsOut).send({
             from: investor,
             gas: '5000000'
         });
@@ -475,5 +504,30 @@ describe('IndexFund functionalities', () => {
         await assertInvestorState(investorStateBefore, expectedInvestorDiffs);
         await assertIndexTokenState(indexTokenStateBefore, expectedIndexTokenDiffs);
 
+    });
+
+    it('should be rejected by the on-chain sell function due to not enough allowance', async () => {
+        // selling 9 index tokens
+        const saleIndexAmount = BN('9' + '0'.repeat(18));
+        console.log('SALE AMOUNT: ', saleIndexAmount.toString());
+
+        const allowance = saleIndexAmount.sub(BN(1));
+        await indexContract.methods.approve(allAddrs.indexFund, allowance).send({
+            from: investor,
+            gas: '5000000'
+        });
+
+        const expectedErrorReason = 'IndexFund: allowance not enough';
+        try {
+            await fundContract.methods.sell(saleIndexAmount, []).send({
+                from: investor,
+                gas: '5000000'
+            });
+            throw null;
+        }
+        catch (error) {
+            assert(error, "Expected an error but did not get one");
+            assertRevert(error.message, expectedErrorReason);
+        }
     });
 });
