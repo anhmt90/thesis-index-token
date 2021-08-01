@@ -5,10 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "../IndexFund.sol";
 
 contract Oracle is Ownable {
+
     address public indexFund;
 
     // <componentToken_name> is at <componentToken_address>
-    address[] public componentAddrs,
+    address[] public componentAddrs;
     string[] public componentNames;
     string[] public componentITCs;
 
@@ -34,5 +35,9 @@ contract Oracle is Ownable {
         componentAddrs = _componentAddrs;
 
         IndexFund(indexFund).announcePortfolioUpdating(_announcementMessage);
+    }
+
+    function finalize() external onlyOwner {
+        IndexFund(indexFund).setPorfolio(componentNames, componentAddrs);
     }
 }

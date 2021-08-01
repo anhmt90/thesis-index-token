@@ -59,7 +59,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
 
-    function setPorfolio(string[] memory componentNames, address[] memory componentAddrs)
+    function setPorfolio(string[] calldata componentNames, address[] calldata componentAddrs)
         external
         onlyOracle
         notLocked(Functions.SET_PORTFOLIO)

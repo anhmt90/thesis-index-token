@@ -24,10 +24,7 @@ abstract contract TimeLock {
     );
 
     modifier notLocked(Functions _fn) {
-        require(
-            timelock[_fn] != 0 && timelock[_fn] <= block.timestamp,
-            "TimeLock: function is timelocked"
-        );
+        require(timelock[_fn] != 0 && timelock[_fn] <= block.timestamp, "TimeLock: function is timelocked");
         _;
     }
 
