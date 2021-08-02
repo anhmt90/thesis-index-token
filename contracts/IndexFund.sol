@@ -43,10 +43,10 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
 
     constructor(address _router){
-        oracle = address(new Oracle(msg.sender));
         router = _router;
         weth = IUniswapV2Router02(_router).WETH();
         indexToken = address(new IndexToken());
+        oracle = address(new Oracle(msg.sender));
     }
 
 
@@ -59,7 +59,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
 
-    function setPorfolio(string[] calldata componentNames, address[] calldata componentAddrs)
+    function setPorfolio(string[] memory componentNames, address[] memory componentAddrs)
         external
         onlyOracle
         notLocked(Functions.SET_PORTFOLIO)
@@ -334,11 +334,10 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
     function setOracle(address _oracle)
         external
+        override
         onlyOwner
-        returns (bool)
     {
         oracle = _oracle;
-        return true;
     }
 
     function getNamesInPortfolio() external view returns (string[] memory) {

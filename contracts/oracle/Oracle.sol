@@ -13,17 +13,26 @@ contract Oracle is Ownable {
     string[] public componentNames;
     string[] public componentITCs;
 
+
     constructor(address owner) {
         transferOwnership(owner);
         indexFund = msg.sender;
     }
 
+    /**
+     * @dev Throws if called by any account other than the owner of IndexFund.
+     */
+    modifier onlyFundOwner() {
+        require(owner() == IndexFund(indexFund).owner(), "Oracle: caller is not the owner of IndexFund");
+        _;
+    }
+
     function prepare(
-        string[] calldata _componentNames,
-        address[] calldata _componentAddrs,
-        string[] calldata _componentITCs,
+        string[] memory _componentNames,
+        address[] memory _componentAddrs,
+        string[] memory _componentITCs,
         string calldata _announcementMessage
-    ) external onlyOwner {
+    ) external onlyOwner onlyFundOwner {
         require(_componentNames.length == _componentAddrs.length, "Oracle: NAME and ADDRESS arrays not equal in length!");
         require(_componentNames.length == _componentITCs.length, "Oracle: NAME and ITC arrays not equal in length!");
         componentNames = _componentNames;
@@ -37,7 +46,7 @@ contract Oracle is Ownable {
         IndexFund(indexFund).announcePortfolioUpdating(_announcementMessage);
     }
 
-    function finalize() external onlyOwner {
+    function apply_() external onlyOwner onlyFundOwner {
         IndexFund(indexFund).setPorfolio(componentNames, componentAddrs);
     }
 }
