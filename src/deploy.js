@@ -135,28 +135,28 @@ const deployAllContracts = async () => {
 
     // --------------------------------
 
-    allAddr.dai = await deployContract({
+    allAddrs.dai = await deployContract({
         name: 'DAI',
         msgSender: admin,
         contractJson: DAI_JSON,
         args: [1337]
     });
 
-    allAddr.bnb = await deployContract({
+    allAddrs.bnb = await deployContract({
         name: 'BNB',
         msgSender: admin,
         contractJson: BNB_JSON,
         args: [String(initialSupply) + '0'.repeat(18), 'BNB', 18, 'BNB']
     });
 
-    allAddr.zrx = await deployContract({
+    allAddrs.zrx = await deployContract({
         name: 'ZRX',
         msgSender: admin,
         contractJson: ZRX_JSON,
         args: []
     });
 
-    allAddr.weth = await deployContract({
+    allAddrs.weth = await deployContract({
         name: 'WETH',
         msgSender: admin,
         contractJson: WETH_JSON,
@@ -165,33 +165,33 @@ const deployAllContracts = async () => {
 
     // --------------------------------
 
-    allAddr.uniswapFactory = await deployContract({
+    allAddrs.uniswapFactory = await deployContract({
         name: 'UniswapV2Factory',
         msgSender: admin,
         contractJson: UNISWAP_FACTORY_JSON,
         args: [admin]
     });
 
-    allAddr.uniswapRouter = await deployContract({
+    allAddrs.uniswapRouter = await deployContract({
         name: 'UniswapV2Router02',
         msgSender: admin,
         contractJson: UNISWAP_ROUTER_JSON,
-        args: [allAddr.uniswapFactory, allAddr.weth]
+        args: [allAddrs.uniswapFactory, allAddrs.weth]
     });
 
     // --------------------------------
 
-    allAddr.indexFund = await deployContract({
+    allAddrs.indexFund = await deployContract({
         name: 'IndexFund',
         msgSender: admin,
         contractJson: INDEX_FUND_JSON,
-        args: [allAddr.uniswapRouter]
+        args: [allAddrs.uniswapRouter]
     });
 
-    const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddr.indexFund);
-    allAddr.indexToken = await indexFundContract.methods.indexToken().call();
+    const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
+    allAddrs.indexToken = await indexFundContract.methods.indexToken().call();
 
-    storeAddresses(allAddr);
+    storeAddresses(allAddrs);
     log.info('Finished contract deployments');
     log.info('-------------------------------------------------------------');
 };
@@ -235,7 +235,7 @@ const provisionLiquidity = async (ethAmount) => {
             msgSender: admin,
             tokenAddr: token.address,
             tokenJson: token.json,
-            routerAddr: allAddr.uniswapRouter
+            routerAddr: allAddrs.uniswapRouter
         });
 
         await queryReserves(symbol, true);
@@ -243,11 +243,11 @@ const provisionLiquidity = async (ethAmount) => {
 };
 
 const setDeployGlobalVars = () => {
-    if (Object.keys(allAddr).length == 0) {
-        allAddr = getAllAddrs();
+    if (Object.keys(allAddrs).length == 0) {
+        allAddrs = getAllAddrs();
     }
     tokenSet = assembleTokenSet();
-    return [allAddr, tokenSet];
+    return [allAddrs, tokenSet];
 };
 
 const setUp = async () => {
@@ -265,7 +265,7 @@ const main = async () => {
 };
 
 
-let allAddr = {};
+let allAddrs = {};
 let tokenSet = {};
 const initialSupply = 1000000;
 

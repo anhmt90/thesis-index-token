@@ -13,7 +13,7 @@ const {
 } = require(process.env.NODE_ENV && (process.env.NODE_ENV).toUpperCase() === 'TEST' ? '../test/fixtures/constants.js' : './constants.js');
 
 let _tokenSet = {};
-let _allAddr = {};
+let _allAddrs = {};
 
 /* ************************************************************************* */
 
@@ -72,15 +72,15 @@ const queryTokenBalance = async ({ tokenSymbol, account }) => {
 };
 
 const queryIndexBalance = async (account) => {
-    const indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, _allAddr.indexToken);
+    const indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, _allAddrs.indexToken);
     return (await indexContract.methods.balanceOf(account).call());
 
 };
 
 const queryPairAddress = async (tokenSymbol) => {
     const token = _tokenSet[tokenSymbol.toLowerCase()];
-    const factoryContract = new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, _allAddr.uniswapFactory);
-    const pairAddress = await factoryContract.methods.getPair(token.address, _allAddr.weth).call();
+    const factoryContract = new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, _allAddrs.uniswapFactory);
+    const pairAddress = await factoryContract.methods.getPair(token.address, _allAddrs.weth).call();
     return pairAddress;
 };
 
@@ -92,8 +92,8 @@ const queryReserves = async (tokenSymbol, print = false ) => {
     let resWeth, resToken;
     if (reserves[0] !== '0' && reserves[1] !== '0') {
         const token0Addr = await pairContract.methods.token0().call();
-        resWeth = reserves[(token0Addr == _allAddr.weth) ? 0 : 1];
-        resToken = reserves[(token0Addr == _allAddr.weth) ? 1 : 0];
+        resWeth = reserves[(token0Addr == _allAddrs.weth) ? 0 : 1];
+        resToken = reserves[(token0Addr == _allAddrs.weth) ? 1 : 0];
 
         if (print) {
             log.debug('reserve WETH =', web3.utils.fromWei(resWeth),
@@ -118,21 +118,21 @@ const float2TokenUnits = (num, decimals=18) => {
 /* ************************************************************************* */
 
 const getAllAddrs = () => {
-    if (Object.keys(_allAddr).length === 0) {
-        _allAddr = _loadAddresses()
+    if (Object.keys(_allAddrs).length === 0) {
+        _allAddrs = _loadAddresses()
     }
-    return _allAddr;
+    return _allAddrs;
 };
 
 const assembleTokenSet = () => {
     if (Object.keys(_tokenSet).length === 0) {
-        _allAddr = getAllAddrs();
+        _allAddrs = getAllAddrs();
         const prices = loadTokenPrices();
 
         Object.entries(TOKEN_JSONS).forEach(([symbol, json]) => {
             _tokenSet[symbol] = {
                 json,
-                address: _allAddr[symbol],
+                address: _allAddrs[symbol],
                 price: prices[symbol]
             };
         });

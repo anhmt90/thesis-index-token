@@ -1,7 +1,5 @@
 // var wtf = require('wtfnode');
 const log = require('../config/logger');
-
-
 const web3 = require('./getWeb3');
 
 const {
@@ -22,15 +20,18 @@ const {
     float2TokenUnits
 } = require("./utils");
 
+let indexFundContract;
+let indexTokenContract;
+
 const queryIndexPrice = async () => {
-    const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddr.indexFund);
+    // const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
     const indexPrice = await indexFundContract.methods.getIndexPrice().call();
     log.debug('INDEX PRICE:', indexPrice);
 };
 
 const swap = async () => {
-    const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddr.indexFund);
-    const decimals = (new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken)).methods.decimals().call();
+    // const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
+    const decimals = indexTokenContract.methods.decimals().call();
 
     const ethIn = (1 / 0.997);
     let amountsOut = await indexFundContract.methods.getUniswapAmountsOutForExactETH(float2TokenUnits(ethIn, decimals)).call();
@@ -39,9 +40,9 @@ const swap = async () => {
     /**
      * Test token ordering
      */
-    log.debug('DAI balance of IndexFund (before swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.indexFund }));
-    log.debug('ETH balance of IndexFund (before swap):', await queryEthBalance(allAddr.indexFund));
-    log.debug('INDEX balance of IndexFund (before swap):', await queryIndexBalance(allAddr.indexFund));
+    log.debug('DAI balance of IndexFund (before swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddrs.indexFund }));
+    log.debug('ETH balance of IndexFund (before swap):', await queryEthBalance(allAddrs.indexFund));
+    log.debug('INDEX balance of IndexFund (before swap):', await queryIndexBalance(allAddrs.indexFund));
 
     log.debug('Wallet balance of Investor (before swap):', await queryEthBalance(investor));
     const tokenSet = assembleTokenSet();
@@ -54,8 +55,8 @@ const swap = async () => {
         gas: '5000000'
     });
 
-    log.debug('DAI balance of IndexFund (after swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddr.indexFund }));
-    log.debug('ETH balance of IndexFund (after swap):', await queryEthBalance(allAddr.indexFund));
+    log.debug('DAI balance of IndexFund (after swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddrs.indexFund }));
+    log.debug('ETH balance of IndexFund (after swap):', await queryEthBalance(allAddrs.indexFund));
     log.debug('Wallet balance of Investor (after swap):', await queryEthBalance(investor));
 
     log.debug("******************************************************");
@@ -65,7 +66,6 @@ const swap = async () => {
 };
 
 const setPortfolio = async () => {
-    const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddr.indexFund);
     /**
      * Set portfolio
      */
@@ -88,7 +88,10 @@ const setIndexFundGlobalVars = async () => {
     const accounts = await web3.eth.getAccounts();
     admin = accounts[0];
     investor = accounts[2];
-    allAddr = getAllAddrs();
+    allAddrs = getAllAddrs();
+
+    indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
+    indexTokenContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddrs.indexToken);
 }
 
 const run = async () => {
@@ -103,7 +106,7 @@ const run = async () => {
 
 };
 
-let allAddr;
+let allAddrs;
 let admin;
 let investor;
 
