@@ -23,6 +23,10 @@ const {
 let indexFundContract;
 let indexTokenContract;
 
+let allAddrs;
+let admin;
+let investor;
+
 const queryIndexPrice = async () => {
     // const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
     const indexPrice = await indexFundContract.methods.getIndexPrice().call();
@@ -105,10 +109,6 @@ const run = async () => {
     /** ================================================================= */
 
 };
-
-let allAddrs;
-let admin;
-let investor;
 
 if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
     run().finally(() => {

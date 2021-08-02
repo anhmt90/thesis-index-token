@@ -1,5 +1,5 @@
 const fs = require('fs');
-const log = require('../config/logger')
+const log = require('../config/logger');
 
 const web3 = require('./getWeb3');
 const {
@@ -8,9 +8,12 @@ const {
     PATH_ITC_ERC20_TOKENS_FILE,
     UNISWAP_FACTORY_JSON,
     UNISWAP_PAIR_JSON,
-    TOKEN_JSONS,
-    INDEX_TOKEN_JSON
-} = require(process.env.NODE_ENV && (process.env.NODE_ENV).toUpperCase() === 'TEST' ? '../test/fixtures/constants.js' : './constants.js');
+    REAL_TOKEN_JSONS,
+    LENDING_TOKENS,
+    INDEX_TOKEN_JSON,
+    ERC20_INSTANCE_JSON
+} = require(process.env.NODE_ENV && (process.env.NODE_ENV).toUpperCase() === 'TEST' ?
+    '../test/fixtures/constants.js' : './constants.js');
 
 let _tokenSet = {};
 let _allAddrs = {};
@@ -27,7 +30,7 @@ const storeTokenPrices = (tokenPrices) => {
 
 const storeItcTokens = (tokens) => {
     pickle(tokens, PATH_ITC_ERC20_TOKENS_FILE);
-}
+};
 
 const pickle = (obj, path) => {
     const json = JSON.stringify(obj, null, 4);
@@ -37,6 +40,7 @@ const pickle = (obj, path) => {
     });
 };
 
+/* ************************************************************************* */
 
 const _loadAddresses = () => {
     return _load(PATH_ADDRESS_FILE, 'Contract Addresses');
@@ -44,6 +48,10 @@ const _loadAddresses = () => {
 
 const loadTokenPrices = () => {
     return _load(PATH_TOKENPRICE_FILE, 'Token Prices');
+};
+
+const loadItsaTokenInfo = () => {
+    return _load(PATH_ITC_ERC20_TOKENS_FILE, "ITSA's ERC20 Token Information");
 };
 
 const _load = (path, objName) => {
@@ -84,8 +92,8 @@ const queryPairAddress = async (tokenSymbol) => {
     return pairAddress;
 };
 
-const queryReserves = async (tokenSymbol, print = false ) => {
-    const symbol = tokenSymbol.toLowerCase()
+const queryReserves = async (tokenSymbol, print = false) => {
+    const symbol = tokenSymbol.toLowerCase();
     const pairAddr = await queryPairAddress(symbol);
     const pairContract = new web3.eth.Contract(UNISWAP_PAIR_JSON.abi, pairAddr);
     const reserves = await pairContract.methods.getReserves().call();
@@ -108,7 +116,7 @@ const queryReserves = async (tokenSymbol, print = false ) => {
 
 /* ************************************************************************* */
 
-const float2TokenUnits = (num, decimals=18) => {
+const float2TokenUnits = (num, decimals = 18) => {
     const [integral, fractional] = String(num).split('.');
     if (fractional === undefined)
         return integral + '0'.repeat(decimals);
@@ -119,7 +127,7 @@ const float2TokenUnits = (num, decimals=18) => {
 
 const getAllAddrs = () => {
     if (Object.keys(_allAddrs).length === 0) {
-        _allAddrs = _loadAddresses()
+        _allAddrs = _loadAddresses();
     }
     return _allAddrs;
 };
@@ -129,9 +137,17 @@ const assembleTokenSet = () => {
         _allAddrs = getAllAddrs();
         const prices = loadTokenPrices();
 
-        Object.entries(TOKEN_JSONS).forEach(([symbol, json]) => {
+        Object.entries(REAL_TOKEN_JSONS).forEach(([symbol, json]) => {
             _tokenSet[symbol] = {
                 json,
+                address: _allAddrs[symbol],
+                price: prices[symbol]
+            };
+        });
+
+        Object.keys(LENDING_TOKENS).forEach(symbol => {
+            _tokenSet[symbol] = {
+                json: ERC20_INSTANCE_JSON,
                 address: _allAddrs[symbol],
                 price: prices[symbol]
             };
@@ -146,8 +162,9 @@ module.exports = {
     storeAddresses,
     storeTokenPrices,
     storeItcTokens,
-    
+
     loadTokenPrices,
+    loadItsaTokenInfo,
     assembleTokenSet,
     queryEthBalance,
     queryIndexBalance,

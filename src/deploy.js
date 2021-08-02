@@ -5,13 +5,15 @@ const {
     DAI_JSON,
     BNB_JSON,
     ZRX_JSON,
+    ERC20_INSTANCE_JSON,
 
     WETH_JSON,
     UNISWAP_FACTORY_JSON,
     UNISWAP_ROUTER_JSON,
     INDEX_TOKEN_JSON,
     ORACLE_JSON,
-    INDEX_FUND_JSON
+    INDEX_FUND_JSON,
+    LENDING_TOKENS
 } = require('./constants.js');
 
 
@@ -156,6 +158,15 @@ const deployAllContracts = async () => {
         args: []
     });
 
+    Object.entries(LENDING_TOKENS).forEach(async ([symbol, name]) => {
+        allAddrs[symbol.toLowerCase()] = await deployContract({
+            name: symbol.toUpperCase(),
+            msgSender: admin,
+            contractJson: ERC20_INSTANCE_JSON,
+            args: [name, symbol.toUpperCase()]
+        });
+    });
+
     allAddrs.weth = await deployContract({
         name: 'WETH',
         msgSender: admin,
@@ -223,6 +234,9 @@ const mintTokens = async ({ tokenSymbol, value, receiver }) => {
 
 const provisionLiquidity = async (ethAmount) => {
     for (const [symbol, token] of Object.entries(tokenSet)) {
+        if (tokensNotOnUniswap.includes(symbol))
+            continue;
+
         const tokenContract = new web3.eth.Contract(token.json.abi, token.address);
         const decimals = parseInt(await tokenContract.methods.decimals().call());
 
@@ -247,6 +261,7 @@ const setDeployGlobalVars = () => {
         allAddrs = getAllAddrs();
     }
     tokenSet = assembleTokenSet();
+
     return [allAddrs, tokenSet];
 };
 
@@ -260,7 +275,7 @@ const setUp = async () => {
 
 
 const main = async () => {
-    await deploy();
+    await deployAllContracts();
     await setUp();
 };
 
@@ -268,6 +283,8 @@ const main = async () => {
 let allAddrs = {};
 let tokenSet = {};
 const initialSupply = 1000000;
+const tokensNotOnUniswap = ['enzf'];
+
 
 let admin;
 (async () => { admin = (await web3.eth.getAccounts())[0]; })();

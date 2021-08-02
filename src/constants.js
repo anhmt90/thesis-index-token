@@ -3,6 +3,7 @@ const path = require('path');
 const DAI_JSON = require(`./token-jsons/DAI.json`);
 const BNB_JSON = require(`./token-jsons/BNB.json`);
 const ZRX_JSON = require(`./token-jsons/ZRX.json`);
+const ERC20_INSTANCE_JSON = require(`../build/contracts/ERC20Instance.json`);
 
 const WETH_JSON = require('@uniswap/v2-periphery/build/WETH9.json');
 const UNISWAP_FACTORY_JSON = require('@uniswap/v2-core/build/UniswapV2Factory.json');
@@ -23,11 +24,22 @@ const COINGECKO_ID_SYM_MAP = {
     '0x': 'zrx'
 };
 
-const TOKEN_JSONS = {
+const REAL_TOKEN_JSONS = {
     'dai': DAI_JSON,
     'bnb': BNB_JSON,
     'zrx': ZRX_JSON,
 };
+
+const LENDING_TOKENS = {
+    aave: "Aave Token",
+    comp: "Compound",
+    bzrx: "bZx Protocol Token",
+    cel: "Celsius",
+    yfii: "YFII.finance",
+    mkr: "Maker",
+    enzf: "Rhino Fund",
+    yfi: "yearn.finance"
+}
 
 module.exports = {
     PATH_ADDRESS_FILE,
@@ -37,6 +49,7 @@ module.exports = {
     DAI_JSON,
     BNB_JSON,
     ZRX_JSON,
+    ERC20_INSTANCE_JSON,
 
     WETH_JSON,
     UNISWAP_FACTORY_JSON,
@@ -47,5 +60,6 @@ module.exports = {
     INDEX_FUND_JSON,
 
     COINGECKO_ID_SYM_MAP,
-    TOKEN_JSONS
+    REAL_TOKEN_JSONS,
+    LENDING_TOKENS,
 };
