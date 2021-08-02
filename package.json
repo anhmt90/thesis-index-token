@@ -9,8 +9,9 @@
   "scripts": {
     "compile": "truffle compile",
     "migrate": "truffle migrate",
-    "chain": "ganache-cli --allowUnlimitedContractSize -l 90000000 -d",
+    "chain": "ganache-cli --allowUnlimitedContractSize -l 90000000 -d -e 10000",
     "deploy": "env-cmd -f config/.env node src/deploy.js main",
+    "fetchitc": "env-cmd -f config/.env.secret node src/oracle/fetchITSA.js",
     "test": "env-cmd -f config/.env.test mocha --timeout 10000"
   },
   "author": "Tuan Anh Ma",

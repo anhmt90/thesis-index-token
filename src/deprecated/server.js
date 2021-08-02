@@ -16,7 +16,9 @@ fs.readFile('data/contractAddresses.json', 'utf-8', (err, jsonData) => {
     oracleContractInstance = new web3.eth.Contract(ORACLE_CONTRACT_JSON.abi, oracleContractAddress);
 });
 
-
+/**
+ * DEPRECATED
+ */
 (async () => {
     const accounts = await web3.eth.getAccounts();
     const trustedOracleServer = accounts[1];

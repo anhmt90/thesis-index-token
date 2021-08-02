@@ -5,3 +5,4 @@ build/
 data/
 !data/.gitkeep
 test/fixtures/contractAddresses.test.json
+config/.env.secret
