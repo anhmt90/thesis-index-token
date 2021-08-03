@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
@@ -42,7 +42,8 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
 
-    constructor(address _router){
+    constructor(string[] memory _componentNames, address[] memory _componentAddrs, address _router){
+        _setPortfolio(_componentNames, _componentAddrs);
         router = _router;
         weth = IUniswapV2Router02(_router).WETH();
         indexToken = address(new IndexToken());
@@ -64,6 +65,11 @@ contract IndexFund is Fund, TimeLock, Ownable {
         onlyOracle
         notLocked(Functions.SET_PORTFOLIO)
     {
+        _setPortfolio(componentNames, componentAddrs);
+        lockUnlimited(Functions.SET_PORTFOLIO);
+    }
+
+    function _setPortfolio(string[] memory componentNames, address[] memory componentAddrs) private {
         require(componentNames.length == componentAddrs.length, "IndexFund: NAME and ADDRESS arrays not equal in length!");
         tokenNames = componentNames;
         for (uint256 i = 0; i < componentNames.length; i++) {
@@ -71,8 +77,6 @@ contract IndexFund is Fund, TimeLock, Ownable {
             portfolio[componentNames[i]] = componentAddrs[i];
         }
         emit PortfolioChanged(componentNames, componentAddrs);
-
-        lockUnlimited(Functions.SET_PORTFOLIO);
     }
 
 
