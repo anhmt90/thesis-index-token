@@ -23,6 +23,7 @@
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "coingecko-api-v3": "0.0.11",
     "env-cmd": "^10.1.0",
+    "fast-glob": "^3.2.7",
     "ganache-cli": "^6.12.2",
     "mocha": "^8.4.0",
     "node-fetch": "^2.6.1",

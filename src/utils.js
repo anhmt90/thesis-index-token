@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fg = require('fast-glob');
 const log = require('../config/logger');
 
 const web3 = require('./getWeb3');
@@ -6,11 +7,19 @@ const {
     PATH_ADDRESS_FILE,
     PATH_TOKENPRICE_FILE,
     PATH_ITC_ERC20_TOKENS_FILE,
+
+    DAI_JSON,
+    BNB_JSON,
+    ZRX_JSON,
     UNISWAP_FACTORY_JSON,
+    UNISWAP_ROUTER_JSON,
     UNISWAP_PAIR_JSON,
+
     REAL_TOKEN_JSONS,
     LENDING_TOKENS,
     INDEX_TOKEN_JSON,
+    INDEX_FUND_JSON,
+    ORACLE_JSON,
     ERC20_INSTANCE_JSON
 } = require(process.env.NODE_ENV && (process.env.NODE_ENV).toUpperCase() === 'TEST' ?
     '../test/fixtures/constants.js' : './constants.js');
@@ -53,6 +62,13 @@ const loadTokenPrices = () => {
 const loadItsaTokenInfo = () => {
     return _load(PATH_ITC_ERC20_TOKENS_FILE, "ITSA's ERC20 Token Information");
 };
+
+const loadLastUniswapPrices = () => {
+    const priceFiles = fg.sync(['data/tokenPrices-[[:digit:]].json']);
+    const mostRecentPriceFile = priceFiles[priceFiles.length - 1];
+    const mostRecentPriceFilePath = path.join(__dirname, '../', mostRecentPriceFile);
+    return _load(mostRecentPriceFilePath, mostRecentPriceFile.replace('/data', ''))
+}
 
 const _load = (path, objName) => {
     let obj = {};
@@ -162,16 +178,82 @@ const assembleTokenSet = () => {
 
 const filterTokenSet = (tokenSet, excludedTokens = []) => {
     const filteredTokenSet = { ...tokenSet };
+    const _excludedTokens = new Set(excludedTokens)
 
     if (Object.keys(filteredTokenSet).length > 0) {
         for (const [symbol, _] of Object.entries(tokenSet)) {
-            if (excludedTokens.includes(symbol)) {
+            if (_excludedTokens.has(symbol)) {
                 delete filteredTokenSet[symbol];
             }
         }
     }
     return filteredTokenSet;
 };
+
+/* ************************************************************************* */
+
+const CONTRACTS = {
+	DAI: "dai",
+	BNB: "bnb",
+	ZRX: "zrx",
+    AAVE: "aave",
+    COMP: "comp",
+    BZRX: "bzrx",
+    CEL: "cell",
+    YFII: "yfii",
+    MKR: "mkr",
+    ENZF: "enzf",
+    YFI: "yfi",
+
+    WETH: "weth",
+    UNISWAP_FACTORY: "uniswapFactory",
+    UNISWAP_ROUTER: "uniswapRouter",
+
+    INDEXFUND: "indexFund",
+    INDEXTOKEN: "indexToken",
+    ORACLE: "oracle",
+
+}
+
+const getContract = (contract) => {
+    if (!contract) {
+        throw new Error("Contract is not defined")
+    }
+
+    if(Object.keys(_allAddrs).length === 0) {
+        _allAddrs = getAllAddrs();
+    }
+
+    switch (contract) {
+        case CONTRACTS.DAI:
+            return new web3.eth.Contract(DAI_JSON.abi, _allAddrs[contract]);
+        case CONTRACTS.BNB:
+            return new web3.eth.Contract(BNB_JSON.abi, _allAddrs[contract]);
+        case CONTRACTS.ZRX:
+            return new web3.eth.Contract(ZRX_JSON.abi, _allAddrs[contract]);
+        case CONTRACTS.AAVE:
+        case CONTRACTS.COMP:
+        case CONTRACTS.BZRX:
+        case CONTRACTS.CEL:
+        case CONTRACTS.YFII:
+        case CONTRACTS.MKR:
+        case CONTRACTS.ENZF:
+        case CONTRACTS.YFI:
+            return new web3.eth.Contract(ERC20_INSTANCE_JSON.abi, _allAddrs[contract]);
+        case CONTRACTS.WETH:
+            return new web3.eth.Contract(WETH_JSON.abi, _allAddrs[contract]);
+        case CONTRACTS.UNISWAP_FACTORY:
+            return new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, _allAddrs[contract]);
+        case CONTRACTS.UNISWAP_ROUTER:
+            return new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, _allAddrs[contract]);
+        case CONTRACTS.INDEX_FUND_JSON:
+            return new web3.eth.Contract(INDEX_FUND_JSON.abi, _allAddrs[contract]);
+        case CONTRACTS.INDEX_TOKEN_JSON:
+            return new web3.eth.Contract(INDEX_TOKEN_JSON.abi, _allAddrs[contract]);
+        case CONTRACTS.ORACLE:
+            return new web3.eth.Contract(ORACLE_JSON.abi, _allAddrs[contract]);
+    }
+}
 
 
 
@@ -184,6 +266,7 @@ module.exports = {
 
     loadTokenPrices,
     loadItsaTokenInfo,
+    loadLastUniswapPrices,
     assembleTokenSet,
     filterTokenSet,
     queryEthBalance,
@@ -191,6 +274,10 @@ module.exports = {
     queryTokenBalance,
     queryPairAddress,
     queryReserves,
+
+    getContract,
+    CONTRACTS,
+
     getAllAddrs,
     float2TokenUnits,
     log
