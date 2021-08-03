@@ -1,5 +1,7 @@
 const fs = require('fs');
 const fg = require('fast-glob');
+const path = require('path');
+
 const log = require('../config/logger');
 
 const web3 = require('./getWeb3');
@@ -24,8 +26,11 @@ const {
 } = require(process.env.NODE_ENV && (process.env.NODE_ENV).toUpperCase() === 'TEST' ?
     '../test/fixtures/constants.js' : './constants.js');
 
+const BN = web3.utils.toBN;
+
 let _tokenSet = {};
 let _allAddrs = {};
+
 
 /* ************************************************************************* */
 
@@ -67,15 +72,21 @@ const loadLastUniswapPrices = () => {
     const priceFiles = fg.sync(['data/tokenPrices-[[:digit:]].json']);
     const mostRecentPriceFile = priceFiles[priceFiles.length - 1];
     const mostRecentPriceFilePath = path.join(__dirname, '../', mostRecentPriceFile);
-    return _load(mostRecentPriceFilePath, mostRecentPriceFile.replace('/data', ''))
-}
+    const mostRecentPrices = _load(mostRecentPriceFilePath, mostRecentPriceFile.replace('/data', ''));
+    const mostRecentPricesInEth = {};
+    for(const [sym, price] of Object.entries(mostRecentPrices)) {
+        mostRecentPricesInEth[sym] = BN('1' + '0'.repeat(18*2)).div(BN(float2TokenUnits(price))).toString();
+    }
+    return mostRecentPricesInEth;
+};
 
 const _load = (path, objName) => {
     let obj = {};
     if (fs.existsSync(path)) {
         const jsonData = fs.readFileSync(path, 'utf-8');
         obj = JSON.parse(jsonData.toString());
-        log.debug(`INFO: ${objName} Loaded: `, obj);
+        log.debug(`INFO: ${objName} loaded: ${Object.keys(obj).length <= 5 ?
+            obj : String(Object.keys(obj).length + ' elements')}`);
     } else {
         log.debug(`INFO: Skip loading ${objName}!`);
     }
@@ -130,6 +141,15 @@ const queryReserves = async (tokenSymbol, print = false) => {
     return [resWeth, resToken];
 };
 
+const queryUniswapPriceInEth = async (tokenSymbol) => {
+    if (Object.keys(_tokenSet).length === 0) _tokenSet = assembleTokenSet();
+    const routerContract = getContract(CONTRACTS.UNISWAP_ROUTER);
+    const tokenAddr = _tokenSet[tokenSymbol.toLowerCase()].address;
+    const path = [_allAddrs.weth, tokenAddr];
+    const amounts = await routerContract.methods.getAmountsOut('1' + '0'.repeat(18), path).call();
+    return BN('1' + '0'.repeat(18 * 2)).div(BN(amounts[1])).toString();
+};
+
 /* ************************************************************************* */
 
 const float2TokenUnits = (num, decimals = 18) => {
@@ -138,7 +158,7 @@ const float2TokenUnits = (num, decimals = 18) => {
         return integral + '0'.repeat(decimals);
     }
     fractional = fractional + '0'.repeat(decimals - fractional.length);
-    return integral !== '0' ?  integral + fractional : fractional;
+    return integral !== '0' ? integral + fractional : fractional;
 };
 
 /* ************************************************************************* */
@@ -178,7 +198,7 @@ const assembleTokenSet = () => {
 
 const filterTokenSet = (tokenSet, excludedTokens = []) => {
     const filteredTokenSet = { ...tokenSet };
-    const _excludedTokens = new Set(excludedTokens)
+    const _excludedTokens = new Set(excludedTokens);
 
     if (Object.keys(filteredTokenSet).length > 0) {
         for (const [symbol, _] of Object.entries(tokenSet)) {
@@ -193,9 +213,9 @@ const filterTokenSet = (tokenSet, excludedTokens = []) => {
 /* ************************************************************************* */
 
 const CONTRACTS = {
-	DAI: "dai",
-	BNB: "bnb",
-	ZRX: "zrx",
+    DAI: "dai",
+    BNB: "bnb",
+    ZRX: "zrx",
     AAVE: "aave",
     COMP: "comp",
     BZRX: "bzrx",
@@ -213,14 +233,14 @@ const CONTRACTS = {
     INDEXTOKEN: "indexToken",
     ORACLE: "oracle",
 
-}
+};
 
 const getContract = (contract) => {
     if (!contract) {
-        throw new Error("Contract is not defined")
+        throw new Error("Contract is not defined");
     }
 
-    if(Object.keys(_allAddrs).length === 0) {
+    if (Object.keys(_allAddrs).length === 0) {
         _allAddrs = getAllAddrs();
     }
 
@@ -253,7 +273,7 @@ const getContract = (contract) => {
         case CONTRACTS.ORACLE:
             return new web3.eth.Contract(ORACLE_JSON.abi, _allAddrs[contract]);
     }
-}
+};
 
 
 
@@ -274,6 +294,7 @@ module.exports = {
     queryTokenBalance,
     queryPairAddress,
     queryReserves,
+    queryUniswapPriceInEth,
 
     getContract,
     CONTRACTS,

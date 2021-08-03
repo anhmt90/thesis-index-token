@@ -269,8 +269,8 @@ const provisionLiquidity = async (ethAmount) => {
         const tokenContract = new web3.eth.Contract(token.json.abi, token.address);
         const decimals = parseInt(await tokenContract.methods.decimals().call());
 
-        const adminTokenBalance = await tokenContract.methods.balanceOf(admin).call();
-        log.debug(`\nadmin has ${adminTokenBalance} token units = ${BN(adminTokenBalance).div(BN('1' + '0'.repeat(decimals)))} ${symbol}\n`);
+        let adminTokenBalance = await tokenContract.methods.balanceOf(admin).call();
+        log.debug(`\nBefore providing liquidity: admin has ${adminTokenBalance} token units = ${BN(adminTokenBalance).div(BN('1' + '0'.repeat(decimals)))} ${symbol}`);
 
         await addLiquidityExactWETH({
             ethAmount,
@@ -280,8 +280,10 @@ const provisionLiquidity = async (ethAmount) => {
             tokenJson: token.json,
             routerAddr: allAddrs.uniswapRouter
         });
-
         await queryReserves(symbol, true);
+
+        adminTokenBalance = await tokenContract.methods.balanceOf(admin).call();
+        log.debug(`After providing liquidity: admin has ${adminTokenBalance} token units = ${BN(adminTokenBalance).div(BN('1' + '0'.repeat(decimals)))} ${symbol}\n`);
     };
 
     log.debug('DONE PROVIDING LIQUIDITY');
@@ -301,13 +303,13 @@ const setUp = async () => {
 
     await setUpIndexFund();
     await mintTokens({ tokenSymbol: 'dai', value: 1000000, receiver: admin });
-    await provisionLiquidity(4);
+    await provisionLiquidity(150);
 };
 
 
 const main = async () => {
     await deployAuxContracts();
-    await deployIndexContract();
+    await deployIndexContract(initialPortfolio);
     await setUp();
 };
 
@@ -317,6 +319,7 @@ let tokenSet;
 let uniswapTokenSet;
 const initialSupply = 1000000;
 const tokensNotOnUniswap = ['dai', 'bnb', 'zrx', 'enzf'];
+const initialPortfolio = ["aave", "comp", "bzrx", "cel", "yfii"];
 
 
 let admin;
