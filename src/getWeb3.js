@@ -12,7 +12,8 @@ let web3;
 
 if(process.argv[1].includes('mocha') && process.env.NODE_ENV === 'TEST') {
     // && process.env.npm_lifecycle_event === 'test'
-    web3 = new Web3(ganache.provider({ gasLimit: 10000000 }));
+    web3 = new Web3(ganache.provider({ gasLimit: 10000000, default_balance_ether: 10000 }));
+    // web3 = new Web3(ganache.provider({ gasLimit: 100000000}));
 
 } else {
     web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8545'));

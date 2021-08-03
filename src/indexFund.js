@@ -8,7 +8,8 @@ const {
     UNISWAP_ROUTER_JSON,
     DAI_JSON,
     INDEX_TOKEN_JSON,
-    INDEX_FUND_JSON
+    INDEX_FUND_JSON,
+    LENDING_TOKENS
 } = require('./constants');
 
 const {
@@ -33,7 +34,7 @@ const queryIndexPrice = async () => {
     log.debug('INDEX PRICE:', indexPrice);
 };
 
-const swap = async () => {
+const experimentSwap = async () => {
     // const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
     const decimals = indexTokenContract.methods.decimals().call();
 
@@ -69,24 +70,6 @@ const swap = async () => {
     log.debug("Real amount outputs (after swap):", web3.utils.fromWei(amountsOut[0]));
 };
 
-const setPortfolio = async () => {
-    /**
-     * Set portfolio
-     */
-    const tokenSet = assembleTokenSet();
-    const tokenNames = Object.keys(tokenSet).map(symbol => symbol.toUpperCase());
-    const tokenAddresses = Object.values(tokenSet).map(({ address }) => address);
-    await indexFundContract.methods.setPorfolio(tokenNames, tokenAddresses).send({
-        from: admin,
-        gas: '3000000'
-    });
-    log.debug('SUCCESS: Portfolio set!');
-    const portfolioNamesOnchain = await indexFundContract.methods.getNamesInPortfolio().call();
-    log.debug('PORTFOLIO NAMES ONCHAIN:', portfolioNamesOnchain);
-
-    const portfolioAddrsOnchain = await indexFundContract.methods.getAddressesInPortfolio().call();
-    log.debug('PORTFOLIO ADDRS ONCHAIN:', portfolioAddrsOnchain);
-};
 
 const setIndexFundGlobalVars = async () => {
     const accounts = await web3.eth.getAccounts();
@@ -101,9 +84,8 @@ const setIndexFundGlobalVars = async () => {
 const run = async () => {
     await setIndexFundGlobalVars();
 
-    await setPortfolio();
     await queryIndexPrice();
-    await swap();
+    await experimentSwap();
     /** ================================================================= */
 
     /** ================================================================= */
@@ -122,7 +104,6 @@ if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
 
 module.exports = {
     setIndexFundGlobalVars,
-    setPortfolio,
     queryIndexPrice,
-    swap
+    swap: experimentSwap
 };

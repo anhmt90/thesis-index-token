@@ -117,10 +117,12 @@ const queryReserves = async (tokenSymbol, print = false) => {
 /* ************************************************************************* */
 
 const float2TokenUnits = (num, decimals = 18) => {
-    const [integral, fractional] = String(num).split('.');
-    if (fractional === undefined)
+    let [integral, fractional] = String(num).split('.');
+    if (fractional === undefined) {
         return integral + '0'.repeat(decimals);
-    return integral + fractional + '0'.repeat(decimals - fractional.length);
+    }
+    fractional = fractional + '0'.repeat(decimals - fractional.length);
+    return integral !== '0' ?  integral + fractional : fractional;
 };
 
 /* ************************************************************************* */
@@ -137,24 +139,41 @@ const assembleTokenSet = () => {
         _allAddrs = getAllAddrs();
         const prices = loadTokenPrices();
 
-        Object.entries(REAL_TOKEN_JSONS).forEach(([symbol, json]) => {
-            _tokenSet[symbol] = {
-                json,
-                address: _allAddrs[symbol],
-                price: prices[symbol]
-            };
-        });
+        Object.entries(REAL_TOKEN_JSONS)
+            .forEach(([symbol, json]) => {
+                _tokenSet[symbol] = {
+                    json,
+                    address: _allAddrs[symbol],
+                    price: prices[symbol]
+                };
+            });
 
-        Object.keys(LENDING_TOKENS).forEach(symbol => {
-            _tokenSet[symbol] = {
-                json: ERC20_INSTANCE_JSON,
-                address: _allAddrs[symbol],
-                price: prices[symbol]
-            };
-        });
+        Object.keys(LENDING_TOKENS)
+            .forEach(symbol => {
+                _tokenSet[symbol] = {
+                    json: ERC20_INSTANCE_JSON,
+                    address: _allAddrs[symbol],
+                    price: prices[symbol]
+                };
+            });
     }
     return _tokenSet;
 };
+
+const filterTokenSet = (tokenSet, excludedTokens = []) => {
+    const filteredTokenSet = { ...tokenSet };
+
+    if (Object.keys(filteredTokenSet).length > 0) {
+        for (const [symbol, _] of Object.entries(tokenSet)) {
+            if (excludedTokens.includes(symbol)) {
+                delete filteredTokenSet[symbol];
+            }
+        }
+    }
+    return filteredTokenSet;
+};
+
+
 
 /* ************************************************************************* */
 
@@ -166,6 +185,7 @@ module.exports = {
     loadTokenPrices,
     loadItsaTokenInfo,
     assembleTokenSet,
+    filterTokenSet,
     queryEthBalance,
     queryIndexBalance,
     queryTokenBalance,
