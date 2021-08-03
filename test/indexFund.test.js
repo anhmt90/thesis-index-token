@@ -14,8 +14,8 @@ const {
 } = require('./fixtures/constants');
 
 const {
-    deployAllContracts,
-    setUpIndexFund,
+    deployAuxContracts,
+    deployIndexContract,
     setDeployGlobalVars,
     mintTokens,
     provisionLiquidity,
@@ -24,26 +24,30 @@ const {
 
 const {
     setIndexFundGlobalVars,
-    setPortfolio,
 } = require('../src/indexFund');
 
 
 const {
     queryReserves,
     float2TokenUnits,
-    queryTokenBalance
+    queryTokenBalance,
+    filterTokenSet
 } = require('../src/utils');
 
 let accounts;
 let allAddrs;
 let tokenSet;
+let uniswapTokenSet;
+let tokensNotOnUniswap;
+let initialPortfolio;
+
 let admin;
 let investor;
 let indexContract;
 let fundContract;
 let routerContract;
-let componentAddrs;
-let componentJsons;
+let initialComponentAddrs;
+let initialComponentJsons;
 
 /**
  * --------------------------------------------------------------------------------
@@ -53,11 +57,11 @@ let componentJsons;
 const expectAmountsOut = async (eth2Component = true, amountEthInEach = '1') => {
     const path = eth2Component ? [allAddrs.weth, ''] : ['', allAddrs.weth];
     const expectedAmountsOut = [];
-    for (i = 0; i < componentAddrs.length; i++) {
-        const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
+    for (i = 0; i < initialComponentAddrs.length; i++) {
+        const componentContract = new web3.eth.Contract(initialComponentJsons[i].abi, initialComponentAddrs[i]);
         const decimals = await componentContract.methods.decimals().call();
 
-        path[eth2Component ? 1 : 0] = componentAddrs[i];
+        path[eth2Component ? 1 : 0] = initialComponentAddrs[i];
         const amountIn = (amountEthInEach.length <= 10) ? float2TokenUnits(amountEthInEach, decimals) : amountEthInEach;
         const amountsOut = await routerContract.methods.getAmountsOut(amountIn, path).call();
         expectedAmountsOut.push(amountsOut[1]);
@@ -80,8 +84,8 @@ const expectPrices = async (amountEthInEach = '1') => {
 
 const getComponentBalancesOfIndexFund = async () => {
     const componentBalanceOfIndexFund = [];
-    for (i = 0; i < componentAddrs.length; i++) {
-        const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
+    for (i = 0; i < initialComponentAddrs.length; i++) {
+        const componentContract = new web3.eth.Contract(initialComponentJsons[i].abi, initialComponentAddrs[i]);
         componentBalanceOfIndexFund[i] = BN(await componentContract.methods.balanceOf(allAddrs.indexFund).call());
     }
     return componentBalanceOfIndexFund;
@@ -175,29 +179,7 @@ const assertIndexTokenState = async (stateBefore, expectedDiffs) => {
  * Adapted from https://ethereum.stackexchange.com/a/48629/68643
  */
 
-module.exports.errTypes = {
-    revert: "revert",
-    outOfGas: "out of gas",
-};
-
-const tryCatch = async (asyncFunc, message) => {
-    const PREFIX = ": ";
-    try {
-        await asyncFunc;
-        throw null;
-    }
-    catch (error) {
-        assert(error, "Expected an error but did not get one");
-
-
-        const actualReason = error.results.reason;
-        // console.log('ERROR: ', error)
-
-
-    }
-};
-
-const assertRevert = async (actualErrorMessage, expectedErrorReason) => {
+const assertRevert = async (actualErrorMessage, expectedErrorMessage) => {
     assert.strictEqual(actualErrorMessage.includes('revert ' + expectedErrorMessage), `Expected error message "${expectedErrorMessage}", but got "${actualErrorMessage}".`);
 };
 
@@ -213,24 +195,26 @@ before(async () => {
     if (fs.existsSync(PATH_ADDRESS_FILE))
         fs.unlinkSync(PATH_ADDRESS_FILE);
 
-    await deployAllContracts();
-    [allAddrs, tokenSet] = setDeployGlobalVars();
+    initialPortfolio = ["aave", "comp", "bzrx", "cel", "yfii"];
+    await deployAuxContracts();
+    await deployIndexContract(initialPortfolio);
+
+    tokensNotOnUniswap = ['dai', 'bnb', 'zrx', 'enzf'];
+    [allAddrs, tokenSet, uniswapTokenSet] = setDeployGlobalVars(tokensNotOnUniswap);
+
     indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddrs.indexToken);
     fundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
     routerContract = new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, allAddrs.uniswapRouter);
-    setIndexFundGlobalVars();
+    await setIndexFundGlobalVars();
 
     accounts = await web3.eth.getAccounts();
     admin = accounts[0];
     investor = accounts[2];
 
-    await setPortfolio();
-    // await setUpIndexFund();
-    // await mintTokens({ tokenSymbol: 'dai', value: 1000000, receiver: admin });
-    // await provisionLiquidity(ethProvisioned);
-
-    componentAddrs = Object.values(tokenSet).map(token => token.address);
-    componentJsons = Object.values(tokenSet).map(token => token.json);
+    const tokensNotInInitialPortfolio = Object.keys(tokenSet).filter(symbol => !initialPortfolio.includes(symbol))
+    const initialPortfolioTokenSet = filterTokenSet(tokenSet, tokensNotInInitialPortfolio)
+    initialComponentAddrs = Object.values(initialPortfolioTokenSet).map(token => token.address);
+    initialComponentJsons = Object.values(initialPortfolioTokenSet).map(token => token.json);
 });
 
 
@@ -261,32 +245,31 @@ describe('Deploy and setup smart contracts', () => {
 
 describe('Uniswap lidquidity provision', () => {
     it(' should provision all Uniswap ERC20/WETH pools with the expected liquidity', async () => {
-        const ethAmount = 20;
+        const ethAmount = 90;
         await provisionLiquidity(ethAmount);
 
-        for (const [symbol, token] of Object.entries(tokenSet)) {
+        for (const [symbol, token] of Object.entries(uniswapTokenSet)) {
             const [actualWeth, actualToken] = await queryReserves(symbol);
             const expectedWeth = float2TokenUnits(ethAmount);
             assert.strictEqual(expectedWeth, actualWeth, `expected ${expectedWeth} wei but got ${actualWeth}`);
             const expectedTokenAmount = float2TokenUnits(ethAmount * token.price);
-            assert.strictEqual(actualToken, expectedTokenAmount, `expected ${expectedTokenAmount} token units but got ${actualToken}`);
+            assert.strictEqual(actualToken, expectedTokenAmount, `Token ${symbol}: expected ${expectedTokenAmount} token units but got ${actualToken}`);
         }
 
     });
 });
 
 
-
 describe('IndexFund functionalities', () => {
     it('checks if portfolio is properly set in Index Fund smart contract', async () => {
-        const expectedTokenNames = Object.keys(tokenSet).map(name => name.toLowerCase());
-        const actualTokenNames = (await fundContract.methods.getNamesInPortfolio().call()).map(name => name.toLowerCase());
+        const expectedComponentNames = initialPortfolio;
+        const actualComponentNames = (await fundContract.methods.getNamesInPortfolio().call()).map(name => name.toLowerCase());
 
-        assert.deepStrictEqual(actualTokenNames, expectedTokenNames, 'Token names not match');
+        assert.deepStrictEqual(actualComponentNames, expectedComponentNames, 'Token names not match');
 
-        const expectedTokenAddrs = Object.values(tokenSet).map(token => token.address);
-        const actualTokenAddrs = await fundContract.methods.getAddressesInPortfolio().call();
-        assert.deepStrictEqual(actualTokenAddrs, expectedTokenAddrs, 'Token addresses not match');
+        const expectedComponentAddrs = initialComponentAddrs;
+        const actualComponentAddrs = await fundContract.methods.getAddressesInPortfolio().call();
+        assert.deepStrictEqual(actualComponentAddrs, expectedComponentAddrs, 'Token addresses not match');
     });
 
     it('should return correct *nominal* Index price when totalSupply = 0', async () => {
@@ -317,7 +300,7 @@ describe('IndexFund functionalities', () => {
         }
         const indexPrice = componentPriceSum.div(BN(componentPrices.length));
 
-        const ethAmount = BN(web3.utils.toWei(String(componentAddrs.length), "ether"));
+        const ethAmount = BN(web3.utils.toWei(String(initialComponentAddrs.length), "ether"));
         const expectedIndexTokenAmount = BN(ethAmount + '0'.repeat(18)).div(indexPrice);
 
         // ---------------------------------------------------
@@ -366,7 +349,7 @@ describe('IndexFund functionalities', () => {
         const expectedComponentPrices = await expectPrices();
         let expectedIndexPrice = BN(0);
         for (let i = 0; i < expectedComponentPrices.length; i++) {
-            const componentContract = new web3.eth.Contract(componentJsons[i].abi, componentAddrs[i]);
+            const componentContract = new web3.eth.Contract(initialComponentJsons[i].abi, initialComponentAddrs[i]);
             const componentPrice = BN(expectedComponentPrices[i]);
             // console.log('tokenPrice', tokenPrice);
             const componentBalanceOfIndexFund = BN(await componentContract.methods.balanceOf(allAddrs.indexFund).call());
@@ -398,7 +381,7 @@ describe('IndexFund functionalities', () => {
         }
         indexPrice = indexPrice.div(indexTokenStateBefore.totalSupply);
 
-        const ethAmount = BN(web3.utils.toWei(String(componentAddrs.length), "ether"));
+        const ethAmount = BN(web3.utils.toWei(String(initialComponentAddrs.length), "ether"));
         const expectedAmountToMint = BN(ethAmount.toString() + '0'.repeat(18)).div(indexPrice);
 
         /**
@@ -451,9 +434,9 @@ describe('IndexFund functionalities', () => {
 
     it('should sell back Index Tokens properly', async () => {
         // selling 9 index tokens
-        const saleIndexAmount = BN('9' + '0'.repeat(18));
+        const saleIndexAmount = BN('1' + '0'.repeat(18));
 
-        const expectedEachComponentAmountIn = saleIndexAmount.div(BN(componentAddrs.length));
+        const expectedEachComponentAmountIn = saleIndexAmount.div(BN(initialComponentAddrs.length));
         const expectedEthAmountsOut = await expectAmountsOut(false, expectedEachComponentAmountIn.toString());
 
         await indexContract.methods.approve(allAddrs.indexFund, saleIndexAmount.toString()).send({
@@ -483,12 +466,11 @@ describe('IndexFund functionalities', () => {
         });
 
         const txFees = await getTxFees(tx);
-        console.log("txFees", txFees.toString());
 
         const expectedIndexFundDiffs = {
             ethBalance: BN(0),
             indexBalance: BN(0),
-            componentBalances: Array(componentAddrs.length).fill(expectedEachComponentAmountIn.neg())
+            componentBalances: Array(initialComponentAddrs.length).fill(expectedEachComponentAmountIn.neg())
         };
 
         const expectedInvestorDiffs = {
@@ -509,7 +491,6 @@ describe('IndexFund functionalities', () => {
     it('should be rejected by the on-chain sell function due to not enough allowance', async () => {
         // selling 9 index tokens
         const saleIndexAmount = BN('9' + '0'.repeat(18));
-        console.log('SALE AMOUNT: ', saleIndexAmount.toString());
 
         const allowance = saleIndexAmount.sub(BN(1));
         await indexContract.methods.approve(allAddrs.indexFund, allowance).send({
