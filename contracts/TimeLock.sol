@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  */
 abstract contract TimeLock {
     enum Functions {
-        SET_PORTFOLIO,
+        UPDATE_PORTFOLIO,
         REBALANCING
     }
     uint256 public constant TIMELOCK = 2 days;
@@ -30,13 +30,13 @@ abstract contract TimeLock {
 
     function lockUnlimited(Functions _fn) internal {
         timelock[_fn] = 0;
-        emit TimeLockAnnouncement(Functions.SET_PORTFOLIO, 0, "");
+        emit TimeLockAnnouncement(Functions.UPDATE_PORTFOLIO, 0, "");
     }
 
     function lock2days(Functions _fn, string calldata _message) internal {
         timelock[_fn] = block.timestamp + TIMELOCK;
         emit TimeLockAnnouncement(
-            Functions.SET_PORTFOLIO,
+            Functions.UPDATE_PORTFOLIO,
             timelock[_fn],
             _message
         );

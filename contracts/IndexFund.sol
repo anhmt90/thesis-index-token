@@ -62,7 +62,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         override
         onlyOracle
     {
-        lock2days(Functions.SET_PORTFOLIO, _message);
+        lock2days(Functions.UPDATE_PORTFOLIO, _message);
     }
 
     function announcePortfolioRebalancing(string calldata _message)
@@ -73,12 +73,12 @@ contract IndexFund is Fund, TimeLock, Ownable {
         lock2days(Functions.REBALANCING, _message);
     }
 
-    function setPorfolio(
+    function updatePorfolio(
         string[] memory componentNames,
         address[] memory componentAddrs
-    ) external onlyOracle notLocked(Functions.SET_PORTFOLIO) {
+    ) external onlyOracle notLocked(Functions.UPDATE_PORTFOLIO) {
         _setPortfolio(componentNames, componentAddrs);
-        lockUnlimited(Functions.SET_PORTFOLIO);
+        lockUnlimited(Functions.UPDATE_PORTFOLIO);
     }
 
     function _setPortfolio(
@@ -98,6 +98,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
             portfolio[componentNames[i]] = componentAddrs[i];
         }
         emit PortfolioChanged(componentNames, componentAddrs);
+
     }
 
     /** ----------------------------------------------------------------------------------------------------- */

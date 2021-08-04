@@ -47,6 +47,6 @@ contract Oracle is Ownable {
     }
 
     function apply_() external onlyOwner onlyFundOwner {
-        IndexFund(indexFund).setPorfolio(componentNames, componentAddrs);
+        IndexFund(indexFund).updatePorfolio(componentNames, componentAddrs);
     }
 }
