@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
@@ -74,10 +75,61 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
     function updatePorfolio(
-        string[] memory _componentSymbols,
-        address[] memory _componentAddrs
+        string[] memory _componentSymbolsOut,
+        uint256[] calldata _amountsOutMinOut,
+        address[] memory _componentAddrsIn,
+        uint256[] calldata _amountsOutMinIn,
+        string[] memory _allNextComponentSymbols
     ) external onlyOracle notLocked(Functions.UPDATE_PORTFOLIO) {
-        _setPortfolio(_componentSymbols, _componentAddrs);
+        require(_componentSymbolsOut.length == _componentAddrsIn.length, "IndexFund: number of component to be added and to be removed not matched");
+        require(_componentSymbolsOut.length == _amountsOutMinOut.length, "IndexFund: length of _componentSymbolsOut and _amountsOutMinOut not matched");
+        require(_componentAddrsIn.length == _amountsOutMinIn.length, "IndexFund: length of _componentAddrsIn and _amountsOutMinIn not matched");
+
+        // sell the outgoing components on Uniswap to get eth to buy the incoming ones.
+        address[] memory path = new address[](2);
+        path[1] = weth;
+        for (uint256 i = 0; i < _componentSymbolsOut.length; i++) {
+            address componentAddr = portfolio[_componentSymbolsOut[i]];
+            require(componentAddr != address(0), "IndexFund: an outgoing component not found in portfolio");
+            path[0] = componentAddr;
+            uint256 currentBalance = IERC20Extended(componentAddr).balanceOf(address(this));
+
+            IUniswapV2Router02(router).swapExactTokensForETH(
+                currentBalance,
+                _amountsOutMinOut[i],
+                path,
+                address(this),
+                block.timestamp + 10
+            );
+
+            delete portfolio[_componentSymbolsOut[i]];
+        }
+        require(address(this).balance > 0, "IndexFund: balance of IndexFund is 0");
+
+        // buy the incoming components.
+        path[0] = weth;
+        uint256 ethForEachIncomingComponnent = address(this).balance / _componentAddrsIn.length;
+        for (uint256 i = 0; i < _componentAddrsIn.length; i++) {
+            string memory symbol = IERC20Metadata(_componentAddrsIn[i]).symbol();
+            path[1] = _componentAddrsIn[i];
+            uint256[] memory amounts = IUniswapV2Router02(router)
+                .swapExactETHForTokens{value: ethForEachIncomingComponnent}(
+                _amountsOutMinIn[i],
+                path,
+                address(this),
+                block.timestamp + 10
+            );
+            portfolio[symbol] = _componentAddrsIn[i];
+        }
+
+        // check if the new symbol array is all set in the portfolio mapping
+        for (uint256 i = 0; i < _allNextComponentSymbols.length; i++) {
+            require(portfolio[_allNextComponentSymbols[i]] != address(0), "IndexToken: a component in the new symbol array is not in the portfolio");
+        }
+        // replace the entire old symbol array with this new symbol array.
+        componentSymbols = _allNextComponentSymbols;
+
+        // lock unlimited time, a next update must always have 2 days grace period.
         lockUnlimited(Functions.UPDATE_PORTFOLIO);
     }
 

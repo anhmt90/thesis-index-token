@@ -9,8 +9,10 @@ contract Oracle is Ownable {
     address public indexFund;
 
     // <componentToken_name> is at <componentToken_address>
-    address[] public componentAddrs;
-    string[] public componentNames;
+
+    string[] memory componentSymbolsOut;
+    address[] memory componentAddrsIn;
+    string[] memory allNextComponentSymbols;
     string[] public componentITCs;
 
 
@@ -28,25 +30,29 @@ contract Oracle is Ownable {
     }
 
     function prepare(
-        string[] memory _componentNames,
-        address[] memory _componentAddrs,
+        string[] memory _componentSymbolsOut,
+        address[] memory _componentAddrsIn,
+        string[] memory _allNextComponentSymbols,
         string[] memory _componentITCs,
         string calldata _announcementMessage
     ) external onlyOwner onlyFundOwner {
-        require(_componentNames.length == _componentAddrs.length, "Oracle: NAME and ADDRESS arrays not equal in length!");
-        require(_componentNames.length == _componentITCs.length, "Oracle: NAME and ITC arrays not equal in length!");
-        componentNames = _componentNames;
-        componentITCs = _componentITCs;
+        require(_componentSymbolsOut.length == _componentAddrsIn.length, "Oracle: number of component to be added and to be removed not matched");
 
-        for (uint256 i = 0; i < _componentNames.length; i++) {
-            require(_componentAddrs[i] != address(0), "Oracle: a component address is 0");
-        }
-        componentAddrs = _componentAddrs;
+        componentSymbolsOut = _componentSymbolsOut;
+        componentAddrsIn = _componentAddrsIn;
+        allNextComponentSymbols = _allNextComponentSymbols;
+        componentITCs = _componentITCs;
 
         IndexFund(indexFund).announcePortfolioUpdating(_announcementMessage);
     }
 
-    function apply_() external onlyOwner onlyFundOwner {
-        IndexFund(indexFund).updatePorfolio(componentNames, componentAddrs);
+    function apply_(uint256[] calldata _amountsOutMinOut, uint256[] calldata _amountsOutMinIn) external onlyOwner onlyFundOwner {
+        IndexFund(indexFund).updatePorfolio(
+            componentSymbolsOut,
+            _amountsOutMinOut,
+            componentAddrsIn,
+            _amountsOutMinIn,
+            _allNextComponentSymbols
+        );
     }
 }
