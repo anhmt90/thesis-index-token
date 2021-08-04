@@ -238,7 +238,7 @@ const CONTRACTS = {
     AAVE: "aave",
     COMP: "comp",
     BZRX: "bzrx",
-    CEL: "cell",
+    CEL: "cel",
     YFII: "yfii",
     MKR: "mkr",
     ENZF: "enzf",
