@@ -74,8 +74,8 @@ const loadLastUniswapPrices = () => {
     const mostRecentPriceFilePath = path.join(__dirname, '../', mostRecentPriceFile);
     const mostRecentPrices = _load(mostRecentPriceFilePath, mostRecentPriceFile.replace('/data', ''));
     const mostRecentPricesInEth = {};
-    for(const [sym, price] of Object.entries(mostRecentPrices)) {
-        mostRecentPricesInEth[sym] = BN('1' + '0'.repeat(18*2)).div(BN(float2TokenUnits(price))).toString();
+    for (const [sym, price] of Object.entries(mostRecentPrices)) {
+        mostRecentPricesInEth[sym] = BN('1' + '0'.repeat(18 * 2)).div(BN(float2TokenUnits(price))).toString();
     }
     return mostRecentPricesInEth;
 };
@@ -141,14 +141,33 @@ const queryReserves = async (tokenSymbol, print = false) => {
     return [resWeth, resToken];
 };
 
-const queryUniswapPriceInEth = async (tokenSymbol) => {
+const _getSwapPathAndRouterContract = (tokenSymbol, eth2Token = true) => {
     if (Object.keys(_tokenSet).length === 0) _tokenSet = assembleTokenSet();
-    const routerContract = getContract(CONTRACTS.UNISWAP_ROUTER);
     const tokenAddr = _tokenSet[tokenSymbol.toLowerCase()].address;
-    const path = [_allAddrs.weth, tokenAddr];
+    const path = eth2Token ? [_allAddrs.weth, tokenAddr] : [tokenAddr, _allAddrs.weth];
+    const routerContract = getContract(CONTRACTS.UNISWAP_ROUTER);
+    return [path, routerContract];
+};
+
+const queryUniswapPriceInEth = async (tokenSymbol) => {
+    const [path, routerContract] = _getSwapPathAndRouterContract(tokenSymbol, true);
     const amounts = await routerContract.methods.getAmountsOut('1' + '0'.repeat(18), path).call();
     return BN('1' + '0'.repeat(18 * 2)).div(BN(amounts[1])).toString();
 };
+
+const queryUniswapEthOut = async (tokenSymbol, amountToken) => {
+    const [path, routerContract] = _getSwapPathAndRouterContract(tokenSymbol, false);
+    const amounts = await routerContract.methods.getAmountsOut(amountToken, path).call();
+    const amountEthOut = amounts[1];
+    return amountEthOut;
+};
+
+const queryUniswapTokenOut = async (tokenSymbol, amountEth) => {
+    const [path, routerContract] = _getSwapPathAndRouterContract(tokenSymbol, true);
+    const amounts = await routerContract.methods.getAmountsOut(amountEth, path).call();
+    const amountTokenOut = amounts[1];
+    return amountTokenOut;
+}
 
 /* ************************************************************************* */
 
@@ -229,8 +248,8 @@ const CONTRACTS = {
     UNISWAP_FACTORY: "uniswapFactory",
     UNISWAP_ROUTER: "uniswapRouter",
 
-    INDEXFUND: "indexFund",
-    INDEXTOKEN: "indexToken",
+    INDEX_FUND: "indexFund",
+    INDEX_TOKEN: "indexToken",
     ORACLE: "oracle",
 
 };
@@ -266,9 +285,9 @@ const getContract = (contract) => {
             return new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, _allAddrs[contract]);
         case CONTRACTS.UNISWAP_ROUTER:
             return new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, _allAddrs[contract]);
-        case CONTRACTS.INDEX_FUND_JSON:
+        case CONTRACTS.INDEX_FUND:
             return new web3.eth.Contract(INDEX_FUND_JSON.abi, _allAddrs[contract]);
-        case CONTRACTS.INDEX_TOKEN_JSON:
+        case CONTRACTS.INDEX_TOKEN:
             return new web3.eth.Contract(INDEX_TOKEN_JSON.abi, _allAddrs[contract]);
         case CONTRACTS.ORACLE:
             return new web3.eth.Contract(ORACLE_JSON.abi, _allAddrs[contract]);
@@ -295,6 +314,8 @@ module.exports = {
     queryPairAddress,
     queryReserves,
     queryUniswapPriceInEth,
+    queryUniswapEthOut,
+    queryUniswapTokenOut,
 
     getContract,
     CONTRACTS,
