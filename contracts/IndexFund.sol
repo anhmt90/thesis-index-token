@@ -28,11 +28,11 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
     modifier properPortfolio() {
         require(
-            tokenNames.length > 0,
+            componentSymbols.length > 0,
             "IndexFund : No token names found in portfolio"
         );
-        // for (uint256 i = 0; i < tokenNames.length; i++) {
-        //     require(portfolio[tokenNames[i]] != address(0), "IndexFund : A token in portfolio has address 0");
+        // for (uint256 i = 0; i < componentSymbols.length; i++) {
+        //     require(portfolio[componentSymbols[i]] != address(0), "IndexFund : A token in portfolio has address 0");
         // }
         _;
     }
@@ -46,11 +46,11 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
     constructor(
-        string[] memory _componentNames,
+        string[] memory _componentSymbols,
         address[] memory _componentAddrs,
         address _router
     ) {
-        _setPortfolio(_componentNames, _componentAddrs);
+        _setPortfolio(_componentSymbols, _componentAddrs);
         router = _router;
         weth = IUniswapV2Router02(_router).WETH();
         indexToken = address(new IndexToken());
@@ -74,30 +74,30 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
     function updatePorfolio(
-        string[] memory componentNames,
-        address[] memory componentAddrs
+        string[] memory _componentSymbols,
+        address[] memory _componentAddrs
     ) external onlyOracle notLocked(Functions.UPDATE_PORTFOLIO) {
-        _setPortfolio(componentNames, componentAddrs);
+        _setPortfolio(_componentSymbols, _componentAddrs);
         lockUnlimited(Functions.UPDATE_PORTFOLIO);
     }
 
     function _setPortfolio(
-        string[] memory componentNames,
-        address[] memory componentAddrs
+        string[] memory _componentSymbols,
+        address[] memory _componentAddrs
     ) private {
         require(
-            componentNames.length == componentAddrs.length,
-            "IndexFund: NAME and ADDRESS arrays not equal in length!"
+            _componentSymbols.length == _componentAddrs.length,
+            "IndexFund: SYMBOL and ADDRESS arrays not equal in length!"
         );
-        tokenNames = componentNames;
-        for (uint256 i = 0; i < componentNames.length; i++) {
+        componentSymbols = _componentSymbols;
+        for (uint256 i = 0; i < _componentSymbols.length; i++) {
             require(
-                componentAddrs[i] != address(0),
+                _componentAddrs[i] != address(0),
                 "IndexFund: a component address is 0"
             );
-            portfolio[componentNames[i]] = componentAddrs[i];
+            portfolio[_componentSymbols[i]] = _componentAddrs[i];
         }
-        emit PortfolioChanged(componentNames, componentAddrs);
+        emit PortfolioChanged(_componentSymbols, _componentAddrs);
 
     }
 
@@ -113,9 +113,9 @@ contract IndexFund is Fund, TimeLock, Ownable {
         address[] memory path = new address[](2);
         path[0] = weth;
 
-        amounts = new uint256[](tokenNames.length);
-        for (uint256 i = 0; i < tokenNames.length; i++) {
-            path[1] = portfolio[tokenNames[i]];
+        amounts = new uint256[](componentSymbols.length);
+        for (uint256 i = 0; i < componentSymbols.length; i++) {
+            path[1] = portfolio[componentSymbols[i]];
             amounts[i] = IUniswapV2Router02(router).getAmountsOut(ethIn, path)[
                 1
             ];
@@ -128,8 +128,8 @@ contract IndexFund is Fund, TimeLock, Ownable {
         address[] memory path = new address[](2);
 
         path[1] = weth;
-        for (uint256 i = 0; i < tokenNames.length; i++) {
-            address componentAddress = portfolio[tokenNames[i]];
+        for (uint256 i = 0; i < componentSymbols.length; i++) {
+            address componentAddress = portfolio[componentSymbols[i]];
             path[0] = componentAddress;
 
             uint256 componentBalanceOfIndexFund = totalSupply > 0
@@ -142,7 +142,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         if (totalSupply > 0) {
             _price = (_price * 1000000000000000000) /  totalSupply;
         } else {
-            _price /= tokenNames.length;
+            _price /= componentSymbols.length;
         }
     }
 
@@ -161,7 +161,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         );
         require(
             _amountsOutMin.length == 0 ||
-                _amountsOutMin.length == tokenNames.length,
+                _amountsOutMin.length == componentSymbols.length,
             "IndexToken: offchainPrices must either be empty or have many entries as the portfolio"
         );
 
@@ -195,12 +195,12 @@ contract IndexFund is Fund, TimeLock, Ownable {
         path[0] = weth;
 
         uint256 _amountEth = msg.value;
-        uint256 _ethForEachComponent = msg.value / tokenNames.length;
-        uint256[] memory _amountsOut = new uint256[](tokenNames.length);
+        uint256 _ethForEachComponent = msg.value / componentSymbols.length;
+        uint256[] memory _amountsOut = new uint256[](componentSymbols.length);
         uint256 _amountOutMin = 1;
 
-        for (uint256 i = 0; i < tokenNames.length; i++) {
-            address tokenAddr = portfolio[tokenNames[i]];
+        for (uint256 i = 0; i < componentSymbols.length; i++) {
+            address tokenAddr = portfolio[componentSymbols[i]];
             require(tokenAddr != address(0), "IndexFund : Token has address 0");
             path[1] = tokenAddr;
 
@@ -218,7 +218,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
             _amountsOut[i] = amounts[1];
         }
-        emit SwapForComponents(tokenNames, _amountEth, _amountsOut);
+        emit SwapForComponents(componentSymbols, _amountEth, _amountsOut);
     }
 
     /** ----------------------------------------------------------------------------------------------------- */
@@ -249,12 +249,12 @@ contract IndexFund is Fund, TimeLock, Ownable {
     ) internal {
         address[] memory path = new address[](2);
         path[1] = weth;
-        uint256 _amountEachComponent = _amountIndexToken / tokenNames.length;
-        uint256[] memory _amountsOut = new uint256[](tokenNames.length);
+        uint256 _amountEachComponent = _amountIndexToken / componentSymbols.length;
+        uint256[] memory _amountsOut = new uint256[](componentSymbols.length);
         uint256 _amountOutMin = 1;
 
-        for (uint256 i = 0; i < tokenNames.length; i++) {
-            address tokenAddr = portfolio[tokenNames[i]];
+        for (uint256 i = 0; i < componentSymbols.length; i++) {
+            address tokenAddr = portfolio[componentSymbols[i]];
             require(
                 tokenAddr != address(0),
                 "IndexFund: A token has address 0"
@@ -277,13 +277,13 @@ contract IndexFund is Fund, TimeLock, Ownable {
                 );
             _amountsOut[i] = amounts[1];
         }
-        emit SwapForEth(tokenNames, _amountEachComponent, _amountsOut);
+        emit SwapForEth(componentSymbols, _amountEachComponent, _amountsOut);
     }
 
     /** ----------------------------------------------------------------------------------------------------- */
     function rebalance(uint16[] calldata allocation) external onlyOwner {
         require(
-            allocation.length == tokenNames.length,
+            allocation.length == componentSymbols.length,
             "IndxToken: Wrong size of allocation array"
         );
         uint16 sumAllocation;
@@ -298,10 +298,10 @@ contract IndexFund is Fund, TimeLock, Ownable {
         address[] memory path = new address[](2);
         path[1] = weth;
 
-        uint256[] memory ethAmountsOut = new uint256[](tokenNames.length);
+        uint256[] memory ethAmountsOut = new uint256[](componentSymbols.length);
         uint256 ethSum;
-        for (uint256 i = 0; i < tokenNames.length; i++) {
-            address tokenAddr = portfolio[tokenNames[i]];
+        for (uint256 i = 0; i < componentSymbols.length; i++) {
+            address tokenAddr = portfolio[componentSymbols[i]];
             path[0] = tokenAddr;
             uint256 tokenBalance = IERC20(tokenAddr).balanceOf(address(this));
             ethAmountsOut[i] = IUniswapV2Router02(router).getAmountsOut(
@@ -310,12 +310,12 @@ contract IndexFund is Fund, TimeLock, Ownable {
             )[1];
             ethSum += ethAmountsOut[i];
         }
-        uint256 ethAvg = ethSum / tokenNames.length;
+        uint256 ethAvg = ethSum / componentSymbols.length;
 
         // SELLING `overperforming` tokens for ETH
         for (uint256 i = 0; i < ethAmountsOut.length; i++) {
             if (ethAvg < ethAmountsOut[i]) {
-                address tokenAddr = portfolio[tokenNames[i]];
+                address tokenAddr = portfolio[componentSymbols[i]];
 
                 uint256 ethDiff = ethAmountsOut[i] - ethAvg;
                 path[0] = weth;
@@ -342,7 +342,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         // BUYING `underperforming` tokens with the ETH received
         for (uint256 i = 0; i < ethAmountsOut.length; i++) {
             if (ethAvg > ethAmountsOut[i]) {
-                address tokenAddr = portfolio[tokenNames[i]];
+                address tokenAddr = portfolio[componentSymbols[i]];
                 uint256 ethDiff = ethAvg - ethAmountsOut[i];
                 path[0] = weth;
                 path[1] = tokenAddr;
@@ -364,20 +364,6 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
     /** ---------------------------------------------------------------------------------------------------- */
-    // @notice a callback for Oracle contract to call once the requested data is ready
-    // function __oracleCallback(uint256 _reqId, uint256 _price)
-    //     external
-    //     override
-    //     returns (bool)
-    // {
-    //     require(pendingPurchases[_reqId]._id != 0, "Request ID not found");
-
-    //     pendingPurchases[_reqId]._price = _price;
-
-    //     emit PurchaseReady(_reqId, pendingPurchases[_reqId]._buyer, _price);
-
-    //     return true;
-    // }
 
     function setTokenContract(address _indexToken)
         external
@@ -392,8 +378,8 @@ contract IndexFund is Fund, TimeLock, Ownable {
         oracle = _oracle;
     }
 
-    function getNamesInPortfolio() external view returns (string[] memory) {
-        return tokenNames;
+    function getComponentSymbols() external view returns (string[] memory) {
+        return componentSymbols;
     }
 
     function getAddressesInPortfolio()
@@ -401,13 +387,13 @@ contract IndexFund is Fund, TimeLock, Ownable {
         view
         returns (address[] memory _addrs)
     {
-        _addrs = new address[](tokenNames.length);
-        for (uint256 i = 0; i < tokenNames.length; i++) {
+        _addrs = new address[](componentSymbols.length);
+        for (uint256 i = 0; i < componentSymbols.length; i++) {
             require(
-                portfolio[tokenNames[i]] != address(0),
+                portfolio[componentSymbols[i]] != address(0),
                 "IndexFund : A token in portfolio has address 0"
             );
-            _addrs[i] = portfolio[tokenNames[i]];
+            _addrs[i] = portfolio[componentSymbols[i]];
         }
     }
 }

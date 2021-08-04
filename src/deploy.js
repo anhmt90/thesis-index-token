@@ -229,7 +229,7 @@ const deployIndexContract = async (componentNames) => {
     allAddrs.oracle = await fundContract.methods.oracle().call();
     log.debug('ORACLE deployed at:', allAddrs.oracle);
 
-    const portfolioNamesOnchain = await fundContract.methods.getNamesInPortfolio().call();
+    const portfolioNamesOnchain = await fundContract.methods.getComponentSymbols().call();
     log.debug('PORTFOLIO NAMES ONCHAIN:', portfolioNamesOnchain);
 
     const portfolioAddrsOnchain = await fundContract.methods.getAddressesInPortfolio().call();

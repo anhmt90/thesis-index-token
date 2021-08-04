@@ -106,7 +106,7 @@ const selectNewPortfolio = async () => {
     console.log("PRICE DIFFS ===> ", priceDiffPercentages.map(({ symbol, diffPercent }) => symbol + ': ' + diffPercent));
 
     const fundContract = getContract(CONTRACTS.INDEX_FUND);
-    curPortfolio = new Set(await fundContract.methods.getNamesInPortfolio().call());
+    curPortfolio = new Set(await fundContract.methods.getComponentSymbols().call());
 
     priceDiffPercentages.sort(_compareComponent);
 
@@ -143,7 +143,7 @@ const _compareComponent = (a, b) => {
 const decidePortfolioSubstitution = async (newPortfolio) => {
     // get current portfolio onchain
     const fundContract = getContract(CONTRACTS.INDEX_FUND);
-    const curPortfolio = (await fundContract.methods.getNamesInPortfolio().call()).map(component => component.toLowerCase());
+    const curPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(component => component.toLowerCase());
     console.log("CURRENT PORTFOLIO ===> ", curPortfolio);
 
     // derive subtituted components (components out) from current portfolio
@@ -216,7 +216,36 @@ const decidePortfolioSubstitution = async (newPortfolio) => {
     // take the money from the sale, buy those new components
 };
 
+const buy = async () => {
+    const investor = (await web3.eth.getAccounts())[2];
+    await fundContract.methods.buy([]).send({
+        from: investor,
+        value: Ether('100'),
+        gas: '5000000'
+    });
 
+    await getContract(CONTRACTS.UNISWAP_ROUTER).methods.swapExactETHForTokens(
+        0,
+        [allAddrs.weth, allAddrs.yfi],
+        investor,
+        ((await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp + 10000).toString()
+    ).send({
+        from: investor,
+        value: Ether('100'),
+        gas: '5000000'
+    })
+
+    await getContract(CONTRACTS.UNISWAP_ROUTER).methods.swapExactETHForTokens(
+        0,
+        [allAddrs.weth, allAddrs.mkr],
+        investor,
+        ((await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp + 10000).toString()
+    ).send({
+        from: investor,
+        value: Ether('100'),
+        gas: '5000000'
+    })
+};
 
 const announce = async () => {
 
@@ -228,6 +257,7 @@ const announce = async () => {
 const run = async () => {
     await setOracleGlobalVars();
     const newPortfolio = await selectNewPortfolio();
+    await buy();
     const decision = await decidePortfolioSubstitution(newPortfolio);
     console.log('DECISON:', decision);
 };

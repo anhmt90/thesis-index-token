@@ -14,7 +14,7 @@ abstract contract Fund {
 
     // <componentToken_name> is at <componentToken_address>
     mapping(string => address) public portfolio;
-    string[] public tokenNames;
+    string[] public componentSymbols;
 
     event Purchase(
         address indexed _buyer,
@@ -28,7 +28,7 @@ abstract contract Fund {
     );
 
     event PortfolioChanged(
-        string[] names,
+        string[] symbols,
         address[] addresses
     );
 

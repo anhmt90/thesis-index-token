@@ -62,7 +62,7 @@ const ETHER = web3.utils.toWei(BN(1));
  */
 
 const expectTotalEthAmountsOut = async (withFixed1Token = false) => {
-    const currentPortfolio = (await fundContract.methods.getNamesInPortfolio().call()).map(symbol => symbol.toLowerCase());
+    const currentPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
     let sum = BN(0);
     let ethOut;
     for (const componentSymbol of currentPortfolio) {
@@ -78,7 +78,7 @@ const expectTotalEthAmountsOut = async (withFixed1Token = false) => {
 };
 
 const expectComponentAmountsOut = async (ethInForEach) => {
-    const currentPortfolio = (await fundContract.methods.getNamesInPortfolio().call()).map(symbol => symbol.toLowerCase());
+    const currentPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
     const componentAmountsOut = [];
     for (const componentSymbol of currentPortfolio) {
         const amountOut = await queryUniswapTokenOut(componentSymbol, ethInForEach);
@@ -88,7 +88,7 @@ const expectComponentAmountsOut = async (ethInForEach) => {
 };
 
 const expectEthAmountsOut = async (componentInForEach) => {
-    const currentPortfolio = (await fundContract.methods.getNamesInPortfolio().call()).map(symbol => symbol.toLowerCase());
+    const currentPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
     const ethAmountsOut = [];
     for (const componentSymbol of currentPortfolio) {
         const amountOut = await queryUniswapEthOut(componentSymbol, componentInForEach);
@@ -278,10 +278,10 @@ describe('Uniswap lidquidity provision', () => {
 
 describe('IndexFund functionalities', () => {
     it('checks if portfolio is properly set in Index Fund smart contract', async () => {
-        const expectedComponentNames = initialPortfolio;
-        const actualComponentNames = (await fundContract.methods.getNamesInPortfolio().call()).map(name => name.toLowerCase());
+        const expectedComponentSymbols = initialPortfolio;
+        const actualComponentSymbols = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
 
-        assert.deepStrictEqual(actualComponentNames, expectedComponentNames, 'Token names not match');
+        assert.deepStrictEqual(actualComponentSymbols, expectedComponentSymbols, 'Token symbols not match');
 
         const expectedComponentAddrs = initialComponentAddrs;
         const actualComponentAddrs = await fundContract.methods.getAddressesInPortfolio().call();
