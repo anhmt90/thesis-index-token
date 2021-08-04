@@ -10,9 +10,9 @@ contract Oracle is Ownable {
 
     // <componentToken_name> is at <componentToken_address>
 
-    string[] memory componentSymbolsOut;
-    address[] memory componentAddrsIn;
-    string[] memory allNextComponentSymbols;
+    string[] public componentSymbolsOut;
+    address[] public componentAddrsIn;
+    string[] public allNextComponentSymbols;
     string[] public componentITCs;
 
 
@@ -52,7 +52,7 @@ contract Oracle is Ownable {
             _amountsOutMinOut,
             componentAddrsIn,
             _amountsOutMinIn,
-            _allNextComponentSymbols
+            allNextComponentSymbols
         );
     }
 }

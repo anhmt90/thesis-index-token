@@ -3,17 +3,13 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 // import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
 import "./interfaces/IWETH.sol";
 import "./libraries/UniswapV2LibraryUpdated.sol";
-import "./interfaces/IERC20Extended.sol";
 import "./IndexToken.sol";
 import "./Fund.sol";
 import "./TimeLock.sol";
-import "./oracle/IOracleClient.sol";
 import "./oracle/Oracle.sol";
 
 contract IndexFund is Fund, TimeLock, Ownable {
@@ -23,18 +19,11 @@ contract IndexFund is Fund, TimeLock, Ownable {
     // instance of WETH
     address public weth;
 
-    // keep track of the token amount sold out to the market
-    // default to 1 unit (= 10^-18 tokens) to avoid dividing by 0 when bootstrapping
-    // uint256 public circulation;
-
     modifier properPortfolio() {
         require(
             componentSymbols.length > 0,
             "IndexFund : No token names found in portfolio"
         );
-        // for (uint256 i = 0; i < componentSymbols.length; i++) {
-        //     require(portfolio[componentSymbols[i]] != address(0), "IndexFund : A token in portfolio has address 0");
-        // }
         _;
     }
 
@@ -92,7 +81,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
             address componentAddr = portfolio[_componentSymbolsOut[i]];
             require(componentAddr != address(0), "IndexFund: an outgoing component not found in portfolio");
             path[0] = componentAddr;
-            uint256 currentBalance = IERC20Extended(componentAddr).balanceOf(address(this));
+            uint256 currentBalance = IERC20Metadata(componentAddr).balanceOf(address(this));
 
             IUniswapV2Router02(router).swapExactTokensForETH(
                 currentBalance,
@@ -112,7 +101,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         for (uint256 i = 0; i < _componentAddrsIn.length; i++) {
             string memory symbol = IERC20Metadata(_componentAddrsIn[i]).symbol();
             path[1] = _componentAddrsIn[i];
-            uint256[] memory amounts = IUniswapV2Router02(router)
+            IUniswapV2Router02(router)
                 .swapExactETHForTokens{value: ethForEachIncomingComponnent}(
                 _amountsOutMinIn[i],
                 path,
@@ -155,28 +144,9 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
     /** ----------------------------------------------------------------------------------------------------- */
 
-    function getUniswapAmountsOutForExactETH(uint256 ethIn)
-        public
-        view
-        properPortfolio
-        returns (uint256[] memory amounts)
-    {
-        require(router != address(0), "IndexFund : Router contract not set!");
-        address[] memory path = new address[](2);
-        path[0] = weth;
-
-        amounts = new uint256[](componentSymbols.length);
-        for (uint256 i = 0; i < componentSymbols.length; i++) {
-            path[1] = portfolio[componentSymbols[i]];
-            amounts[i] = IUniswapV2Router02(router).getAmountsOut(ethIn, path)[
-                1
-            ];
-        }
-    }
-
     function getIndexPrice() public view returns (uint256 _price) {
         require(weth != address(0), "IndexFund : Contract WETH not set");
-        uint256 totalSupply = IERC20Extended(indexToken).totalSupply();
+        uint256 totalSupply = IERC20Metadata(indexToken).totalSupply();
         address[] memory path = new address[](2);
 
         path[1] = weth;
@@ -185,7 +155,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
             path[0] = componentAddress;
 
             uint256 componentBalanceOfIndexFund = totalSupply > 0
-                ? IERC20Extended(componentAddress).balanceOf(address(this))
+                ? IERC20Metadata(componentAddress).balanceOf(address(this))
                 : 1000000000000000000;
 
             uint256[] memory amounts = IUniswapV2Router02(router).getAmountsOut(componentBalanceOfIndexFund, path            );
@@ -317,7 +287,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
                 _amountOutMin = _amountsOutMin[i];
             }
 
-            IERC20Extended(tokenAddr).approve(router, _amountEachComponent);
+            IERC20Metadata(tokenAddr).approve(router, _amountEachComponent);
 
             uint256[] memory amounts = IUniswapV2Router02(router)
                 .swapExactTokensForETH(
@@ -417,35 +387,8 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
     /** ---------------------------------------------------------------------------------------------------- */
 
-    function setTokenContract(address _indexToken)
-        external
-        onlyOwner
-        returns (bool)
-    {
-        indexToken = _indexToken;
-        return true;
-    }
-
     function setOracle(address _oracle) external override onlyOwner {
         oracle = _oracle;
     }
 
-    function getComponentSymbols() external view returns (string[] memory) {
-        return componentSymbols;
-    }
-
-    function getAddressesInPortfolio()
-        external
-        view
-        returns (address[] memory _addrs)
-    {
-        _addrs = new address[](componentSymbols.length);
-        for (uint256 i = 0; i < componentSymbols.length; i++) {
-            require(
-                portfolio[componentSymbols[i]] != address(0),
-                "IndexFund : A token in portfolio has address 0"
-            );
-            _addrs[i] = portfolio[componentSymbols[i]];
-        }
-    }
 }

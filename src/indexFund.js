@@ -34,41 +34,41 @@ const queryIndexPrice = async () => {
     log.debug('INDEX PRICE:', indexPrice);
 };
 
-const experimentSwap = async () => {
-    // const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
-    const decimals = indexTokenContract.methods.decimals().call();
+// const experimentSwap = async () => {
+//     // const indexFundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
+//     const decimals = indexTokenContract.methods.decimals().call();
 
-    const ethIn = (1 / 0.997);
-    let amountsOut = await indexFundContract.methods.getUniswapAmountsOutForExactETH(float2TokenUnits(ethIn, decimals)).call();
-    log.debug("Real amount outputs (before swap):", amountsOut);
+//     const ethIn = (1 / 0.997);
+//     let amountsOut = await indexFundContract.methods.getUniswapAmountsOutForExactETH(float2TokenUnits(ethIn, decimals)).call();
+//     log.debug("Real amount outputs (before swap):", amountsOut);
 
-    /**
-     * Test token ordering
-     */
-    log.debug('DAI balance of IndexFund (before swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddrs.indexFund }));
-    log.debug('ETH balance of IndexFund (before swap):', await queryEthBalance(allAddrs.indexFund));
-    log.debug('INDEX balance of IndexFund (before swap):', await queryIndexBalance(allAddrs.indexFund));
+//     /**
+//      * Test token ordering
+//      */
+//     log.debug('DAI balance of IndexFund (before swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddrs.indexFund }));
+//     log.debug('ETH balance of IndexFund (before swap):', await queryEthBalance(allAddrs.indexFund));
+//     log.debug('INDEX balance of IndexFund (before swap):', await queryIndexBalance(allAddrs.indexFund));
 
-    log.debug('Wallet balance of Investor (before swap):', await queryEthBalance(investor));
-    const tokenSet = assembleTokenSet();
+//     log.debug('Wallet balance of Investor (before swap):', await queryEthBalance(investor));
+//     const tokenSet = assembleTokenSet();
 
-    const ethToSwap = (1 / 0.997) * Object.keys(tokenSet).length;
-    log.debug('Swapping', ethToSwap, `ETH (= ${float2TokenUnits(ethToSwap)} wei) for DAI`);
-    await indexFundContract.methods.orderWithExactETH().send({
-        from: investor,
-        value: web3.utils.toWei(String(ethToSwap), "ether"),
-        gas: '5000000'
-    });
+//     const ethToSwap = (1 / 0.997) * Object.keys(tokenSet).length;
+//     log.debug('Swapping', ethToSwap, `ETH (= ${float2TokenUnits(ethToSwap)} wei) for DAI`);
+//     await indexFundContract.methods.orderWithExactETH().send({
+//         from: investor,
+//         value: web3.utils.toWei(String(ethToSwap), "ether"),
+//         gas: '5000000'
+//     });
 
-    log.debug('DAI balance of IndexFund (after swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddrs.indexFund }));
-    log.debug('ETH balance of IndexFund (after swap):', await queryEthBalance(allAddrs.indexFund));
-    log.debug('Wallet balance of Investor (after swap):', await queryEthBalance(investor));
+//     log.debug('DAI balance of IndexFund (after swap):', await queryTokenBalance({ tokenSymbol: 'dai', account: allAddrs.indexFund }));
+//     log.debug('ETH balance of IndexFund (after swap):', await queryEthBalance(allAddrs.indexFund));
+//     log.debug('Wallet balance of Investor (after swap):', await queryEthBalance(investor));
 
-    log.debug("******************************************************");
+//     log.debug("******************************************************");
 
-    amountsOut = await indexFundContract.methods.getUniswapAmountsOutForExactETH('1' + '0'.repeat(18)).call();
-    log.debug("Real amount outputs (after swap):", web3.utils.fromWei(amountsOut[0]));
-};
+//     amountsOut = await indexFundContract.methods.getUniswapAmountsOutForExactETH('1' + '0'.repeat(18)).call();
+//     log.debug("Real amount outputs (after swap):", web3.utils.fromWei(amountsOut[0]));
+// };
 
 
 const setIndexFundGlobalVars = async () => {

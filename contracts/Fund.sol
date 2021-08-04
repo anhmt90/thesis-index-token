@@ -53,4 +53,23 @@ abstract contract Fund {
     function announcePortfolioRebalancing(string calldata _message) external virtual;
 
     function setOracle(address _oracle) external virtual;
+
+    function getComponentSymbols() external view returns (string[] memory) {
+        return componentSymbols;
+    }
+
+    function getAddressesInPortfolio()
+        external
+        view
+        returns (address[] memory _addrs)
+    {
+        _addrs = new address[](componentSymbols.length);
+        for (uint256 i = 0; i < componentSymbols.length; i++) {
+            require(
+                portfolio[componentSymbols[i]] != address(0),
+                "IndexFund : A token in portfolio has address 0"
+            );
+            _addrs[i] = portfolio[componentSymbols[i]];
+        }
+    }
 }
