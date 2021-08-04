@@ -22,7 +22,6 @@
     "@openzeppelin/contracts": "^4.1.0",
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
-    "bignumber.js": "^9.0.1",
     "coingecko-api-v3": "0.0.11",
     "env-cmd": "^10.1.0",
     "fast-glob": "^3.2.7",

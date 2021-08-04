@@ -303,7 +303,7 @@ const setUp = async () => {
 
     await setUpIndexFund();
     await mintTokens({ tokenSymbol: 'dai', value: 1000000, receiver: admin });
-    await provisionLiquidity(150);
+    await provisionLiquidity(300);
 };
 
 

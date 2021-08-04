@@ -1,9 +1,5 @@
 const log = require('../../config/logger');
 const web3 = require('../getWeb3');
-// const BigNumber = require('bignumber.js');
-
-const BN = web3.utils.toBN;
-
 const fetchEthereumTokens = require('./fetchITSA');
 
 
@@ -36,6 +32,10 @@ let allAddrs;
 let admin;
 
 let curPortfolio;
+const BN = web3.utils.toBN;
+const Ether = web3.utils.toWei;
+const ETHER = web3.utils.toWei(BN(1));
+
 
 
 const setOracleGlobalVars = async () => {
@@ -99,11 +99,11 @@ const selectNewPortfolio = async () => {
         const diff = BN(curPrice).sub(prevPrice);
         const diffObj = {
             symbol,
-            diffPercent: diff.mul(BN('1' + '0'.repeat(18))).div(prevPrice)
+            diffPercent: diff.mul(ETHER).div(prevPrice)
         };
         priceDiffPercentages.push(diffObj);
     }
-    console.log("PRICE DIFFS ===> ", priceDiffPercentages);
+    console.log("PRICE DIFFS ===> ", priceDiffPercentages.map(({ symbol, diffPercent }) => symbol + ': ' + diffPercent));
 
     const fundContract = getContract(CONTRACTS.INDEX_FUND);
     curPortfolio = new Set(await fundContract.methods.getNamesInPortfolio().call());
@@ -123,8 +123,100 @@ const selectNewPortfolio = async () => {
     console.log("NEW PORTFOLIO ===> ", newPortfolio);
 
     return newPortfolio;
-
 };
+
+const _compareComponent = (a, b) => {
+    if (a.diffPercent.gt(b.diffPercent)) return -1;
+    if (a.diffPercent.lt(b.diffPercent)) return 1;
+    if (a.diffPercent.eq(b.diffPercent)) {
+        if ((curPortfolio.has(a.symbol) && curPortfolio.has(b.symbol)) || (!curPortfolio.has(a.symbol) && !curPortfolio.has(b.symbol)))
+            return 0;
+        if (curPortfolio.has(a.symbol) && !curPortfolio.has(b.symbol))
+            return -1;
+        if (!curPortfolio.has(a.symbol) && curPortfolio.has(b.symbol))
+            return 1;
+    }
+};
+
+
+
+const decidePortfolioSubstitution = async (newPortfolio) => {
+    // get current portfolio onchain
+    const fundContract = getContract(CONTRACTS.INDEX_FUND);
+    const curPortfolio = (await fundContract.methods.getNamesInPortfolio().call()).map(component => component.toLowerCase());
+    console.log("CURRENT PORTFOLIO ===> ", curPortfolio);
+
+    // derive subtituted components (components out) from current portfolio
+    const removedComponents = new Set(curPortfolio
+        .filter(component => !newPortfolio.has(component.toLowerCase()))
+        .map(component => component.toLowerCase())
+    );
+
+    console.log("REMOVED COMPONENTS ===> ", removedComponents);
+    if (removedComponents.size === 0)
+        return false;
+
+    // derive new components that are not in the current portfolio (components in)
+    const curPortfolioSet = new Set(curPortfolio.map(component => component.toLowerCase()));
+    const newComponents = new Set([...newPortfolio].filter(component => !curPortfolioSet.has(component)));
+    console.log("NEW COMPONENTS ===> ", newComponents);
+
+
+    // calculate the price benefit with accounting for uniswap's fees
+    if (newComponents.size === 0 || removedComponents.size !== newComponents.size)
+        return false;
+
+    let sumEthOut = BN(0);
+    for (const symbol of removedComponents) {
+        const componentContract = getContract(symbol);
+        const componentBalanceOfIndexFund = await componentContract.methods.balanceOf(allAddrs.indexFund).call();
+        if (componentBalanceOfIndexFund === '0')
+            continue;
+
+        const ethOut = await queryUniswapEthOut(symbol, componentBalanceOfIndexFund);
+        console.log(symbol + ': ' + ethOut);
+        sumEthOut = sumEthOut.add(BN(ethOut));
+    }
+
+    /**
+     * Asume using the current amounts of the new components and swap back again for ether with
+     * the current price to see whether it's worth the uniswap fees, meaning whether the increasing
+     * values of the new portfolio is more significant than the uniswap's fees for swapping the old
+     * components out and swapping the new components in.
+     **/
+    const ethInForEach = sumEthOut.div(BN(newComponents.size));
+    // const ethTotalNewPortfolio = ethNetOfNewComponents.reduce((accum, ethAmount) => accum.add(BN(ethAmount)), BN(0))
+    let ethTotalNewPortfolio = BN(0);
+    for (const symbol of newComponents) {
+        tokenAmountOut = await queryUniswapTokenOut(symbol, ethInForEach);
+        ethAmountOut = await queryUniswapEthOut(symbol, tokenAmountOut);
+        ethTotalNewPortfolio = ethTotalNewPortfolio.add(BN(ethAmountOut));
+    }
+    const retainedComponents = curPortfolio.filter(component => !removedComponents.has(component));
+    console.log("RETAINED COMPONENTS ===> ", retainedComponents);
+
+    for (const symbol of retainedComponents) {
+        const componentContract = getContract(symbol);
+        const componentBalanceOfIndexFund = await componentContract.methods.balanceOf(allAddrs.indexFund).call();
+        ethAmountOut = await queryUniswapEthOut(symbol, componentBalanceOfIndexFund);
+        ethTotalNewPortfolio = ethTotalNewPortfolio.add(BN(ethAmountOut));
+    }
+
+    const indexTokenTotalSupply = await getContract(CONTRACTS.INDEX_TOKEN).methods.totalSupply().call();
+    const indexPriceAfter = ethTotalNewPortfolio.mul(ETHER).div(BN(indexTokenTotalSupply));
+
+    const indexPriceBefore = BN(await fundContract.methods.getIndexPrice().call());
+    console.log("INDEX PRICE AFTER ===> ", indexPriceAfter.toString());
+    console.log("INDEX PRICE BEFORE ===> ", indexPriceBefore.toString());
+
+    return indexPriceAfter.gt(indexPriceBefore);
+
+    // sell those being subtituted on uniswap (store current price)
+
+    // take the money from the sale, buy those new components
+};
+
+
 
 const announce = async () => {
 
@@ -135,7 +227,9 @@ const announce = async () => {
 
 const run = async () => {
     await setOracleGlobalVars();
-    await selectNewPortfolio();
+    const newPortfolio = await selectNewPortfolio();
+    const decision = await decidePortfolioSubstitution(newPortfolio);
+    console.log('DECISON:', decision);
 };
 
 

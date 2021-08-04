@@ -1,7 +1,6 @@
 const fs = require('fs');
 const assert = require('assert');
 const web3 = require('../src/getWeb3');
-const BN = web3.utils.toBN;
 
 const log = require('../config/logger');
 
@@ -53,6 +52,7 @@ let routerContract;
 let initialComponentAddrs;
 let initialComponentJsons;
 
+const BN = web3.utils.toBN;
 const Ether = web3.utils.toWei;
 const ETHER = web3.utils.toWei(BN(1));
 
