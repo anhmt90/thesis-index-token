@@ -44,7 +44,9 @@ const {
     queryTokenBalance,
     queryUniswapEthOut,
     queryUniswapTokenOut,
+    queryUniswapEthOutForTokensOut,
     queryPortfolioEthOut,
+    queryComponentBalancesOfIndexFund,
     assembleUniswapTokenSet,
     loadITINsFromSymbolsAndITC,
     getContract,
@@ -111,9 +113,10 @@ const getComponentBalancesOfIndexFund = async () => {
     return componentBalanceOfIndexFund;
 };
 
-const assertCorrectDiffTwoArrays = ({ arrBefore, arrCurrent, expectedDiffs }) => {
+const assertCorrectDiffsTwoBNArrays = ({ arrBefore, arrCurrent, expectedDiffs }) => {
+    if (expectedDiffs === undefined) return;
     assert.strictEqual(arrBefore.length, arrCurrent.length,
-        `Two array do not have equal length, greaterArray.length=${arrBefore.length}, smallerArr.length=${arrCurrent.length}`
+        `Two array do not have equal length, arrBefore.length=${arrBefore.length}, arrCurrent.length=${arrCurrent.length}`
     );
     for (i = 0; i < arrBefore.length; i++) {
         const actualDiff = arrCurrent[i].sub(arrBefore[i]);
@@ -122,6 +125,20 @@ const assertCorrectDiffTwoArrays = ({ arrBefore, arrCurrent, expectedDiffs }) =>
         );
     }
 };
+
+const assertCorrectReplacementsTwoStringArrays = ({ arrBefore, arrCurrent, expectedDiffs }) => {
+    if (expectedDiffs === undefined) return;
+    assert.strictEqual(arrBefore.length, arrCurrent.length,
+        `Two array do not have equal length, arrBefore.length=${arrBefore.length}, arrCurrent.length=${arrCurrent.length}`
+    );
+    const setBefore = new Set(arrBefore);
+    const setCurrent = new Set(arrCurrent);
+    const setDiffs = new Set(arrBefore.filter(e => !(new Set(setCurrent)).has(e)).concat(arrCurrent.filter(e => !(new Set(setBefore)).has(e))));
+    assert.deepStrictEqual(setDiffs, new Set(expectedDiffs),
+        `Expected ${expectedDiffs.sort()}, but got ${[...setDiffs].sort()}`
+    );
+};
+
 
 const negateBNArray = (arr) => {
     return arr.map(el => el.neg());
@@ -147,10 +164,12 @@ const snapshotIndexFund = async () => {
     const ethBalance = BN(await web3.eth.getBalance(allAddrs.indexFund));
     const indexBalance = BN(await indexContract.methods.balanceOf(allAddrs.indexFund).call());
     const componentBalances = await getComponentBalancesOfIndexFund();
+    const componentSymbols = await fundContract.methods.getComponentSymbols().call();
     return {
         ethBalance,
         indexBalance,
-        componentBalances
+        componentBalances,
+        componentSymbols
     };
 };
 
@@ -160,6 +179,7 @@ const snapshotIndexToken = async () => {
 };
 
 const assertAmountDiff = (before, current, expectedDiff) => {
+    if (expectedDiff === undefined) return;
     const actualDiff = current.sub(before).toString();
     assert.deepStrictEqual(actualDiff, expectedDiff.toString(),
         `Expected ${expectedDiff}, but got ${actualDiff}`
@@ -180,10 +200,16 @@ const assertIndexFundState = async (stateBefore, expectedDiffs) => {
     const stateCurrent = await snapshotIndexFund();
     assertEthAndIndexDiffs(stateBefore, stateCurrent, expectedDiffs);
 
-    assertCorrectDiffTwoArrays({
+    assertCorrectDiffsTwoBNArrays({
         arrBefore: stateBefore.componentBalances,
         arrCurrent: await getComponentBalancesOfIndexFund(),
         expectedDiffs: expectedDiffs.componentBalances
+    });
+
+    assertCorrectReplacementsTwoStringArrays({
+        arrBefore: stateBefore.componentSymbols,
+        arrCurrent: await fundContract.methods.getComponentSymbols().call(),
+        expectedDiffs: expectedDiffs.componentSymbols
     });
 };
 
@@ -200,8 +226,8 @@ const assertIndexTokenState = async (stateBefore, expectedDiffs) => {
  */
 
 const assertRevert = (actualErrorMessage, expectedErrorMessage) => {
-    console.log("actualErrorMessage ===> ", actualErrorMessage)
-    console.log("expectedErrorMessage ===> ", expectedErrorMessage)
+    console.log("actualErrorMessage ===> ", actualErrorMessage);
+    console.log("expectedErrorMessage ===> ", expectedErrorMessage);
     assert.strictEqual(actualErrorMessage.includes('revert ' + expectedErrorMessage), true, `Expected error message "${expectedErrorMessage}", but got "${actualErrorMessage}".`);
 };
 
@@ -279,7 +305,6 @@ describe('Uniswap lidquidity provision', () => {
             const expectedTokenAmount = float2TokenUnits(ethAmount * token.price);
             assert.strictEqual(actualToken, expectedTokenAmount, `Token ${symbol}: expected ${expectedTokenAmount} token units but got ${actualToken}`);
         }
-
     });
 });
 
@@ -515,11 +540,24 @@ describe('IndexFund: buying and selling index tokens', () => {
 });
 
 describe('IndexFund: updating portfolio', () => {
-    it('should fail when the lock time of 2 days is not due yet', async () => {
+    let componentSymbolsOut = [];
+    let componentSymbolsIn = [];
+    const after2Days = new Date((new Date()).setDate((new Date()).getDate() + 2));
+
+    before(async () => {
+        await fundContract.methods.buy([]).send({
+            from: investor,
+            value: Ether('100'),
+            gas: '5000000'
+        });
+    });
+
+
+    it('should set all state variables of Oracle contract correctly ', async () => {
         // use eth to swap for candidate tokens on Uniswap to increase the their prices so that they get selected for update
         const initialComponentSymbolSet = new Set(initialComponentSymbols);
         const candidatesSubbedIn = Object.keys(uniswapTokenSet).filter(symbol => !initialComponentSymbolSet.has(symbol));
-        log.debug("candidatesSubbedIn ==> ", candidatesSubbedIn)
+        log.debug("candidatesSubbedIn ==> ", candidatesSubbedIn);
         for (const symbol of candidatesSubbedIn) {
             await getContract(CONTRACTS.UNISWAP_ROUTER).methods.swapExactETHForTokens(
                 '0',
@@ -532,41 +570,109 @@ describe('IndexFund: updating portfolio', () => {
                 gas: '5000000'
             });
         }
-        log.debug("====================================================")
 
         // call oracle function to select the new portfolio
         const newPortfolio = await selectNewPortfolio();
 
         // call oracle function to announce the update
-        const [expectedCSOs, actualCSIs] = await announce(newPortfolio);
-        assert.deepStrictEqual(new Set(actualCSIs), new Set(candidatesSubbedIn), `Expected ${candidatesSubbedIn.sort()}, but got ${actualCSIs.sort()}`);
+        [componentSymbolsOut, componentSymbolsIn] = await announce(newPortfolio);
+        assert.deepStrictEqual(new Set(componentSymbolsIn), new Set(candidatesSubbedIn), `Expected ${candidatesSubbedIn}, but got ${componentSymbolsIn}`);
 
         // check the time to be next 2 days and all the data on oracle are correctly set
+        const expectedCSOs = componentSymbolsOut.map(symbol => symbol.toUpperCase());
         const actualCSOs = await oracleContract.methods.getComponentSymbolsOut().call();
         assert.deepStrictEqual(new Set(actualCSOs), new Set(expectedCSOs), `ComponentSymbolsOut: Expected ${expectedCSOs}, but got ${actualCSOs}`);
+        log.debug("componentSymbolsOut ===> ", actualCSOs);
 
-        const expectedCAIs = actualCSIs.map(symbol => allAddrs[symbol]);
+        const expectedCAIs = componentSymbolsIn.map(symbol => allAddrs[symbol]);
         const actualCAIs = await oracleContract.methods.getComponentAddrsIn().call();
         assert.deepStrictEqual(new Set(actualCAIs), new Set(expectedCAIs), `ComponentAddrsIn: Expected ${expectedCAIs}, but got ${actualCAIs}`);
+        log.debug("ComponentAddrsIn ===> ", actualCAIs);
 
-        const expectedANCSs = newPortfolio;
+        const expectedANCSs = newPortfolio.map(symbol => symbol.toUpperCase());
         const actualANCSs = await oracleContract.methods.getAllNextComponentSymbols().call();
         assert.deepStrictEqual(new Set(actualANCSs), new Set(expectedANCSs), `AllNextComponentSymbols: Expected ${expectedANCSs}, but got ${actualANCSs}`);
+        log.debug("AllNextComponentSymbols ===> ", actualANCSs);
 
         const expectedITINs = loadITINsFromSymbolsAndITC(newPortfolio, ITC_EIN_V100, EIN_FININS_DEFI__LENDINGSAVING);
         const actualITINs = await oracleContract.methods.getComponentITINs().call();
         assert.deepStrictEqual(new Set(actualITINs), new Set(expectedITINs), `ComponentITINs: Expected ${expectedITINs}, but got ${actualITINs}`);
+        log.debug("ComponentITINs ===> ", actualITINs);
 
+    });
+
+    it('should validate the lock time of the updatePortfolio function in the IndexFund contract', async () => {
+        // check update date
+        const tolerance = 1000 * 60 * 15; // 15 mins in miliseconds
+        const expectedUpdateInterval = [after2Days.getTime() - tolerance, after2Days.getTime() + tolerance];
+        const actualUpdateTime = parseInt(await oracleContract.methods.getNextUpdateTime().call()) * 1000;
+
+        assert.ok(expectedUpdateInterval[0] <= actualUpdateTime && actualUpdateTime <= expectedUpdateInterval[1],
+            `Expected time in interval [${new Date(expectedUpdateInterval[0]).toUTCString()}, ${new Date(expectedUpdateInterval[1]).toUTCString()}], 
+            but got ${new Date(actualUpdateTime).toUTCString()}`);
+    });
+
+    it('should fail when the lock time of 2 days is not due yet', async () => {
         // try to commit and get reverted since update time is not due yet
         const expectedErrorMessage = "TimeLock: function is timelocked";
         try {
-            await commit(expectedCSOs, actualCSIs);
+            await commit(componentSymbolsOut, componentSymbolsIn);
             throw null;
         }
         catch (error) {
             assert(error, "Expected an error but did not get one");
             assertRevert(error.message, expectedErrorMessage);
-            // assert.deepStrictEqual(error.message, expectedErrorMessage, `Expected error message "${expectedErrorMessage}", but got "${error.message}".`);
         }
+    });
+
+    it('should update the portfolio in IndexFund contract after 2 days', async () => {
+        // take snapshot of the current onchain portfolio
+        const indexFundStateBefore = await snapshotIndexFund();
+
+        const [_, expectedAmountsOutNewComponents] = await queryUniswapEthOutForTokensOut(componentSymbolsOut, componentSymbolsIn);
+        const componentBalanceSetBefore = await queryComponentBalancesOfIndexFund();
+        console.log("componentBalanceSetBefore ===> ", componentBalanceSetBefore);
+
+        const componentSymbolsOutSet = new Set(componentSymbolsOut);
+        const balancesRetainedComponents = Object.entries(componentBalanceSetBefore)
+            .filter(([symbol, _]) => !componentSymbolsOutSet.has(symbol))
+            .map(([_, balance]) => balance);
+
+        console.log("balancesRetainedComponents ===> ", balancesRetainedComponents);
+
+        const expectedComponentBalances = (balancesRetainedComponents.concat(expectedAmountsOutNewComponents)).sort();
+
+
+        // increase ganache block time by 2 days using evm_increaseTime command
+        const secondsOf2days = 60 * 60 * 24 * 2;
+        await web3.currentProvider.send({
+            jsonrpc: '2.0',
+            method: 'evm_increaseTime',
+            params: [secondsOf2days],
+            id: new Date().getSeconds()
+        }, () => { });
+
+        await web3.currentProvider.send({
+            jsonrpc: '2.0',
+            method: 'evm_mine',
+            params: [],
+            id: new Date().getSeconds()
+        }, () => { });
+
+        // execute the portfolio update process using the commit() function
+        await commit(componentSymbolsOut, componentSymbolsIn);
+
+        // validate the portfolio onchain in IndexFund contract
+
+        const expectedIndexFundDiffs = {
+            componentSymbols: componentSymbolsOut.concat(componentSymbolsIn).map(symbol => symbol.toUpperCase())
+        };
+
+        await assertIndexFundState(indexFundStateBefore, expectedIndexFundDiffs);
+
+        const componentBalanceSetAfter = await queryComponentBalancesOfIndexFund();
+        const actualComponentBalances = Object.values(componentBalanceSetAfter).sort();
+        assert.deepStrictEqual(actualComponentBalances, expectedComponentBalances,
+            `Expected: ${expectedComponentBalances},but got ${actualComponentBalances}`);
     });
 });
