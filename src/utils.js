@@ -27,6 +27,8 @@ const {
     '../test/fixtures/constants.js' : './constants.js');
 
 const BN = web3.utils.toBN;
+const Ether = web3.utils.toWei;
+const ETHER = web3.utils.toWei(BN(1));
 
 let _tokenSet = {};
 let _allAddrs = {};
@@ -161,6 +163,24 @@ const queryUniswapEthOut = async (tokenSymbol, amountToken) => {
     const amountEthOut = amounts[1];
     return amountEthOut;
 };
+
+const queryPortfolioEthOut = async (with1EtherEach = false) => {
+    _allAddrs = getAllAddrs();
+    const fundContract = getContract(CONTRACTS.INDEX_FUND);
+    const currentPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
+    let sum = BN(0);
+    let ethOut;
+    for (const componentSymbol of currentPortfolio) {
+        if (with1EtherEach) {
+            ethOut = await queryUniswapEthOut(componentSymbol, Ether('1'));
+        } else {
+            const componentBalanceOfFund = await getContract(componentSymbol).methods.balanceOf(_allAddrs.indexFund).call();
+            ethOut = await queryUniswapEthOut(componentSymbol, componentBalanceOfFund);
+        }
+        sum = sum.add(BN(ethOut));
+    }
+    return sum.toString();
+}
 
 const queryUniswapTokenOut = async (tokenSymbol, amountEth) => {
     const [path, routerContract] = _getSwapPathAndRouterContract(tokenSymbol, true);
@@ -316,6 +336,7 @@ module.exports = {
     queryUniswapPriceInEth,
     queryUniswapEthOut,
     queryUniswapTokenOut,
+    queryPortfolioEthOut,
 
     getContract,
     CONTRACTS,

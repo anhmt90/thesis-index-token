@@ -105,5 +105,4 @@ if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
 module.exports = {
     setIndexFundGlobalVars,
     queryIndexPrice,
-    swap: experimentSwap
 };

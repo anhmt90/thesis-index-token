@@ -68,7 +68,7 @@ const deployContract = async ({ name, msgSender, contractJson, args }) => {
     })
         .send({
             from: msgSender,
-            gas: '9000000'
+            gas: '10000000'
         })
         .on('receipt', async (txReceipt) => {
             if (txReceipt.contractAddress) {
