@@ -18,6 +18,7 @@ const {
     queryUniswapEthOut,
     queryUniswapTokenOut,
     queryPortfolioEthOut,
+    queryUniswapEthOutForTokensOut,
     loadItsaTokenInfo,
     loadLastUniswapPrices,
     loadITINsFromSymbolsAndITC,
@@ -244,15 +245,15 @@ const announce = async (allNextComponentSymbols) => {
     // make _announcementMessage
     const today = new Date();
     const next2Days = new Date(today.setDate(today.getDate() + 2)).toUTCString();
-    const _announcementMessage = `The next portfolio update in the IndexFund contract (${allAddrs.indexFund}) will on <${next2Days} +/- 30 minutes>.`;
+    const _announcementMessage = `The next portfolio update in the IndexFund contract (${allAddrs.indexFund}) will on <${next2Days} +/- 15 minutes>.`;
     log.debug("_announcementMessage ===>", _announcementMessage);
 
     // call the announce() func of oracle contact
     oracleContract = getContract(CONTRACTS.ORACLE);
     await oracleContract.methods.announce(
-        componentSymbolsOut,
+        componentSymbolsOut.map(symbol => symbol.toUpperCase()),
         componentAddrsIn,
-        allNextComponentSymbols,
+        allNextComponentSymbols.map(symbol => symbol.toUpperCase()),
         _componentITINs,
         _announcementMessage
     ).send({
@@ -266,22 +267,8 @@ const announce = async (allNextComponentSymbols) => {
 };
 
 const commit = async (componentSymbolsOut, componentSymbolsIn) => {
-    // get _amountsOutMinOut
-    let ethSum = BN(0);
-    const _amountsOutMinOut = [];
-    for (let i = 0; i < componentSymbolsOut.length; i++) {
-        const componentBalance = await getContract(componentSymbolsOut[i]).methods.balanceOf(allAddrs.indexFund).call();
-        log.debug(componentSymbolsOut[i] + ' ========> ' + componentBalance);
-        _amountsOutMinOut[i] = await queryUniswapEthOut(componentSymbolsOut[i], componentBalance);
-        ethSum = ethSum.add(BN(_amountsOutMinOut[i]));
-    }
-    log.debug('ethSum ========> ' + ethSum.toString());
-
-    // get _amountsOutMinIn
-    const _amountsOutMinIn = [];
-    for (let i = 0; i < componentSymbolsIn.length; i++) {
-        _amountsOutMinIn[i] = await queryUniswapTokenOut(componentSymbolsIn[i], ethSum.div(BN(_amountsOutMinOut.length)));
-    }
+    // get _amountsOutMinOut and _amountsOutMinIn
+    const [_amountsOutMinOut, _amountsOutMinIn] = await queryUniswapEthOutForTokensOut(componentSymbolsOut, componentSymbolsIn);
 
     const FUNCTIONS_UPDATE_PORTFOLIO = 0;
     const nextUpdateEpochSeconds = await fundContract.methods.timelock(FUNCTIONS_UPDATE_PORTFOLIO).call();
@@ -307,7 +294,7 @@ const setOracleGlobalVars = async () => {
 const run = async () => {
     await setOracleGlobalVars();
     const newPortfolio = await selectNewPortfolio();
-    // await _buy();
+    await _buy();
     // const decision = await decidePortfolioSubstitution(newPortfolio);
     // log.debug('DECISON:', decision);
 

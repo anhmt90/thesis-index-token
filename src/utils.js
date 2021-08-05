@@ -176,6 +176,16 @@ const queryUniswapEthOut = async (tokenSymbol, amountToken) => {
     return amountEthOut;
 };
 
+const queryComponentBalancesOfIndexFund = async () => {
+    _allAddrs = getAllAddrs();
+    const currentPortfolio = (await getContract(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
+    const componentBalanceSet = {};
+    for (const symbol of currentPortfolio) {
+        componentBalanceSet[symbol] = await getContract(symbol).methods.balanceOf(_allAddrs.indexFund).call();
+    }
+    return componentBalanceSet
+}
+
 const queryPortfolioEthOut = async (with1EtherEach = false) => {
     _allAddrs = getAllAddrs();
     const fundContract = getContract(CONTRACTS.INDEX_FUND);
@@ -200,6 +210,25 @@ const queryUniswapTokenOut = async (tokenSymbol, amountEth) => {
     const amountTokenOut = amounts[1];
     return amountTokenOut;
 };
+
+const queryUniswapEthOutForTokensOut = async (componentSymbolsOut, componentSymbolsIn) => {
+    // get _amountsOutMinOut
+    let ethSum = BN(0);
+    const _amountsOutMinOut = [];
+    for (let i = 0; i < componentSymbolsOut.length; i++) {
+        const componentBalance = await getContract(componentSymbolsOut[i]).methods.balanceOf(_allAddrs.indexFund).call();
+        _amountsOutMinOut[i] = await queryUniswapEthOut(componentSymbolsOut[i], componentBalance);
+        ethSum = ethSum.add(BN(_amountsOutMinOut[i]));
+    }
+
+    // get _amountsOutMinIn
+    const _amountsOutMinIn = [];
+    for (let i = 0; i < componentSymbolsIn.length; i++) {
+        _amountsOutMinIn[i] = await queryUniswapTokenOut(componentSymbolsIn[i], ethSum.div(BN(_amountsOutMinOut.length)));
+    }
+
+    return [_amountsOutMinOut, _amountsOutMinIn]
+}
 
 /* ************************************************************************* */
 
@@ -376,6 +405,8 @@ module.exports = {
     queryUniswapEthOut,
     queryUniswapTokenOut,
     queryPortfolioEthOut,
+    queryUniswapEthOutForTokensOut,
+    queryComponentBalancesOfIndexFund,
 
     getContract,
     CONTRACTS,
