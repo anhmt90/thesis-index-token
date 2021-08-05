@@ -265,6 +265,34 @@ const announce = async (allNextComponentSymbols) => {
     return [componentSymbolsOut, componentSymbolsIn];
 };
 
+const commit = async (componentSymbolsOut, componentSymbolsIn) => {
+    // get _amountsOutMinOut
+    let ethSum = BN(0);
+    const _amountsOutMinOut = [];
+    for (let i = 0; i < componentSymbolsOut.length; i++) {
+        const componentBalance = await getContract(componentSymbolsOut[i]).methods.balanceOf(allAddrs.indexFund).call();
+        log.debug(componentSymbolsOut[i] + ' ========> ' + componentBalance);
+        _amountsOutMinOut[i] = await queryUniswapEthOut(componentSymbolsOut[i], componentBalance);
+        ethSum = ethSum.add(BN(_amountsOutMinOut[i]));
+    }
+    log.debug('ethSum ========> ' + ethSum.toString());
+
+    // get _amountsOutMinIn
+    const _amountsOutMinIn = [];
+    for (let i = 0; i < componentSymbolsIn.length; i++) {
+        _amountsOutMinIn[i] = await queryUniswapTokenOut(componentSymbolsIn[i], ethSum.div(BN(_amountsOutMinOut.length)));
+    }
+
+    const FUNCTIONS_UPDATE_PORTFOLIO = 0;
+    const nextUpdateEpochSeconds = await fundContract.methods.timelock(FUNCTIONS_UPDATE_PORTFOLIO).call();
+    const nextUpdateTime = new Date(parseInt(nextUpdateEpochSeconds) * 1000).toUTCString();
+    log.debug("nextUpdateTime ========> ", nextUpdateTime);
+
+    await oracleContract.methods.commit(_amountsOutMinOut, _amountsOutMinIn).send({
+        from: admin,
+        gas: '9000000'
+    });
+};
 
 const setOracleGlobalVars = async () => {
     const accounts = await web3.eth.getAccounts();
@@ -284,6 +312,7 @@ const run = async () => {
     // log.debug('DECISON:', decision);
 
     const [componentSymbolsOut, componentSymbolsIn] = await announce(newPortfolio);
+    await commit(componentSymbolsOut, componentSymbolsIn);
 };
 
 
