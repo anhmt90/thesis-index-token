@@ -3,17 +3,16 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../IndexFund.sol";
+import "../TimeLock.sol";
 
 contract Oracle is Ownable {
 
     address public indexFund;
 
-    // <componentToken_name> is at <componentToken_address>
-
     string[] public componentSymbolsOut;
     address[] public componentAddrsIn;
     string[] public allNextComponentSymbols;
-    string[] public componentITCs;
+    string[] public componentITINs;
 
 
     constructor(address owner) {
@@ -29,11 +28,11 @@ contract Oracle is Ownable {
         _;
     }
 
-    function prepare(
+    function announce(
         string[] memory _componentSymbolsOut,
         address[] memory _componentAddrsIn,
         string[] memory _allNextComponentSymbols,
-        string[] memory _componentITCs,
+        string[] memory _componentITINs,
         string calldata _announcementMessage
     ) external onlyOwner onlyFundOwner {
         require(_componentSymbolsOut.length == _componentAddrsIn.length, "Oracle: number of component to be added and to be removed not matched");
@@ -41,12 +40,12 @@ contract Oracle is Ownable {
         componentSymbolsOut = _componentSymbolsOut;
         componentAddrsIn = _componentAddrsIn;
         allNextComponentSymbols = _allNextComponentSymbols;
-        componentITCs = _componentITCs;
+        componentITINs = _componentITINs;
 
         IndexFund(indexFund).announcePortfolioUpdating(_announcementMessage);
     }
 
-    function apply_(uint256[] calldata _amountsOutMinOut, uint256[] calldata _amountsOutMinIn) external onlyOwner onlyFundOwner {
+    function commit(uint256[] calldata _amountsOutMinOut, uint256[] calldata _amountsOutMinIn) external onlyOwner onlyFundOwner {
         IndexFund(indexFund).updatePorfolio(
             componentSymbolsOut,
             _amountsOutMinOut,
@@ -54,5 +53,9 @@ contract Oracle is Ownable {
             _amountsOutMinIn,
             allNextComponentSymbols
         );
+    }
+
+    function getNextUpdateTime() external view returns(uint256 _date) {
+        return IndexFund(indexFund).timelock(TimeLock.Functions.UPDATE_PORTFOLIO);
     }
 }
