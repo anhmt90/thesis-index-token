@@ -82,6 +82,18 @@ const loadLastUniswapPrices = () => {
     return mostRecentPricesInEth;
 };
 
+const loadITINsFromSymbolsAndITC = (symbols, itcKey, itcVal) => {
+    const itsaTokens = loadItsaTokenInfo();
+    symbols = symbols.map(symbol => symbol.toUpperCase());
+    const symbolSet = new Set(symbols);
+    const _itsaTokensFiltered = itsaTokens.filter(token => token[itcKey].startsWith(itcVal)
+        && symbolSet.has(token.symbol.toUpperCase())).map(token => [token.symbol.toUpperCase(), token.itin]);
+    const _itsaTokensSymbolItinMaps = Object.fromEntries(_itsaTokensFiltered);
+    // loop through symbols to get itins in the order of components
+    const itins = symbols.map(symbol => _itsaTokensSymbolItinMaps[symbol]);
+    return itins;
+};
+
 const _load = (path, objName) => {
     let obj = {};
     if (fs.existsSync(path)) {
@@ -180,14 +192,14 @@ const queryPortfolioEthOut = async (with1EtherEach = false) => {
         sum = sum.add(BN(ethOut));
     }
     return sum.toString();
-}
+};
 
 const queryUniswapTokenOut = async (tokenSymbol, amountEth) => {
     const [path, routerContract] = _getSwapPathAndRouterContract(tokenSymbol, true);
     const amounts = await routerContract.methods.getAmountsOut(amountEth, path).call();
     const amountTokenOut = amounts[1];
     return amountTokenOut;
-}
+};
 
 /* ************************************************************************* */
 
@@ -247,6 +259,31 @@ const filterTokenSet = (tokenSet, excludedTokens = []) => {
         }
     }
     return filteredTokenSet;
+};
+
+const assembleUniswapTokenSet = async () => {
+    const itsaTokens = loadItsaTokenInfo();
+
+    // filter and keep only tokens that we know their addresses
+    const knownTokenSet = assembleTokenSet();
+    const knownTokenSymbols = new Set(Object.keys(knownTokenSet).map(sym => sym.toLowerCase()));
+    const knownItsaTokens = itsaTokens.filter(token => knownTokenSymbols.has(token.symbol.toLowerCase()));
+
+    /**
+     * From Uniswap's docs: The most obvious way to get the address for a pair is to call getPair
+     * on the factory. If the pair exists, this function will return its address, else address(0)
+     **/
+    const factoryContract = getContract(CONTRACTS.UNISWAP_FACTORY);
+    const uniswapTokenSet = {};
+    for (const itsaToken of knownItsaTokens) {
+        const sym = itsaToken.symbol.toLowerCase();
+        const poolAddr = await factoryContract.methods.getPair(knownTokenSet[sym].address, _allAddrs.weth).call();
+        if (parseInt(poolAddr) !== 0) {
+            uniswapTokenSet[sym] = knownTokenSet[sym];
+        }
+    }
+
+    return uniswapTokenSet;
 };
 
 /* ************************************************************************* */
@@ -326,7 +363,9 @@ module.exports = {
     loadTokenPrices,
     loadItsaTokenInfo,
     loadLastUniswapPrices,
+    loadITINsFromSymbolsAndITC,
     assembleTokenSet,
+    assembleUniswapTokenSet,
     filterTokenSet,
     queryEthBalance,
     queryIndexBalance,

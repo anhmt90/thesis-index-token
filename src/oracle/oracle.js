@@ -20,8 +20,9 @@ const {
     queryPortfolioEthOut,
     loadItsaTokenInfo,
     loadLastUniswapPrices,
+    loadITINsFromSymbolsAndITC,
     getAllAddrs,
-    assembleTokenSet,
+    assembleUniswapTokenSet,
     getContract,
     CONTRACTS
 } = require('../utils');
@@ -48,12 +49,6 @@ const selectNewPortfolio = async () => {
     // await fetchEthereumTokens([`${ITC_EIN_V100}=${EIN_FININS_DEFI__LENDINGSAVING}`]);
     // how to get the token contract addresses on the tokens fetched from ITSA --> Etherscan api?
 
-    const itsaTokens = loadItsaTokenInfo();
-
-    // filter and keep only tokens that we know their addresses
-    const knownTokenSet = assembleTokenSet();
-    const knownTokenSymbols = new Set(Object.keys(knownTokenSet).map(sym => sym.toLowerCase()));
-    const knownItsaTokens = itsaTokens.filter(token => knownTokenSymbols.has(token.symbol.toLowerCase()));
     /**
      * check which tokens have Uniswap pools
      *
@@ -61,28 +56,16 @@ const selectNewPortfolio = async () => {
      * contract address using a side channel e.g. manually or over etherscan APIs, at that time, we could
      * also make a check for WETH/Token pool on Uniswap and mark the result for later use such as currently.
      * However, to make it realistic, we carry this check anyway here.
-     *
-     * From Uniswap's docs: The most obvious way to get the address for a pair is to call getPair
-     * on the factory. If the pair exists, this function will return its address, else address(0)
      **/
-    const factoryContract = getContract(CONTRACTS.UNISWAP_FACTORY);
-    const finalTokenSet = {};
-    for (const itsaToken of knownItsaTokens) {
-        const sym = itsaToken.symbol.toLowerCase();
-        const poolAddr = await factoryContract.methods.getPair(knownTokenSet[sym].address, allAddrs.weth).call();
-        if (parseInt(poolAddr) !== 0) {
-            finalTokenSet[sym] = knownTokenSet[sym];
-        } else {
 
-        }
-    }
-    log.debug("FINAL TOKEN SET ===> ", Object.keys(finalTokenSet));
+    const uniswapTokenSet = await assembleUniswapTokenSet();
+    log.debug("ALL CANDIDATE COMPONENTS ===> ", Object.keys(uniswapTokenSet));
     const prevPrices = loadLastUniswapPrices();
     log.debug("PREVIOUS PRICES ===> ", prevPrices);
 
     const curPrices = {};
-    for (const tokenSym of Object.keys(finalTokenSet)) {
-        curPrices[tokenSym] = await queryUniswapPriceInEth(tokenSym);
+    for (const symbol of Object.keys(uniswapTokenSet)) {
+        curPrices[symbol] = await queryUniswapPriceInEth(symbol);
     }
     log.debug("CURRENT PRICES ===> ", curPrices);
 
@@ -132,7 +115,7 @@ const _compareComponent = (a, b) => {
 };
 
 
-const _deriveOutgoingAndIncomingComponents = async (newPortfolio) => {
+const _deriveSubbedOutAndSubbedInComponents = async (newPortfolio) => {
     // get current portfolio onchain
     const fundContract = getContract(CONTRACTS.INDEX_FUND);
     const curPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(component => component.toLowerCase());
@@ -159,7 +142,7 @@ const _deriveOutgoingAndIncomingComponents = async (newPortfolio) => {
 
 
 const decidePortfolioSubstitution = async (newPortfolio) => {
-    let [componentsOut, componentsIn] = await _deriveOutgoingAndIncomingComponents(newPortfolio);
+    let [componentsOut, componentsIn] = await _deriveSubbedOutAndSubbedInComponents(newPortfolio);
     componentsOut = new Set(componentsOut);
     componentsIn = new Set(componentsIn);
 
@@ -249,27 +232,22 @@ const _buy = async () => {
 };
 
 const announce = async (allNextComponentSymbols) => {
-    const [componentSymbolsOut, componentSymbolsIn] = await _deriveOutgoingAndIncomingComponents(allNextComponentSymbols);
+    const [componentSymbolsOut, componentSymbolsIn] = await _deriveSubbedOutAndSubbedInComponents(allNextComponentSymbols);
 
     //get componentAddrsIn
     const componentAddrsIn = componentSymbolsIn.map(symbol => allAddrs[symbol]);
 
     // get componetITINs
-    const allNextComponentSymbolsSet = new Set(allNextComponentSymbols.map(symbol => symbol.toUpperCase()));
-    const itsaTokens = loadItsaTokenInfo();
-    const _itsaTokensFiltered = itsaTokens.filter(token => token[ITC_EIN_V100].startsWith(EIN_FININS_DEFI__LENDINGSAVING)
-        && allNextComponentSymbolsSet.has(token.symbol.toUpperCase())).map(token => [token.symbol.toLowerCase(), token.itin]);
-    const _itsaTokensSymbolItinMaps = Object.fromEntries(_itsaTokensFiltered);
-    // loop again with allNextComponentSymbols to get itins in the ordering of components
-    const _componentITINs = allNextComponentSymbols.map(symbol => _itsaTokensSymbolItinMaps[symbol]);
-
+    const _componentITINs = loadITINsFromSymbolsAndITC(allNextComponentSymbols, ITC_EIN_V100, EIN_FININS_DEFI__LENDINGSAVING);
     log.debug("_componentITINs ===>", _componentITINs);
+
     // make _announcementMessage
     const today = new Date();
     const next2Days = new Date(today.setDate(today.getDate() + 2)).toUTCString();
     const _announcementMessage = `The next portfolio update in the IndexFund contract (${allAddrs.indexFund}) will on <${next2Days} +/- 30 minutes>.`;
     log.debug("_announcementMessage ===>", _announcementMessage);
 
+    // call the announce() func of oracle contact
     oracleContract = getContract(CONTRACTS.ORACLE);
     await oracleContract.methods.announce(
         componentSymbolsOut,
@@ -286,6 +264,7 @@ const announce = async (allNextComponentSymbols) => {
 
     return [componentSymbolsOut, componentSymbolsIn];
 };
+
 
 const setOracleGlobalVars = async () => {
     const accounts = await web3.eth.getAccounts();
@@ -313,3 +292,10 @@ if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
         web3.currentProvider.disconnect();
     });
 }
+
+module.exports = {
+    setOracleGlobalVars,
+    selectNewPortfolio,
+    announce,
+    commit
+};
