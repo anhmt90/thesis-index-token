@@ -21,11 +21,12 @@ const {
 
 const PATH_ADDRESS_FILE = path.join(__dirname, 'contractAddresses.test.json');
 const PATH_TOKENPRICE_FILE = path.join(__dirname, 'tokenPrices.test.json');
-
+const PATH_ITC_ERC20_TOKENS_FILE= path.join(__dirname, 'itc_erc20_tokens.test.json');
 
 module.exports = {
     PATH_ADDRESS_FILE,
     PATH_TOKENPRICE_FILE,
+    PATH_ITC_ERC20_TOKENS_FILE,
 
     LENDING_TOKENS,
     DAI_JSON,

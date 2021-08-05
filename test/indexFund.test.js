@@ -9,6 +9,7 @@ const {
     INDEX_FUND_JSON,
     PATH_ADDRESS_FILE,
     UNISWAP_ROUTER_JSON,
+    ORACLE_JSON,
     DAI_JSON
 } = require('./fixtures/constants');
 
@@ -25,6 +26,17 @@ const {
     setIndexFundGlobalVars,
 } = require('../src/indexFund');
 
+const {
+    setOracleGlobalVars,
+    selectNewPortfolio,
+    announce,
+    commit
+} = require('../src/oracle/oracle');
+
+const {
+    ITC_EIN_V100,
+    EIN_FININS_DEFI__LENDINGSAVING
+} = require('../src/oracle/itc');
 
 const {
     queryReserves,
@@ -32,6 +44,9 @@ const {
     queryTokenBalance,
     queryUniswapEthOut,
     queryUniswapTokenOut,
+    queryPortfolioEthOut,
+    assembleUniswapTokenSet,
+    loadITINsFromSymbolsAndITC,
     getContract,
     CONTRACTS,
     filterTokenSet
@@ -41,13 +56,14 @@ let accounts;
 let allAddrs;
 let tokenSet;
 let uniswapTokenSet;
-let tokensNotOnUniswap;
-let initialPortfolio;
+let tokenSymbolsNotOnUniswap;
+let initialComponentSymbols;
 
 let admin;
 let investor;
 let indexContract;
 let fundContract;
+let oracleContract;
 let routerContract;
 let initialComponentAddrs;
 let initialComponentJsons;
@@ -61,20 +77,8 @@ const ETHER = web3.utils.toWei(BN(1));
  * Helper Functions
  */
 
-const expectTotalEthAmountsOut = async (withFixed1Token = false) => {
-    const currentPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
-    let sum = BN(0);
-    let ethOut;
-    for (const componentSymbol of currentPortfolio) {
-        if (withFixed1Token) {
-            ethOut = await queryUniswapEthOut(componentSymbol, Ether('1'));
-        } else {
-            const componentBalanceOfFund = await getContract(componentSymbol).methods.balanceOf(allAddrs.indexFund).call();
-            ethOut = await queryUniswapEthOut(componentSymbol, componentBalanceOfFund);
-        }
-        sum = sum.add(BN(ethOut));
-    }
-    return sum.toString();
+const expectTotalEthAmountsOut = async (with1EtherEach = false) => {
+    return await queryPortfolioEthOut(with1EtherEach);
 };
 
 const expectComponentAmountsOut = async (ethInForEach) => {
@@ -195,8 +199,10 @@ const assertIndexTokenState = async (stateBefore, expectedDiffs) => {
  * Adapted from https://ethereum.stackexchange.com/a/48629/68643
  */
 
-const assertRevert = async (actualErrorMessage, expectedErrorMessage) => {
-    assert.strictEqual(actualErrorMessage.includes('revert ' + expectedErrorMessage), `Expected error message "${expectedErrorMessage}", but got "${actualErrorMessage}".`);
+const assertRevert = (actualErrorMessage, expectedErrorMessage) => {
+    console.log("actualErrorMessage ===> ", actualErrorMessage)
+    console.log("expectedErrorMessage ===> ", expectedErrorMessage)
+    assert.strictEqual(actualErrorMessage.includes('revert ' + expectedErrorMessage), true, `Expected error message "${expectedErrorMessage}", but got "${actualErrorMessage}".`);
 };
 
 
@@ -211,15 +217,17 @@ before(async () => {
     if (fs.existsSync(PATH_ADDRESS_FILE))
         fs.unlinkSync(PATH_ADDRESS_FILE);
 
-    initialPortfolio = ["aave", "comp", "bzrx", "cel", "yfii"];
+    initialComponentSymbols = ["aave", "comp", "bzrx", "cel", "yfii"];
     await deployAuxContracts();
-    await deployIndexContract(initialPortfolio);
+    await deployIndexContract(initialComponentSymbols);
 
-    tokensNotOnUniswap = ['dai', 'bnb', 'zrx', 'enzf'];
-    [allAddrs, tokenSet, uniswapTokenSet] = setDeployGlobalVars(tokensNotOnUniswap);
+    tokenSymbolsNotOnUniswap = ['dai', 'bnb', 'zrx', 'enzf'];
+    [allAddrs, tokenSet, uniswapTokenSet] = setDeployGlobalVars(tokenSymbolsNotOnUniswap);
+    await setOracleGlobalVars();
 
-    indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddrs.indexToken);
     fundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
+    oracleContract = new web3.eth.Contract(ORACLE_JSON.abi, allAddrs.oracle);
+    indexContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddrs.indexToken);
     routerContract = new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, allAddrs.uniswapRouter);
     await setIndexFundGlobalVars();
 
@@ -227,7 +235,7 @@ before(async () => {
     admin = accounts[0];
     investor = accounts[2];
 
-    const tokensNotInInitialPortfolio = Object.keys(tokenSet).filter(symbol => !initialPortfolio.includes(symbol));
+    const tokensNotInInitialPortfolio = Object.keys(tokenSet).filter(symbol => !initialComponentSymbols.includes(symbol));
     const initialPortfolioTokenSet = filterTokenSet(tokenSet, tokensNotInInitialPortfolio);
     initialComponentAddrs = Object.values(initialPortfolioTokenSet).map(token => token.address);
     initialComponentJsons = Object.values(initialPortfolioTokenSet).map(token => token.json);
@@ -250,12 +258,12 @@ describe('Deploy and setup smart contracts', () => {
         assert.strictEqual('0', indexFundIdxBalance);
     });
 
-    it(`should mint ${initialSupply} DAI to admin`, async () => {
-        await mintTokens({ tokenSymbol: 'dai', value: initialSupply, receiver: admin });
-        const daiContract = new web3.eth.Contract(DAI_JSON.abi, allAddrs.dai);
-        const adminDaiBalance = await daiContract.methods.balanceOf(admin).call();
-        assert.strictEqual(float2TokenUnits(initialSupply), adminDaiBalance);
-    });
+    // it(`should mint ${initialSupply} DAI to admin`, async () => {
+    //     await mintTokens({ tokenSymbol: 'dai', value: initialSupply, receiver: admin });
+    //     const daiContract = new web3.eth.Contract(DAI_JSON.abi, allAddrs.dai);
+    //     const adminDaiBalance = await daiContract.methods.balanceOf(admin).call();
+    //     assert.strictEqual(float2TokenUnits(initialSupply), adminDaiBalance);
+    // });
 
 });
 
@@ -276,9 +284,9 @@ describe('Uniswap lidquidity provision', () => {
 });
 
 
-describe('IndexFund functionalities', () => {
-    it('checks if portfolio is properly set in Index Fund smart contract', async () => {
-        const expectedComponentSymbols = initialPortfolio;
+describe('IndexFund: buying and selling index tokens', () => {
+    it('should set the portfolio properly in the Index Fund smart contract', async () => {
+        const expectedComponentSymbols = initialComponentSymbols;
         const actualComponentSymbols = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
 
         assert.deepStrictEqual(actualComponentSymbols, expectedComponentSymbols, 'Token symbols not match');
@@ -289,15 +297,11 @@ describe('IndexFund functionalities', () => {
     });
 
 
-
-
-
-
     it('should return correct *nominal* Index price when totalSupply = 0', async () => {
         const curIndexTokenState = await snapshotIndexToken();
         assert.strictEqual(curIndexTokenState.totalSupply.eq(BN(0)), true, 'Total supply > 0');
 
-        const expectedIndexPrice = BN(await expectTotalEthAmountsOut(true)).div(BN(initialPortfolio.length));
+        const expectedIndexPrice = BN(await expectTotalEthAmountsOut(true)).div(BN(initialComponentSymbols.length));
         const actualIndexPrice = await fundContract.methods.getIndexPrice().call();
 
         assert.deepStrictEqual(actualIndexPrice, expectedIndexPrice.toString(), `Incorrect Index Price expected ${expectedIndexPrice}, but got ${actualIndexPrice}`);
@@ -305,14 +309,14 @@ describe('IndexFund functionalities', () => {
 
 
     it('should properly buy Index Tokens (nominal price calculation + no frontrunning prevention)', async () => {
-        const expectedIndexPrice = BN(await expectTotalEthAmountsOut(true)).div(BN(initialPortfolio.length));
+        const expectedIndexPrice = BN(await expectTotalEthAmountsOut(true)).div(BN(initialComponentSymbols.length));
         console.log("NOMINAL INDEX PRICE:", expectedIndexPrice.toString());
 
-        const ethAmount = BN(Ether(String(initialPortfolio.length * 10)));
+        const ethAmount = BN(Ether(String(initialComponentSymbols.length * 10)));
         const expectedIndexTokenAmount = BN(ethAmount).mul(ETHER).div(expectedIndexPrice);
         console.log("AMOUNT OF NEW INDEX TOKENS:", expectedIndexTokenAmount.toString());
 
-        const ethInForEach = ethAmount.div(BN(initialPortfolio.length)).toString();
+        const ethInForEach = ethAmount.div(BN(initialComponentSymbols.length)).toString();
         const expectedComponentAmountsOut = await expectComponentAmountsOut(ethInForEach);
         // ---------------------------------------------------
         const indexFundStateBefore = await snapshotIndexFund();
@@ -377,14 +381,14 @@ describe('IndexFund functionalities', () => {
          */
         const expectedIndexPrice = BN(await expectTotalEthAmountsOut()).mul(ETHER).div(indexTokenStateBefore.totalSupply);
 
-        const ethAmount = BN(Ether(String(initialPortfolio.length * 10)));
+        const ethAmount = BN(Ether(String(initialComponentSymbols.length * 10)));
         const expectedAmountToMint = ethAmount.mul(ETHER).div(expectedIndexPrice);
 
         /**
          * -----------------------------------------------------------------
          * calculated expected output amounts of component tokens
          */
-        const ethInForEach = ethAmount.div(BN(initialPortfolio.length)).toString();
+        const ethInForEach = ethAmount.div(BN(initialComponentSymbols.length)).toString();
         const expectedComponentAmountsOut = await expectComponentAmountsOut(ethInForEach);
 
         /**
@@ -485,7 +489,7 @@ describe('IndexFund functionalities', () => {
 
     });
 
-    it('should be rejected by the on-chain sell function due to not enough allowance', async () => {
+    it('should be reverted by the on-chain sell() function due to not enough allowance', async () => {
         // selling 9 index tokens
         const saleIndexAmount = BN(5).mul(ETHER);
 
@@ -506,6 +510,63 @@ describe('IndexFund functionalities', () => {
         catch (error) {
             assert(error, "Expected an error but did not get one");
             assertRevert(error.message, expectedErrorReason);
+        }
+    });
+});
+
+describe('IndexFund: updating portfolio', () => {
+    it('should fail when the lock time of 2 days is not due yet', async () => {
+        // use eth to swap for candidate tokens on Uniswap to increase the their prices so that they get selected for update
+        const initialComponentSymbolSet = new Set(initialComponentSymbols);
+        const candidatesSubbedIn = Object.keys(uniswapTokenSet).filter(symbol => !initialComponentSymbolSet.has(symbol));
+        log.debug("candidatesSubbedIn ==> ", candidatesSubbedIn)
+        for (const symbol of candidatesSubbedIn) {
+            await getContract(CONTRACTS.UNISWAP_ROUTER).methods.swapExactETHForTokens(
+                '0',
+                [allAddrs.weth, allAddrs[symbol]],
+                investor,
+                ((await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp + 10000).toString()
+            ).send({
+                from: investor,
+                value: Ether('50'),
+                gas: '5000000'
+            });
+        }
+        log.debug("====================================================")
+
+        // call oracle function to select the new portfolio
+        const newPortfolio = await selectNewPortfolio();
+
+        // call oracle function to announce the update
+        const [expectedCSOs, actualCSIs] = await announce(newPortfolio);
+        assert.deepStrictEqual(new Set(actualCSIs), new Set(candidatesSubbedIn), `Expected ${candidatesSubbedIn.sort()}, but got ${actualCSIs.sort()}`);
+
+        // check the time to be next 2 days and all the data on oracle are correctly set
+        const actualCSOs = await oracleContract.methods.getComponentSymbolsOut().call();
+        assert.deepStrictEqual(new Set(actualCSOs), new Set(expectedCSOs), `ComponentSymbolsOut: Expected ${expectedCSOs}, but got ${actualCSOs}`);
+
+        const expectedCAIs = actualCSIs.map(symbol => allAddrs[symbol]);
+        const actualCAIs = await oracleContract.methods.getComponentAddrsIn().call();
+        assert.deepStrictEqual(new Set(actualCAIs), new Set(expectedCAIs), `ComponentAddrsIn: Expected ${expectedCAIs}, but got ${actualCAIs}`);
+
+        const expectedANCSs = newPortfolio;
+        const actualANCSs = await oracleContract.methods.getAllNextComponentSymbols().call();
+        assert.deepStrictEqual(new Set(actualANCSs), new Set(expectedANCSs), `AllNextComponentSymbols: Expected ${expectedANCSs}, but got ${actualANCSs}`);
+
+        const expectedITINs = loadITINsFromSymbolsAndITC(newPortfolio, ITC_EIN_V100, EIN_FININS_DEFI__LENDINGSAVING);
+        const actualITINs = await oracleContract.methods.getComponentITINs().call();
+        assert.deepStrictEqual(new Set(actualITINs), new Set(expectedITINs), `ComponentITINs: Expected ${expectedITINs}, but got ${actualITINs}`);
+
+        // try to commit and get reverted since update time is not due yet
+        const expectedErrorMessage = "TimeLock: function is timelocked";
+        try {
+            await commit(expectedCSOs, actualCSIs);
+            throw null;
+        }
+        catch (error) {
+            assert(error, "Expected an error but did not get one");
+            assertRevert(error.message, expectedErrorMessage);
+            // assert.deepStrictEqual(error.message, expectedErrorMessage, `Expected error message "${expectedErrorMessage}", but got "${error.message}".`);
         }
     });
 });
