@@ -7,7 +7,7 @@ import "../TimeLock.sol";
 
 contract Oracle is Ownable {
 
-    address public indexFund;
+    address payable public indexFund;
 
     string[] public componentSymbolsOut;
     address[] public componentAddrsIn;
@@ -17,7 +17,7 @@ contract Oracle is Ownable {
 
     constructor(address owner) {
         transferOwnership(owner);
-        indexFund = msg.sender;
+        indexFund = payable(msg.sender);
     }
 
     /**

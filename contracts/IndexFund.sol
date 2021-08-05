@@ -69,7 +69,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         address[] memory _componentAddrsIn,
         uint256[] calldata _amountsOutMinIn,
         string[] memory _allNextComponentSymbols
-    ) external onlyOracle notLocked(Functions.UPDATE_PORTFOLIO) {
+    ) public payable onlyOracle notLocked(Functions.UPDATE_PORTFOLIO) {
         require(_componentSymbolsOut.length == _componentAddrsIn.length, "IndexFund: number of component to be added and to be removed not matched");
         require(_componentSymbolsOut.length == _amountsOutMinOut.length, "IndexFund: length of _componentSymbolsOut and _amountsOutMinOut not matched");
         require(_componentAddrsIn.length == _amountsOutMinIn.length, "IndexFund: length of _componentAddrsIn and _amountsOutMinIn not matched");
@@ -83,6 +83,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
             path[0] = componentAddr;
             uint256 currentBalance = IERC20Metadata(componentAddr).balanceOf(address(this));
 
+            IERC20Metadata(componentAddr).approve(router, currentBalance);
             IUniswapV2Router02(router).swapExactTokensForETH(
                 currentBalance,
                 _amountsOutMinOut[i],
@@ -276,18 +277,18 @@ contract IndexFund is Fund, TimeLock, Ownable {
         uint256 _amountOutMin = 1;
 
         for (uint256 i = 0; i < componentSymbols.length; i++) {
-            address tokenAddr = portfolio[componentSymbols[i]];
+            address componentAddr = portfolio[componentSymbols[i]];
             require(
-                tokenAddr != address(0),
-                "IndexFund: A token has address 0"
+                componentAddr != address(0),
+                "IndexFund: a token has address 0"
             );
-            path[0] = tokenAddr;
+            path[0] = componentAddr;
 
             if (_amountsOutMin.length > 0) {
                 _amountOutMin = _amountsOutMin[i];
             }
 
-            IERC20Metadata(tokenAddr).approve(router, _amountEachComponent);
+            IERC20Metadata(componentAddr).approve(router, _amountEachComponent);
 
             uint256[] memory amounts = IUniswapV2Router02(router)
                 .swapExactTokensForETH(
@@ -389,6 +390,12 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
     function setOracle(address _oracle) external override onlyOwner {
         oracle = _oracle;
+    }
+
+    event Received(address sender, uint amount);
+
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
     }
 
 }
