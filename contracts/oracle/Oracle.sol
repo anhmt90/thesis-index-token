@@ -58,4 +58,20 @@ contract Oracle is Ownable {
     function getNextUpdateTime() external view returns(uint256 _date) {
         return IndexFund(indexFund).timelock(TimeLock.Functions.UPDATE_PORTFOLIO);
     }
+
+    function getComponentSymbolsOut() public view returns(string[] memory) {
+        return componentSymbolsOut;
+    }
+
+    function getComponentAddrsIn() public view returns(address[] memory) {
+        return componentAddrsIn;
+    }
+
+    function getAllNextComponentSymbols() public view returns(string[] memory) {
+        return allNextComponentSymbols;
+    }
+
+    function getComponentITINs() public view returns(string[] memory) {
+        return componentITINs;
+    }
 }
