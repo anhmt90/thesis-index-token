@@ -125,6 +125,8 @@ contract IndexFund is Fund, TimeLock, Ownable {
         // lock unlimited time, a next update must always have 2 days grace period.
         lockUnlimited(Functions.UPDATE_PORTFOLIO);
 
+        emit PortfolioUpdated(msg.sender, tx.origin, _componentSymbolsOut, componentSymbols);
+
     }
 
     function _setPortfolio(
@@ -140,6 +142,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
             require(_componentAddrs[i] != address(0), "IndexFund: a component address is 0");
             portfolio[_componentSymbols[i]] = _componentAddrs[i];
         }
+        emit PortfolioUpdated(msg.sender, tx.origin, new string[](0), _componentSymbols);
     }
 
     /** ----------------------------------------------------------------------------------------------------- */
@@ -353,6 +356,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
             }
         }
         require(address(this).balance < componentSymbols.length, "IndexToken: too much ETH left");
+        emit PortfolioRebalanced(msg.sender, block.timestamp, ethAvg);
     }
 
     /** ---------------------------------------------------------------------------------------------------- */

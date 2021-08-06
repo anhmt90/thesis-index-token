@@ -27,21 +27,30 @@ abstract contract Fund {
         uint256 _amount
     );
 
-    event PortfolioChanged(
-        string[] symbols,
-        address[] addresses
+    event PortfolioUpdated(
+        address indexed _oracle,
+        address indexed _txOrigin,
+        string[]  _componentsReplaced,
+        string[] indexed _newPortfolio
     );
 
+    event PortfolioRebalanced(
+        address indexed _msgSender,
+        uint256 indexed _time,
+        uint256 _ethAverage
+    );
+
+
     event SwapForComponents(
-        string[] tokens,
-        uint256 amountEth,
-        uint256[] amountsOut
+        string[] _components,
+        uint256 _amountEth,
+        uint256[] _amountsOut
     );
 
     event SwapForEth(
-        string[] tokens,
-        uint256 amountEach,
-        uint256[] amountsEth
+        string[] _components,
+        uint256 _amountEach,
+        uint256[] _amountsEth
     );
 
     function buy(uint256[] calldata _amountsOutMin) external payable virtual;
