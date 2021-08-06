@@ -94,7 +94,6 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
             delete portfolio[_componentSymbolsOut[i]];
         }
-        require(address(this).balance > 0, "IndexFund: balance of IndexFund is 0");
 
         // buy the incoming components.
         path[0] = weth;
@@ -114,13 +113,18 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
         // check if the new symbol array is all set in the portfolio mapping
         for (uint256 i = 0; i < _allNextComponentSymbols.length; i++) {
-            require(portfolio[_allNextComponentSymbols[i]] != address(0), "IndexToken: a component in the new symbol array is not in the portfolio");
+            require(portfolio[_allNextComponentSymbols[i]] != address(0),
+                "IndexToken: a component in the new symbol array is not in the portfolio"
+            );
         }
         // replace the entire old symbol array with this new symbol array.
         componentSymbols = _allNextComponentSymbols;
 
+        require(address(this).balance < componentSymbols.length, "IndexToken: too much ETH left");
+
         // lock unlimited time, a next update must always have 2 days grace period.
         lockUnlimited(Functions.UPDATE_PORTFOLIO);
+
     }
 
     function _setPortfolio(
@@ -133,14 +137,9 @@ contract IndexFund is Fund, TimeLock, Ownable {
         );
         componentSymbols = _componentSymbols;
         for (uint256 i = 0; i < _componentSymbols.length; i++) {
-            require(
-                _componentAddrs[i] != address(0),
-                "IndexFund: a component address is 0"
-            );
+            require(_componentAddrs[i] != address(0), "IndexFund: a component address is 0");
             portfolio[_componentSymbols[i]] = _componentAddrs[i];
         }
-        emit PortfolioChanged(_componentSymbols, _componentAddrs);
-
     }
 
     /** ----------------------------------------------------------------------------------------------------- */
@@ -178,13 +177,8 @@ contract IndexFund is Fund, TimeLock, Ownable {
         override
         properPortfolio
     {
-        require(
-            msg.value > 0,
-            "IndexFund: Investment sum must be greater than 0."
-        );
-        require(
-            _amountsOutMin.length == 0 ||
-                _amountsOutMin.length == componentSymbols.length,
+        require(msg.value > 0, "IndexFund: Investment sum must be greater than 0.");
+        require(_amountsOutMin.length == 0 || _amountsOutMin.length == componentSymbols.length,
             "IndexToken: offchainPrices must either be empty or have many entries as the portfolio"
         );
 
@@ -202,10 +196,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         _swapExactETHForTokens(_amountsOutMin);
 
         // mint new <_amount> IndexTokens
-        require(
-            IndexToken(indexToken).mint(msg.sender, _amount),
-            "Unable to mint new Index tokens for buyer"
-        );
+        require(IndexToken(indexToken).mint(msg.sender, _amount), "Unable to mint new Index tokens for buyer");
 
         emit Purchase(msg.sender, _amount, _price);
     }
@@ -304,33 +295,18 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
     /** ----------------------------------------------------------------------------------------------------- */
-    function rebalance(uint16[] calldata allocation) external onlyOwner {
-        require(
-            allocation.length == componentSymbols.length,
-            "IndxToken: Wrong size of allocation array"
-        );
-        uint16 sumAllocation;
-        for (uint256 i = 0; i < allocation.length; i++) {
-            sumAllocation += allocation[i];
-        }
-        require(
-            sumAllocation == 1000 || sumAllocation == 999,
-            "IndexToken: Wrong sum of allocation"
-        );
-
+    function rebalance() external payable onlyOwner {
         address[] memory path = new address[](2);
         path[1] = weth;
-
         uint256[] memory ethAmountsOut = new uint256[](componentSymbols.length);
-        uint256 ethSum;
+
+        // small amount of wei remained from previous rebalancing and updates
+        uint256 ethSum = address(this).balance;
         for (uint256 i = 0; i < componentSymbols.length; i++) {
-            address tokenAddr = portfolio[componentSymbols[i]];
-            path[0] = tokenAddr;
-            uint256 tokenBalance = IERC20(tokenAddr).balanceOf(address(this));
-            ethAmountsOut[i] = IUniswapV2Router02(router).getAmountsOut(
-                tokenBalance,
-                path
-            )[1];
+            address componentAddr = portfolio[componentSymbols[i]];
+            path[0] = componentAddr;
+            uint256 tokenBalance = IERC20(componentAddr).balanceOf(address(this));
+            ethAmountsOut[i] = IUniswapV2Router02(router).getAmountsOut(tokenBalance, path)[1];
             ethSum += ethAmountsOut[i];
         }
         uint256 ethAvg = ethSum / componentSymbols.length;
@@ -338,27 +314,22 @@ contract IndexFund is Fund, TimeLock, Ownable {
         // SELLING `overperforming` tokens for ETH
         for (uint256 i = 0; i < ethAmountsOut.length; i++) {
             if (ethAvg < ethAmountsOut[i]) {
-                address tokenAddr = portfolio[componentSymbols[i]];
+                address componentAddr = portfolio[componentSymbols[i]];
 
+                // derive the amount of component tokens to sell
                 uint256 ethDiff = ethAmountsOut[i] - ethAvg;
-                path[0] = weth;
-                path[1] = tokenAddr;
-
-                uint256 tokensToSell = IUniswapV2Router02(router).getAmountsOut(
-                    ethDiff,
-                    path
-                )[1];
-
-                path[0] = tokenAddr;
+                path[0] = componentAddr;
                 path[1] = weth;
-                IUniswapV2Router02(router).swapTokensForExactETH(
+                uint256 amountToSell = IUniswapV2Router02(router).getAmountsIn(ethDiff, path)[0];
+
+                IERC20Metadata(componentAddr).approve(router, amountToSell);
+                IUniswapV2Router02(router).swapExactTokensForETH(
+                    amountToSell,
                     ethDiff,
-                    tokensToSell,
                     path,
                     address(this),
                     block.timestamp + 10
                 );
-                // amountsOut[1] // == ethDiff
             }
         }
 
@@ -370,20 +341,18 @@ contract IndexFund is Fund, TimeLock, Ownable {
                 path[0] = weth;
                 path[1] = tokenAddr;
 
-                uint256 tokensToBuy = IUniswapV2Router02(router).getAmountsOut(
-                    ethDiff,
-                    path
-                )[1];
+                // derive the amount of component tokens to buy for frontrunning prevention
+                uint256 amountToBuy = IUniswapV2Router02(router).getAmountsOut(ethDiff, path)[1];
 
-                IUniswapV2Router02(router).swapExactETHForTokens{
-                    value: ethDiff
-                }(tokensToBuy, path, address(this), block.timestamp + 10);
+                IUniswapV2Router02(router).swapExactETHForTokens{value: ethDiff}(
+                    amountToBuy,
+                    path,
+                    address(this),
+                    block.timestamp + 10
+                );
             }
         }
-        require(
-            address(this).balance == 0,
-            "IndexToken: There's still ETH left unspent"
-        );
+        require(address(this).balance < componentSymbols.length, "IndexToken: too much ETH left");
     }
 
     /** ---------------------------------------------------------------------------------------------------- */
