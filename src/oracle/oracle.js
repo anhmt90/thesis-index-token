@@ -245,7 +245,7 @@ const announce = async (allNextComponentSymbols) => {
     // make _announcementMessage
     const today = new Date();
     const next2Days = new Date(today.setDate(today.getDate() + 2)).toUTCString();
-    const _announcementMessage = `The next portfolio update in the IndexFund contract (${allAddrs.indexFund}) will on <${next2Days} +/- 15 minutes>.`;
+    const _announcementMessage = `The next portfolio update in the IndexFund contract (${allAddrs.indexFund}) will be on <${next2Days} +/- 15 minutes>.`;
     log.debug("_announcementMessage ===>", _announcementMessage);
 
     // call the announce() func of oracle contact

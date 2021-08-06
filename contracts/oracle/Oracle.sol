@@ -35,7 +35,10 @@ contract Oracle is Ownable {
         string[] memory _componentITINs,
         string calldata _announcementMessage
     ) external onlyOwner onlyFundOwner {
+        require(_componentSymbolsOut.length > 0, "Oracle: no components will be replaced");
         require(_componentSymbolsOut.length == _componentAddrsIn.length, "Oracle: number of component to be added and to be removed not matched");
+        require(_allNextComponentSymbols.length > 0, "Oracle: an empty portfolio is now allowed");
+
 
         componentSymbolsOut = _componentSymbolsOut;
         componentAddrsIn = _componentAddrsIn;
