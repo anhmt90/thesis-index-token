@@ -13,11 +13,12 @@ import "./TimeLock.sol";
 import "./oracle/Oracle.sol";
 
 contract IndexFund is Fund, TimeLock, Ownable {
+
     // instance of uniswap v2 router02
-    address public router;
+    address immutable public  router;
 
     // instance of WETH
-    address public weth;
+    address immutable public weth;
 
     modifier properPortfolio() {
         require(
@@ -38,13 +39,15 @@ contract IndexFund is Fund, TimeLock, Ownable {
     constructor(
         string[] memory _componentSymbols,
         address[] memory _componentAddrs,
+        address _indexToken,
+        address _oracle,
         address _router
-    ) {
+    ) Fund(_indexToken, _oracle) {
         _setPortfolio(_componentSymbols, _componentAddrs);
         router = _router;
         weth = IUniswapV2Router02(_router).WETH();
-        indexToken = address(new IndexToken());
-        oracle = address(new Oracle(msg.sender));
+        // indexToken = address(new IndexToken());
+        // oracle = address(new Oracle(msg.sender));
     }
 
     function announcePortfolioUpdating(string calldata _message)
@@ -201,7 +204,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         // mint new <_amount> IndexTokens
         require(IndexToken(indexToken).mint(msg.sender, _amount), "Unable to mint new Index tokens for buyer");
 
-        emit Purchase(msg.sender, _amount, _price);
+        emit Buy(msg.sender, _amount, _price);
     }
 
     function _swapExactETHForTokens(uint256[] calldata _amountsOutMin)
@@ -257,7 +260,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         _indexToken.transferFrom(msg.sender, address(this), _amount);
         _indexToken.burn(_amount);
 
-        emit Sale(msg.sender, _amount);
+        emit Sell(msg.sender, _amount);
     }
 
     function _swapExactTokensForETH(
@@ -298,7 +301,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
     /** ----------------------------------------------------------------------------------------------------- */
-    function rebalance() external payable onlyOwner {
+    function rebalance() external payable onlyOwner notLocked(Functions.REBALANCING)  {
         address[] memory path = new address[](2);
         path[1] = weth;
         uint256[] memory ethAmountsOut = new uint256[](componentSymbols.length);
@@ -360,10 +363,6 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
     /** ---------------------------------------------------------------------------------------------------- */
-
-    function setOracle(address _oracle) external override onlyOwner {
-        oracle = _oracle;
-    }
 
     event Received(address sender, uint amount);
 

@@ -7,22 +7,27 @@ abstract contract Fund {
     // uint256 constant MAX_UINT256 = 2**256 - 1;
 
     // instance of the ERC20 Index Token contract
-    address public indexToken;
+    address immutable public indexToken;
 
     // instance of the price Oracle contract
-    address public oracle;
+    address immutable public oracle;
 
     // <componentToken_name> is at <componentToken_address>
     mapping(string => address) public portfolio;
     string[] public componentSymbols;
 
-    event Purchase(
+    constructor (address _indexToken, address _oracle) {
+        indexToken = _indexToken;
+        oracle = _oracle;
+    }
+
+    event Buy(
         address indexed _buyer,
         uint256 _amount,
         uint256 _price
     );
 
-    event Sale(
+    event Sell(
         address indexed _shareholder,
         uint256 _amount
     );
@@ -60,8 +65,6 @@ abstract contract Fund {
     function announcePortfolioUpdating(string calldata _message) external virtual;
 
     function announcePortfolioRebalancing(string calldata _message) external virtual;
-
-    function setOracle(address _oracle) external virtual;
 
     function getComponentSymbols() external view returns (string[] memory) {
         return componentSymbols;
