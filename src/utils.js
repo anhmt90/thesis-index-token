@@ -176,7 +176,7 @@ const queryUniswapEthOut = async (tokenSymbol, amountToken) => {
     return amountEthOut;
 };
 
-const queryComponentBalancesOfIndexFund = async () => {
+const queryAllComponentBalancesOfIndexFund = async () => {
     _allAddrs = getAllAddrs();
     const currentPortfolio = (await getContract(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
     const componentBalanceSet = {};
@@ -186,7 +186,16 @@ const queryComponentBalancesOfIndexFund = async () => {
     return componentBalanceSet
 }
 
-const queryPortfolioEthOut = async (with1EtherEach = false) => {
+const queryAllComponentEthsOutOfIndexFund = async () => {
+    const componentBalanceSet = await queryAllComponentBalancesOfIndexFund();
+    const ethsOut = []
+    for (const [symbol, balance] of Object.entries(componentBalanceSet)){
+        ethsOut.push([symbol, await queryUniswapEthOut(symbol, balance)])
+    }
+    return Object.fromEntries(ethsOut);
+}
+
+const queryPortfolioEthOutSum = async (with1EtherEach = false) => {
     _allAddrs = getAllAddrs();
     const fundContract = getContract(CONTRACTS.INDEX_FUND);
     const currentPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
@@ -404,9 +413,10 @@ module.exports = {
     queryUniswapPriceInEth,
     queryUniswapEthOut,
     queryUniswapTokenOut,
-    queryPortfolioEthOut,
+    queryPortfolioEthOutSum,
     queryUniswapEthOutForTokensOut,
-    queryComponentBalancesOfIndexFund,
+    queryAllComponentBalancesOfIndexFund,
+    queryAllComponentEthsOutOfIndexFund,
 
     getContract,
     CONTRACTS,

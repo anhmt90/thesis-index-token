@@ -17,7 +17,7 @@ const {
     queryUniswapPriceInEth,
     queryUniswapEthOut,
     queryUniswapTokenOut,
-    queryPortfolioEthOut,
+    queryPortfolioEthOutSum,
     queryUniswapEthOutForTokensOut,
     loadItsaTokenInfo,
     loadLastUniswapPrices,
