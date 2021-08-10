@@ -1,6 +1,8 @@
 const fs = require('fs');
 const fg = require('fast-glob');
 const path = require('path');
+var RLP = require('rlp')
+
 
 const log = require('../config/logger');
 
@@ -176,6 +178,13 @@ const queryUniswapEthOut = async (tokenSymbol, amountToken) => {
     return amountEthOut;
 };
 
+const queryUniswapTokenOut = async (tokenSymbol, amountEth) => {
+    const [path, routerContract] = _getSwapPathAndRouterContract(tokenSymbol, true);
+    const amounts = await routerContract.methods.getAmountsOut(amountEth, path).call();
+    const amountTokenOut = amounts[1];
+    return amountTokenOut;
+};
+
 const queryAllComponentBalancesOfIndexFund = async () => {
     _allAddrs = getAllAddrs();
     const currentPortfolio = (await getContract(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
@@ -193,6 +202,17 @@ const queryAllComponentEthsOutOfIndexFund = async () => {
         ethsOut.push([symbol, await queryUniswapEthOut(symbol, balance)])
     }
     return Object.fromEntries(ethsOut);
+}
+
+const queryAllComponentAmountsOut = async (amountEthTotal) => {
+    const currentPortfolio = (await getContract(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
+    const ethInForEach = BN(amountEthTotal).div(BN(currentPortfolio.length));
+    const componentAmountsOut = [];
+    for (const componentSymbol of currentPortfolio) {
+        const amountOut = await queryUniswapTokenOut(componentSymbol, ethInForEach);
+        componentAmountsOut.push(amountOut);
+    }
+    return componentAmountsOut;
 }
 
 const queryPortfolioEthOutSum = async (with1EtherEach = false) => {
@@ -213,12 +233,7 @@ const queryPortfolioEthOutSum = async (with1EtherEach = false) => {
     return sum.toString();
 };
 
-const queryUniswapTokenOut = async (tokenSymbol, amountEth) => {
-    const [path, routerContract] = _getSwapPathAndRouterContract(tokenSymbol, true);
-    const amounts = await routerContract.methods.getAmountsOut(amountEth, path).call();
-    const amountTokenOut = amounts[1];
-    return amountTokenOut;
-};
+
 
 const queryUniswapEthOutForTokensOut = async (componentSymbolsOut, componentSymbolsIn) => {
     // get _amountsOutMinOut
@@ -390,7 +405,11 @@ const getContract = (contract) => {
 };
 
 
-
+const computeFutureAddress = async (senderAddress, ahead = 0) => {
+    nonce = await web3.eth.getTransactionCount(senderAddress);
+    const futureAddress = "0x" + web3.utils.sha3(RLP.encode([senderAddress, parseInt(String(nonce)) + ahead])).substring(26);
+    return futureAddress;
+}
 /* ************************************************************************* */
 
 module.exports = {
@@ -417,11 +436,17 @@ module.exports = {
     queryUniswapEthOutForTokensOut,
     queryAllComponentBalancesOfIndexFund,
     queryAllComponentEthsOutOfIndexFund,
+    queryAllComponentAmountsOut,
 
     getContract,
+    computeFutureAddress,
     CONTRACTS,
 
     getAllAddrs,
     float2TokenUnits,
-    log
+    log,
+
+    BN,
+    Ether,
+    ETHER
 };
