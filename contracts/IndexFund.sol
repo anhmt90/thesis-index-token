@@ -147,16 +147,17 @@ contract IndexFund is Fund, TimeLock, Ownable {
         for (uint256 i = 0; i < componentSymbols.length; i++) {
             address componentAddress = portfolio[componentSymbols[i]];
             path[0] = componentAddress;
+            uint8 decimals = IERC20Metadata(componentAddress).decimals();
 
             uint256 componentBalanceOfIndexFund = totalSupply > 0
                 ? IERC20Metadata(componentAddress).balanceOf(address(this))
-                : 1000000000000000000;
+                : 10 ** decimals;
 
-            uint256[] memory amounts = IUniswapV2Router02(router).getAmountsOut(componentBalanceOfIndexFund, path            );
+            uint256[] memory amounts = IUniswapV2Router02(router).getAmountsOut(componentBalanceOfIndexFund, path);
             _price += amounts[1];
         }
         if (totalSupply > 0) {
-            _price = (_price * 1000000000000000000) /  totalSupply;
+            _price = (_price * 1e18) /  totalSupply;
         } else {
             _price /= componentSymbols.length;
         }
@@ -178,17 +179,16 @@ contract IndexFund is Fund, TimeLock, Ownable {
         );
 
         uint256 totalSupply = IERC20Metadata(indexToken).totalSupply();
-        require(totalSupply > 0 || msg.value <= 10000000000000000,
+        require(totalSupply > 0 || msg.value <= 0.01 ether,
             "IndexFund: totalSupply must > 0 or msg.value must <= 0.01 ETH"
         );
-
 
         // calculate the current price based on component tokens
         uint256 _price = getIndexPrice();
 
         uint256 _amount;
         if (_price > 0) {
-            _amount = (msg.value * 1000000000000000000) / _price;
+            _amount = (msg.value * 1e18) / _price;
         }
 
         // swap the ETH sent with the transaction for component tokens on Uniswap
@@ -207,10 +207,9 @@ contract IndexFund is Fund, TimeLock, Ownable {
         address[] memory path = new address[](2);
         path[0] = weth;
 
-        uint256 _amountEth = msg.value;
         uint256 _ethForEachComponent = msg.value / componentSymbols.length;
         uint256[] memory _amountsOut = new uint256[](componentSymbols.length);
-        uint256 _amountOutMin = 1;
+        uint256 _amountOutMin;
 
         for (uint256 i = 0; i < componentSymbols.length; i++) {
             address tokenAddr = portfolio[componentSymbols[i]];
@@ -231,12 +230,11 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
             _amountsOut[i] = amounts[1];
         }
-        emit SwapForComponents(componentSymbols, _amountEth, _amountsOut);
     }
 
     /** -------------------------------------------------------------------------- */
 
-    function sell(uint256 _amount, uint256[] calldata _amountsOutMin)
+    function sell(uint256 _amount, uint256[] calldata _amountsETHOutMin)
         external
         override
         properPortfolio
@@ -250,51 +248,51 @@ contract IndexFund is Fund, TimeLock, Ownable {
         );
 
         _indexToken.transferFrom(msg.sender, address(this), _amount);
+        _swapExactTokensForETH(_amount, _amountsETHOutMin);
         _indexToken.burn(_amount);
-        _swapExactTokensForETH(_amount, _amountsOutMin);
 
         emit Sell(msg.sender, _amount);
     }
 
     function _swapExactTokensForETH(
         uint256 _amountIndexToken,
-        uint256[] calldata _amountsOutMin
+        uint256[] calldata _amountsETHOutMin
     ) internal {
+        uint256 _ethAmountOutEachComponent = ((_amountIndexToken * getIndexPrice()) / 1e18) / componentSymbols.length;
+        uint256[] memory _amountsOut = new uint256[](componentSymbols.length);
+
         address[] memory path = new address[](2);
         path[1] = weth;
-        uint256 _amountEachComponent = _amountIndexToken / componentSymbols.length;
-        uint256[] memory _amountsOut = new uint256[](componentSymbols.length);
-        uint256 _amountOutMin = 1;
-
+        uint256 _amountETHOutMin;
         for (uint256 i = 0; i < componentSymbols.length; i++) {
             address componentAddr = portfolio[componentSymbols[i]];
-            require(
-                componentAddr != address(0),
-                "IndexFund: a token has address 0"
-            );
+            require(componentAddr != address(0), "IndexFund: a token has address 0");
             path[0] = componentAddr;
-
-            if (_amountsOutMin.length > 0) {
-                _amountOutMin = _amountsOutMin[i];
+            uint256 amountComponentToSell =  IUniswapV2Router02(router).getAmountsIn(_ethAmountOutEachComponent, path)[0];
+            uint256 currentBalance = IERC20Metadata(componentAddr).balanceOf(address(this));
+            if (amountComponentToSell > currentBalance) {
+                amountComponentToSell = currentBalance;
             }
 
-            IERC20Metadata(componentAddr).approve(router, _amountEachComponent);
-
+            if (_amountsETHOutMin.length > 0) {
+                _amountETHOutMin = _amountsETHOutMin[i];
+            }
+            IERC20Metadata(componentAddr).approve(router, amountComponentToSell);
             uint256[] memory amounts = IUniswapV2Router02(router)
                 .swapExactTokensForETH(
-                    _amountEachComponent,
-                    _amountOutMin,
+                    amountComponentToSell,
+                    _amountETHOutMin,
                     path,
                     msg.sender,
                     block.timestamp + 10
                 );
             _amountsOut[i] = amounts[1];
         }
-        emit SwapForEth(componentSymbols, _amountEachComponent, _amountsOut);
     }
 
     /** -------------------------------------------------------------------------- */
-    function rebalance() external payable onlyOwner notLocked(Functions.REBALANCE)  {
+    function rebalance(uint256[] calldata _amountsETHOutMin, uint256[] calldata _amountsComponentOutMin) external payable onlyOwner notLocked(Functions.REBALANCE)  {
+       require(_amountsETHOutMin.length == _amountsComponentOutMin.length, "IndexFund: the two input arrays aren't equal in length");
         address[] memory path = new address[](2);
         path[1] = weth;
         uint256[] memory ethAmountsOut = new uint256[](componentSymbols.length);
@@ -311,6 +309,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         uint256 ethAvg = ethSum / componentSymbols.length;
 
         // SELLING `overperforming` tokens for ETH
+        uint256 _amountETHOutMin;
         for (uint256 i = 0; i < ethAmountsOut.length; i++) {
             if (ethAvg < ethAmountsOut[i]) {
                 address componentAddr = portfolio[componentSymbols[i]];
@@ -319,12 +318,20 @@ contract IndexFund is Fund, TimeLock, Ownable {
                 uint256 ethDiff = ethAmountsOut[i] - ethAvg;
                 path[0] = componentAddr;
                 path[1] = weth;
-                uint256 amountToSell = IUniswapV2Router02(router).getAmountsIn(ethDiff, path)[0];
+                uint256 amountComponentToSell = IUniswapV2Router02(router).getAmountsIn(ethDiff, path)[0];
+                uint256 currentBalance = IERC20Metadata(componentAddr).balanceOf(address(this));
+                if (amountComponentToSell > currentBalance) {
+                    amountComponentToSell = currentBalance;
+                }
 
-                IERC20Metadata(componentAddr).approve(router, amountToSell);
+                if (_amountsETHOutMin.length > 0) {
+                    _amountETHOutMin = _amountsETHOutMin[i];
+                }
+
+                IERC20Metadata(componentAddr).approve(router, amountComponentToSell);
                 IUniswapV2Router02(router).swapExactTokensForETH(
-                    amountToSell,
-                    ethDiff,
+                    amountComponentToSell,
+                    _amountETHOutMin,
                     path,
                     address(this),
                     block.timestamp + 10
@@ -333,6 +340,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         }
 
         // BUYING `underperforming` tokens with the ETH received
+        uint256 _amountComponentOutMin;
         for (uint256 i = 0; i < ethAmountsOut.length; i++) {
             if (ethAvg > ethAmountsOut[i]) {
                 address tokenAddr = portfolio[componentSymbols[i]];
@@ -341,10 +349,12 @@ contract IndexFund is Fund, TimeLock, Ownable {
                 path[1] = tokenAddr;
 
                 // derive the amount of component tokens to buy for frontrunning prevention
-                uint256 amountToBuy = IUniswapV2Router02(router).getAmountsOut(ethDiff, path)[1];
-
+                // uint256 amountComponetnTokensToBuy = IUniswapV2Router02(router).getAmountsOut(ethDiff, path)[1];
+                if (_amountsComponentOutMin.length > 0) {
+                    _amountComponentOutMin = _amountsComponentOutMin[i];
+                }
                 IUniswapV2Router02(router).swapExactETHForTokens{value: ethDiff}(
-                    amountToBuy,
+                    _amountComponentOutMin,
                     path,
                     address(this),
                     block.timestamp + 10

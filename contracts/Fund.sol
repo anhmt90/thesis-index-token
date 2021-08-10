@@ -47,17 +47,6 @@ abstract contract Fund {
     );
 
 
-    event SwapForComponents(
-        string[] _components,
-        uint256 _amountEth,
-        uint256[] _amountsOut
-    );
-
-    event SwapForEth(
-        string[] _components,
-        uint256 _amountEach,
-        uint256[] _amountsEth
-    );
 
     function buy(uint256[] calldata _amountsOutMin) external payable virtual;
 
