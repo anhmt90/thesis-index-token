@@ -15,7 +15,7 @@ import "./oracle/Oracle.sol";
 contract IndexFund is Fund, TimeLock, Ownable {
 
     // instance of uniswap v2 router02
-    address immutable public  router;
+    address immutable public router;
 
     // instance of WETH
     address immutable public weth;
@@ -39,14 +39,24 @@ contract IndexFund is Fund, TimeLock, Ownable {
     constructor(
         string[] memory _componentSymbols,
         address[] memory _componentAddrs,
-        address _indexToken,
-        address _oracle,
-        address _router
-    ) Fund(_indexToken, _oracle) {
-        _setPortfolio(_componentSymbols, _componentAddrs);
+        address _router,
+        address _oracle
+    ) Fund(_oracle) {
+        //setPortfolio
+        require(_componentSymbols.length == _componentAddrs.length,
+            "IndexFund: SYMBOL and ADDRESS arrays not equal in length!"
+        );
+
+        componentSymbols = _componentSymbols;
+        for (uint256 i = 0; i < _componentSymbols.length; i++) {
+            require(_componentAddrs[i] != address(0), "IndexFund: a component address is 0");
+            portfolio[_componentSymbols[i]] = _componentAddrs[i];
+        }
+        emit PortfolioUpdated(msg.sender, tx.origin, new string[](0), _componentSymbols);
+
+        // initialize state variables
         router = _router;
         weth = IUniswapV2Router02(_router).WETH();
-        // indexToken = address(new IndexToken());
         // oracle = address(new Oracle(msg.sender));
     }
 
@@ -114,12 +124,6 @@ contract IndexFund is Fund, TimeLock, Ownable {
             portfolio[symbol] = _componentAddrsIn[i];
         }
 
-        // check if the new symbol array is all set in the portfolio mapping
-        for (uint256 i = 0; i < _allNextComponentSymbols.length; i++) {
-            require(portfolio[_allNextComponentSymbols[i]] != address(0),
-                "IndexToken: a component in the new symbol array is not in the portfolio"
-            );
-        }
         // replace the entire old symbol array with this new symbol array.
         componentSymbols = _allNextComponentSymbols;
 
@@ -132,23 +136,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
 
     }
 
-    function _setPortfolio(
-        string[] memory _componentSymbols,
-        address[] memory _componentAddrs
-    ) private {
-        require(
-            _componentSymbols.length == _componentAddrs.length,
-            "IndexFund: SYMBOL and ADDRESS arrays not equal in length!"
-        );
-        componentSymbols = _componentSymbols;
-        for (uint256 i = 0; i < _componentSymbols.length; i++) {
-            require(_componentAddrs[i] != address(0), "IndexFund: a component address is 0");
-            portfolio[_componentSymbols[i]] = _componentAddrs[i];
-        }
-        emit PortfolioUpdated(msg.sender, tx.origin, new string[](0), _componentSymbols);
-    }
-
-    /** ----------------------------------------------------------------------------------------------------- */
+    /** -------------------------------------------------------------------------- */
 
     function getIndexPrice() public view returns (uint256 _price) {
         require(weth != address(0), "IndexFund : Contract WETH not set");
@@ -174,7 +162,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         }
     }
 
-    /** ----------------------------------------------------------------------------------------------------- */
+    /** -------------------------------------------------------------------------- */
 
     // payable: function can exec Tx
     function buy(uint256[] calldata _amountsOutMin)
@@ -184,16 +172,21 @@ contract IndexFund is Fund, TimeLock, Ownable {
         properPortfolio
     {
         require(msg.value > 0, "IndexFund: Investment sum must be greater than 0.");
+
         require(_amountsOutMin.length == 0 || _amountsOutMin.length == componentSymbols.length,
             "IndexToken: offchainPrices must either be empty or have many entries as the portfolio"
         );
 
-        // default price 1 ETH
-        uint256 _amount;
+        uint256 totalSupply = IERC20Metadata(indexToken).totalSupply();
+        require(totalSupply > 0 || msg.value <= 10000000000000000,
+            "IndexFund: totalSupply must > 0 or msg.value must <= 0.01 ETH"
+        );
+
 
         // calculate the current price based on component tokens
         uint256 _price = getIndexPrice();
 
+        uint256 _amount;
         if (_price > 0) {
             _amount = (msg.value * 1000000000000000000) / _price;
         }
@@ -241,7 +234,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         emit SwapForComponents(componentSymbols, _amountEth, _amountsOut);
     }
 
-    /** ----------------------------------------------------------------------------------------------------- */
+    /** -------------------------------------------------------------------------- */
 
     function sell(uint256 _amount, uint256[] calldata _amountsOutMin)
         external
@@ -256,9 +249,9 @@ contract IndexFund is Fund, TimeLock, Ownable {
             "IndexFund: allowance not enough"
         );
 
-        _swapExactTokensForETH(_amount, _amountsOutMin);
         _indexToken.transferFrom(msg.sender, address(this), _amount);
         _indexToken.burn(_amount);
+        _swapExactTokensForETH(_amount, _amountsOutMin);
 
         emit Sell(msg.sender, _amount);
     }
@@ -300,7 +293,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         emit SwapForEth(componentSymbols, _amountEachComponent, _amountsOut);
     }
 
-    /** ----------------------------------------------------------------------------------------------------- */
+    /** -------------------------------------------------------------------------- */
     function rebalance() external payable onlyOwner notLocked(Functions.REBALANCING)  {
         address[] memory path = new address[](2);
         path[1] = weth;
@@ -359,10 +352,12 @@ contract IndexFund is Fund, TimeLock, Ownable {
             }
         }
         require(address(this).balance < componentSymbols.length, "IndexToken: too much ETH left");
+
+        lockUnlimited(Functions.REBALANCING);
         emit PortfolioRebalanced(msg.sender, block.timestamp, ethAvg);
     }
 
-    /** ---------------------------------------------------------------------------------------------------- */
+    /** -------------------------------------------------------------------------- */
 
     event Received(address sender, uint amount);
 

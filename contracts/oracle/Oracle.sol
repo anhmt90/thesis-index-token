@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: UNLICENSED
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -15,17 +15,18 @@ contract Oracle is Ownable {
     string[] public componentITINs;
 
 
-    constructor(address owner) {
-        transferOwnership(owner);
-        indexFund = payable(msg.sender);
-    }
-
     /**
      * @dev Throws if called by any account other than the owner of IndexFund.
      */
     modifier onlyFundOwner() {
         require(owner() == IndexFund(indexFund).owner(), "Oracle: caller is not the owner of IndexFund");
         _;
+    }
+
+    constructor (address payable _indexFund) {
+        if(_indexFund != payable(0)) {
+            indexFund = _indexFund;
+        }
     }
 
     function announce(
@@ -76,5 +77,9 @@ contract Oracle is Ownable {
 
     function getComponentITINs() public view returns(string[] memory) {
         return componentITINs;
+    }
+
+    function setIndexFund(address payable _indexFund) external onlyOwner {
+        indexFund = _indexFund;
     }
 }
