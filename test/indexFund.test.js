@@ -95,13 +95,15 @@ const expectComponentAmountsOut = async (ethTotal) => {
 };
 
 const expectEthAmountsOut = async (componentInForEach) => {
-    const currentPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
-    const ethAmountsOut = [];
-    for (const componentSymbol of currentPortfolio) {
-        const amountOut = await queryUniswapEthOut(componentSymbol, componentInForEach);
-        ethAmountsOut.push(amountOut);
-    }
-    return ethAmountsOut;
+    // const currentPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
+    // const ethAmountsOut = [];
+    // for (const componentSymbol of currentPortfolio) {
+    //     const amountOut = await queryUniswapEthOut(componentSymbol, componentInForEach);
+    //     ethAmountsOut.push(amountOut);
+    // }
+    // return ethAmountsOut;
+
+    return await queryAllComponentEthsOutOfIndexFund;
 };
 
 
@@ -183,7 +185,7 @@ const assertAmountDiff = (before, current, expectedDiff) => {
     if (expectedDiff === undefined) return;
     const actualDiff = current.sub(before).toString();
     assert.deepStrictEqual(actualDiff, expectedDiff.toString(),
-        `Expected ${expectedDiff}, but got ${actualDiff}`
+        `Expected  ${expectedDiff}, but got ${actualDiff}`
     );
 };
 
@@ -298,14 +300,15 @@ describe('Deploy and setup smart contracts', () => {
 
 describe('Uniswap lidquidity provision', () => {
     it(' should provision all Uniswap ERC20/WETH pools with the expected liquidity', async () => {
-        const ethAmount = 150;
+        const ethAmount = 500;
         await provisionLiquidity(ethAmount);
 
         for (const [symbol, token] of Object.entries(uniswapTokenSet)) {
             const [actualWeth, actualToken] = await queryReserves(symbol);
-            const expectedWeth = float2TokenUnits(ethAmount);
+            const decimals = parseInt(await getContract(CONTRACTS[symbol.toUpperCase()]).methods.decimals().call());
+            const expectedWeth = Ether(String(ethAmount));
             assert.strictEqual(expectedWeth, actualWeth, `expected ${expectedWeth} wei but got ${actualWeth}`);
-            const expectedTokenAmount = float2TokenUnits(ethAmount * token.price);
+            const expectedTokenAmount = float2TokenUnits(ethAmount * token.price, decimals);
             assert.strictEqual(actualToken, expectedTokenAmount, `Token ${symbol}: expected ${expectedTokenAmount} token units but got ${actualToken}`);
         }
     });
@@ -314,6 +317,9 @@ describe('Uniswap lidquidity provision', () => {
 
 
 describe('BUY and SELL index tokens', () => {
+    const ETH_AMOUNT_1 = Ether('0.01');
+    const ETH_AMOUNT_2 = Ether('50')
+
     it('should set the portfolio properly in the Index Fund smart contract', async () => {
         const expectedComponentSymbols = initialComponentSymbols;
         const actualComponentSymbols = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
@@ -337,7 +343,6 @@ describe('BUY and SELL index tokens', () => {
     });
 
     it('should fail when buying Index Tokens with nominal price since msg.value > 0.01 ETH', async () => {
-
         const ethAmount = Ether('0.02');
         const expectedReason = "IndexFund: totalSupply must > 0 or msg.value must <= 0.01 ETH";
         try {
@@ -358,7 +363,7 @@ describe('BUY and SELL index tokens', () => {
         const expectedIndexPrice = BN(await expectTotalEthAmountsOutSum(true)).div(BN(initialComponentSymbols.length));
         log.debug("NOMINAL INDEX PRICE:", expectedIndexPrice.toString());
 
-        const ethAmount = BN(Ether('0.01'));
+        const ethAmount = BN(ETH_AMOUNT_1);
         const expectedIndexTokenAmount = BN(ethAmount).mul(ETHER).div(expectedIndexPrice);
         log.debug("AMOUNT OF NEW INDEX TOKENS:", expectedIndexTokenAmount.toString());
 
@@ -426,7 +431,7 @@ describe('BUY and SELL index tokens', () => {
          */
         const expectedIndexPrice = BN(await expectTotalEthAmountsOutSum()).mul(ETHER).div(indexTokenStateBefore.totalSupply);
 
-        const ethAmount = BN(Ether(String(initialComponentSymbols.length * 10)));
+        const ethAmount = BN(ETH_AMOUNT_2);
         const expectedAmountToMint = ethAmount.mul(ETHER).div(expectedIndexPrice);
 
         /**
@@ -477,65 +482,8 @@ describe('BUY and SELL index tokens', () => {
     });
 
 
-    it('should sell back Index Tokens properly', async () => {
-        // selling 5 index tokens
-        const saleIndexAmount = BN(5).mul(ETHER);
-
-        const expectedEachComponentAmountIn = saleIndexAmount.div(BN(initialComponentAddrs.length));
-        const expectedEthAmountsOut = await expectEthAmountsOut(expectedEachComponentAmountIn.toString());
-
-        await indexContract.methods.approve(allAddrs.indexFund, saleIndexAmount.toString()).send({
-            from: investor,
-            gas: '5000000'
-        });
-
-        const allowanceOfIndexFund = await indexContract.methods.allowance(investor, allAddrs.indexFund).call();
-        assert(allowanceOfIndexFund, saleIndexAmount.toString(), 'saleAmount does not match allowance');
-
-        /**
-         * -----------------------------------------------------------------
-         * Get values before execution for later comparison
-         */
-
-        const indexFundStateBefore = await snapshotIndexFund();
-        const investorStateBefore = await snapshotInvestor();
-        const indexTokenStateBefore = await snapshotIndexToken();
-
-        /**
-         * -----------------------------------------------------------------
-         * Execute the selling process on-chain
-         */
-        const tx = await fundContract.methods.sell(saleIndexAmount, expectedEthAmountsOut).send({
-            from: investor,
-            gas: '5000000'
-        });
-
-        const txFees = await getTxFees(tx);
-
-        const expectedIndexFundDiffs = {
-            ethBalance: BN(0),
-            indexBalance: BN(0),
-            componentBalances: Array(initialComponentAddrs.length).fill(expectedEachComponentAmountIn.neg())
-        };
-
-        const expectedInvestorDiffs = {
-            ethBalance: expectedEthAmountsOut.reduce((accum, ethAmount) => accum.add(BN(ethAmount)), BN(0)).sub(txFees),
-            indexBalance: saleIndexAmount.neg(),
-        };
-
-        const expectedIndexTokenDiffs = {
-            totalSupply: saleIndexAmount.neg()
-        };
-
-        await assertIndexFundState(indexFundStateBefore, expectedIndexFundDiffs);
-        await assertInvestorState(investorStateBefore, expectedInvestorDiffs);
-        await assertIndexTokenState(indexTokenStateBefore, expectedIndexTokenDiffs);
-
-    });
-
     it('should fail when selling Index Tokens due to not approving enough allowance', async () => {
-        // selling 9 index tokens
-        const saleIndexAmount = BN(5).mul(ETHER);
+         const saleIndexAmount = BN('50000000000');
 
         const allowance = saleIndexAmount.sub(BN(1));
         await indexContract.methods.approve(allAddrs.indexFund, allowance).send({
@@ -555,18 +503,91 @@ describe('BUY and SELL index tokens', () => {
             assertRevert(error, expectedReason);
         }
     });
+
+    it('should sell back all Index Tokens properly', async () => {
+        const indexAmountToSell = BN(await indexContract.methods.balanceOf(investor).call());
+
+        const indexPrice = BN(await fundContract.methods.getIndexPrice().call());
+        const totalEthOut = indexAmountToSell.mul(indexPrice).div(BN(Ether('1')));
+        const expectedEthOutFromEachComponent = totalEthOut.div(BN(initialComponentAddrs.length));
+
+        const componentBalancesOfIndexFund = Object.entries(await queryAllComponentBalancesOfIndexFund()).map(([_, bal]) => bal);
+        const path = ['', allAddrs.weth];
+        const expectedAmountsComponentWithdrawn = [];
+        let expectedEthSumOut = BN(0);
+        for (let i = 0; i < initialComponentAddrs.length; i++) {
+            const address = initialComponentAddrs[i];
+            path[0] = address
+            const amountsIn = await routerContract.methods.getAmountsIn(expectedEthOutFromEachComponent, path).call();
+            const amountsTokenIn = BN(amountsIn[0]).lte(BN(componentBalancesOfIndexFund[i])) ? amountsIn[0] : componentBalancesOfIndexFund[i];
+            expectedAmountsComponentWithdrawn.push(amountsTokenIn);
+
+            const amountsOut = await routerContract.methods.getAmountsOut(amountsTokenIn, path).call();
+            log.debug("amountsOut ==> ", amountsOut)
+
+            expectedEthSumOut = expectedEthSumOut.add(BN(amountsOut[1]))
+        }
+
+        log.debug("expectedEthSumOut ==> ", expectedEthSumOut.toString())
+
+        // const expectedEthSumOut = amountsEthOut.reduce((accum, ethAmount) => accum.add(BN(ethAmount)), BN(0)).toString();
+
+        await indexContract.methods.approve(allAddrs.indexFund, indexAmountToSell.toString()).send({
+            from: investor,
+            gas: '5000000'
+        });
+
+        const allowanceOfIndexFund = await indexContract.methods.allowance(investor, allAddrs.indexFund).call();
+        assert(allowanceOfIndexFund, indexAmountToSell.toString(), 'saleAmount does not match allowance');
+
+        /**
+         * -----------------------------------------------------------------
+         * Get values before execution for later comparison
+         */
+
+        const indexFundStateBefore = await snapshotIndexFund();
+        const investorStateBefore = await snapshotInvestor();
+        const indexTokenStateBefore = await snapshotIndexToken();
+
+        /**
+         * -----------------------------------------------------------------
+         * Execute the selling process on-chain
+         */
+        const tx = await fundContract.methods.sell(indexAmountToSell.toString(), []).send({
+            from: investor,
+            gas: '5000000'
+        });
+
+        const txFees = await getTxFees(tx);
+
+        const expectedIndexFundDiffs = {
+            ethBalance: BN(0),
+            indexBalance: BN(0),
+            componentBalances: expectedAmountsComponentWithdrawn.map(amount => BN(amount).neg())
+        };
+
+        const expectedInvestorDiffs = {
+            ethBalance: expectedEthSumOut.sub(txFees),
+            indexBalance: indexAmountToSell.neg(),
+        };
+
+        const expectedIndexTokenDiffs = {
+            totalSupply: indexAmountToSell.neg()
+        };
+
+        await assertIndexFundState(indexFundStateBefore, expectedIndexFundDiffs);
+        await assertInvestorState(investorStateBefore, expectedInvestorDiffs);
+        await assertIndexTokenState(indexTokenStateBefore, expectedIndexTokenDiffs);
+
+        const currentTotalSupply = await indexContract.methods.totalSupply().call();
+        assert.deepStrictEqual(currentTotalSupply, '0', 'Wrong total supply');
+
+        log.debug("TOTAL ETH SPENT FOR BUYING ===> ", BN(ETH_AMOUNT_1).add(BN(ETH_AMOUNT_2)).toString())
+        log.debug("TOTAL ETH GOT BY SELLING  ===> ", expectedEthSumOut.toString())
+
+    });
+
 });
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -626,7 +647,7 @@ describe('REBALANCE PORTFOLIO from admin and from update', () => {
         // try to commit and get reverted since update time is not due yet
         const expectedReason = "TimeLock: function is timelocked";
         try {
-            await fundContract.methods.rebalance().send({
+            await fundContract.methods.rebalance([], []).send({
                 from: admin,
                 gas: '5000000'
             });
@@ -669,7 +690,7 @@ describe('REBALANCE PORTFOLIO from admin and from update', () => {
         await increaseGanacheBlockTime();
 
         // execute the rebalancing
-        await fundContract.methods.rebalance().send({
+        await fundContract.methods.rebalance([], []).send({
             from: admin,
             gas: '5000000'
         });

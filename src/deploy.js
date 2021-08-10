@@ -158,12 +158,23 @@ const deployAuxContracts = async () => {
         args: []
     });
 
+    const getDecimals = (symbol) => {
+        switch (symbol.toUpperCase()) {
+            case 'CEL':
+                return 4;
+            default:
+                return 18;
+        }
+    }
+
     for (const [symbol, name] of Object.entries(LENDING_TOKENS)) {
+        const decimals = getDecimals(symbol);
+
         allAddrs[symbol.toLowerCase()] = await deployContract({
             name: symbol.toUpperCase(),
             msgSender: admin,
             contractJson: ERC20_INSTANCE_JSON,
-            args: [name, symbol.toUpperCase()]
+            args: [name, symbol.toUpperCase(), decimals]
         });
     }
 
