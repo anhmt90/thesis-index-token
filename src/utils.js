@@ -410,6 +410,22 @@ const computeFutureAddress = async (senderAddress, ahead = 0) => {
     const futureAddress = "0x" + web3.utils.sha3(RLP.encode([senderAddress, parseInt(String(nonce)) + ahead])).substring(26);
     return futureAddress;
 }
+
+const increaseGanacheBlockTime = async (timeAdvancedInSecs = 60 * 60 * 24 * 2) => {
+    await web3.currentProvider.send({
+        jsonrpc: '2.0',
+        method: 'evm_increaseTime',
+        params: [timeAdvancedInSecs],
+        id: new Date().getSeconds()
+    }, () => { });
+
+    await web3.currentProvider.send({
+        jsonrpc: '2.0',
+        method: 'evm_mine',
+        params: [],
+        id: new Date().getSeconds()
+    }, () => { });
+}
 /* ************************************************************************* */
 
 module.exports = {
@@ -439,8 +455,9 @@ module.exports = {
     queryAllComponentAmountsOut,
 
     getContract,
-    computeFutureAddress,
     CONTRACTS,
+    computeFutureAddress,
+    increaseGanacheBlockTime,
 
     getAllAddrs,
     float2TokenUnits,
