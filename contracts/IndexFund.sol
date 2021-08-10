@@ -73,7 +73,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         override
         onlyOwner
     {
-        lock2days(Functions.REBALANCING, _message);
+        lock2days(Functions.REBALANCE, _message);
     }
 
     function updatePorfolio(
@@ -294,7 +294,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
     }
 
     /** -------------------------------------------------------------------------- */
-    function rebalance() external payable onlyOwner notLocked(Functions.REBALANCING)  {
+    function rebalance() external payable onlyOwner notLocked(Functions.REBALANCE)  {
         address[] memory path = new address[](2);
         path[1] = weth;
         uint256[] memory ethAmountsOut = new uint256[](componentSymbols.length);
@@ -353,7 +353,7 @@ contract IndexFund is Fund, TimeLock, Ownable {
         }
         require(address(this).balance < componentSymbols.length, "IndexToken: too much ETH left");
 
-        lockUnlimited(Functions.REBALANCING);
+        lockUnlimited(Functions.REBALANCE);
         emit PortfolioRebalanced(msg.sender, block.timestamp, ethAvg);
     }
 

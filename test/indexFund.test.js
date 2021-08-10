@@ -50,11 +50,16 @@ const {
     queryAllComponentEthsOutOfIndexFund,
     queryAllComponentAmountsOut,
     assembleUniswapTokenSet,
+    filterTokenSet,
     loadITINsFromSymbolsAndITC,
     getContract,
     CONTRACTS,
-    filterTokenSet
+    increaseGanacheBlockTime,
 } = require('../src/utils');
+
+const BN = web3.utils.toBN;
+const Ether = web3.utils.toWei;
+const ETHER = web3.utils.toWei(BN(1));
 
 let accounts;
 let allAddrs;
@@ -72,14 +77,14 @@ let routerContract;
 let initialComponentAddrs;
 let initialComponentJsons;
 
-const BN = web3.utils.toBN;
-const Ether = web3.utils.toWei;
-const ETHER = web3.utils.toWei(BN(1));
-
 /**
  * --------------------------------------------------------------------------------
  * Helper Functions
  */
+
+const getDateAhead = (daysAhead = 2) => {
+    return new Date((new Date()).setDate((new Date()).getDate() + daysAhead));
+}
 
 const expectTotalEthAmountsOutSum = async (with1EtherEach = false) => {
     return await queryPortfolioEthOutSum(with1EtherEach);
@@ -349,19 +354,6 @@ describe('BUY and SELL index tokens', () => {
     });
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
     it('should properly buy Index Tokens with 0.01 ETH at nominal price without frontrunning prevention', async () => {
         const expectedIndexPrice = BN(await expectTotalEthAmountsOutSum(true)).div(BN(initialComponentSymbols.length));
         log.debug("NOMINAL INDEX PRICE:", expectedIndexPrice.toString());
@@ -569,8 +561,26 @@ describe('BUY and SELL index tokens', () => {
 
 
 
-describe('REBALANCE portfolio from admin and from update', () => {
+
+
+
+
+
+
+
+
+
+
+
+describe('REBALANCE PORTFOLIO from admin and from update', () => {
+    const ENUM_REBLANCE_FUNC = 1;
     before(async () => {
+        await fundContract.methods.buy([]).send({
+            from: investor,
+            value: Ether('0.01'),
+            gas: '5000000'
+        });
+
         await fundContract.methods.buy([]).send({
             from: investor,
             value: Ether('250'),
@@ -591,9 +601,30 @@ describe('REBALANCE portfolio from admin and from update', () => {
 
     });
 
+    it('should activate and validate the lock time of function `IndexFund.rebalance()`', async () => {
+        let currentLockTime = await fundContract.methods.timelock(ENUM_REBLANCE_FUNC).call();
+        assert.deepStrictEqual(currentLockTime, '0', `Epected 0 (unlimited) locktime, but got ${currentLockTime}`);
+
+        const announcementMessage = "Rebalancing will happen after 2 days"
+        await fundContract.methods.announcePortfolioRebalancing(announcementMessage).send({
+            from: admin,
+            gas: '5000000'
+        });
+
+        // check update date
+        const tolerance = 1000 * 60 * 15; // 15 mins in miliseconds
+        const after2Days = getDateAhead(2);
+        const expectedRebalancingInterval = [after2Days.getTime() - tolerance, after2Days.getTime() + tolerance];
+        const actualRebalancingTime = parseInt(await fundContract.methods.timelock(ENUM_REBLANCE_FUNC).call()) * 1000;
+
+        assert.ok(expectedRebalancingInterval[0] <= actualRebalancingTime && actualRebalancingTime <= expectedRebalancingInterval[1],
+            `Expected time in interval [${new Date(expectedRebalancingInterval[0]).toUTCString()}, ${new Date(expectedRebalancingInterval[1]).toUTCString()}],
+            but got ${new Date(actualRebalancingTime).toUTCString()}`);
+    });
+
+
     it('should rebalance the portfolio correctly ', async () => {
         // snapshot the state of IndexFund before rebalancing
-
         const indexFundStateBefore = await snapshotIndexFund();
 
         // derive the expected changes in each component balance
@@ -619,6 +650,9 @@ describe('REBALANCE portfolio from admin and from update', () => {
                 expectedComponentBalanceDiffs.push(BN(0))
             }
         }
+
+        // advance the block time in ganache by 2 days
+        await increaseGanacheBlockTime();
 
         // execute the rebalancing
         await fundContract.methods.rebalance().send({
@@ -658,10 +692,9 @@ describe('REBALANCE portfolio from admin and from update', () => {
 
 
 
-describe('UPDATE the portfolio through the oracle infrastructure', () => {
+describe('UPDATE PORTFOLIO through the oracle infrastructure', () => {
     let componentSymbolsOut = [];
     let componentSymbolsIn = [];
-    const after2Days = new Date((new Date()).setDate((new Date()).getDate() + 2));
 
     before(async () => {
         await fundContract.methods.buy([]).send({
@@ -720,10 +753,11 @@ describe('UPDATE the portfolio through the oracle infrastructure', () => {
 
     });
 
-    it('should validate the lock time of the updatePortfolio function in the IndexFund contract', async () => {
+    it('should validate the lock time of function `IndexFund.updatePortfolio()`', async () => {
         // check update date
         const tolerance = 1000 * 60 * 15; // 15 mins in miliseconds
-        const expectedUpdateInterval = [after2Days.getTime() - tolerance, after2Days.getTime() + tolerance];
+        const after4days = getDateAhead(4);
+        const expectedUpdateInterval = [after4days.getTime() - tolerance, after4days.getTime() + tolerance];
         const actualUpdateTime = parseInt(await oracleContract.methods.getNextUpdateTime().call()) * 1000;
 
         assert.ok(expectedUpdateInterval[0] <= actualUpdateTime && actualUpdateTime <= expectedUpdateInterval[1],
@@ -731,7 +765,7 @@ describe('UPDATE the portfolio through the oracle infrastructure', () => {
             but got ${new Date(actualUpdateTime).toUTCString()}`);
     });
 
-    it('should fail when the lock time of 2 days is not yet due', async () => {
+    it('should fail when the 2-day lock time for function `IndexFund.updatePortfolio()` is not yet due', async () => {
         // try to commit and get reverted since update time is not due yet
         const expectedReason = "TimeLock: function is timelocked";
         try {
@@ -761,21 +795,8 @@ describe('UPDATE the portfolio through the oracle infrastructure', () => {
         const expectedComponentBalances = (balancesRetainedComponents.concat(expectedAmountsOutNewComponents)).sort();
 
 
-        // increase ganache block time by 2 days using evm_increaseTime command
-        const secondsOf2days = 60 * 60 * 24 * 2;
-        await web3.currentProvider.send({
-            jsonrpc: '2.0',
-            method: 'evm_increaseTime',
-            params: [secondsOf2days],
-            id: new Date().getSeconds()
-        }, () => { });
-
-        await web3.currentProvider.send({
-            jsonrpc: '2.0',
-            method: 'evm_mine',
-            params: [],
-            id: new Date().getSeconds()
-        }, () => { });
+        // increase ganache block time by 2 days (+2 days increased in the test of rebalancing -> 4 days ahead now)
+        await increaseGanacheBlockTime()
 
         // execute the portfolio update process using the commit() function
         await commit(componentSymbolsOut, componentSymbolsIn);

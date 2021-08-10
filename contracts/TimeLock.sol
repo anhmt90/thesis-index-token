@@ -10,7 +10,7 @@ pragma solidity ^0.8.0;
 abstract contract TimeLock {
     enum Functions {
         UPDATE_PORTFOLIO,
-        REBALANCING
+        REBALANCE
     }
     uint256 public constant TIMELOCK = 2 days;
     mapping(Functions => uint256) public timelock;
