@@ -1,6 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "./IndexToken.sol";
 
 abstract contract Fund {
 
@@ -16,8 +17,8 @@ abstract contract Fund {
     mapping(string => address) public portfolio;
     string[] public componentSymbols;
 
-    constructor (address _indexToken, address _oracle) {
-        indexToken = _indexToken;
+    constructor (address _oracle) {
+        indexToken = address(new IndexToken());
         oracle = _oracle;
     }
 
