@@ -15,7 +15,7 @@ const {
 
 const {
     deployAuxContracts,
-    deployIndexContract,
+    deployCoreContracts,
     setDeployGlobalVars,
     mintTokens,
     provisionLiquidity,
@@ -48,6 +48,7 @@ const {
     queryPortfolioEthOutSum,
     queryAllComponentBalancesOfIndexFund,
     queryAllComponentEthsOutOfIndexFund,
+    queryAllComponentAmountsOut,
     assembleUniswapTokenSet,
     loadITINsFromSymbolsAndITC,
     getContract,
@@ -84,14 +85,8 @@ const expectTotalEthAmountsOutSum = async (with1EtherEach = false) => {
     return await queryPortfolioEthOutSum(with1EtherEach);
 };
 
-const expectComponentAmountsOut = async (ethInForEach) => {
-    const currentPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
-    const componentAmountsOut = [];
-    for (const componentSymbol of currentPortfolio) {
-        const amountOut = await queryUniswapTokenOut(componentSymbol, ethInForEach);
-        componentAmountsOut.push(amountOut);
-    }
-    return componentAmountsOut;
+const expectComponentAmountsOut = async (ethTotal) => {
+    return await queryAllComponentAmountsOut(ethTotal)
 };
 
 const expectEthAmountsOut = async (componentInForEach) => {
@@ -226,7 +221,9 @@ const assertIndexTokenState = async (stateBefore, expectedDiffs) => {
  * Adapted from https://ethereum.stackexchange.com/a/48629/68643
  */
 
-const assertRevert = (actualErrorMessage, expectedErrorMessage) => {
+const assertRevert = (error, expectedErrorMessage) => {
+    assert(error, "Expected an error but did not get one");
+    const actualErrorMessage = error.message;
     log.debug("actualErrorMessage ===> ", actualErrorMessage);
     log.debug("expectedErrorMessage ===> ", expectedErrorMessage);
     assert.strictEqual(actualErrorMessage.includes('revert ' + expectedErrorMessage), true, `Expected error message "${expectedErrorMessage}", but got "${actualErrorMessage}".`);
@@ -246,7 +243,7 @@ before(async () => {
 
     initialComponentSymbols = ["aave", "comp", "bzrx", "cel", "yfii"];
     await deployAuxContracts();
-    await deployIndexContract(initialComponentSymbols);
+    await deployCoreContracts(initialComponentSymbols);
 
     tokenSymbolsNotOnUniswap = ['dai', 'bnb', 'zrx', 'enzf'];
     [allAddrs, tokenSet, uniswapTokenSet] = setDeployGlobalVars(tokenSymbolsNotOnUniswap);
@@ -278,7 +275,6 @@ describe('Deploy and setup smart contracts', () => {
     });
 
     it(`should have 0 totalSupply in IndexToken after deployment`, async () => {
-        // await setUpIndexFund();
         const totalSupply = await indexContract.methods.totalSupply().call();
         assert.strictEqual('0', totalSupply);
 
@@ -311,6 +307,7 @@ describe('Uniswap lidquidity provision', () => {
 });
 
 
+
 describe('BUY and SELL index tokens', () => {
     it('should set the portfolio properly in the Index Fund smart contract', async () => {
         const expectedComponentSymbols = initialComponentSymbols;
@@ -334,17 +331,46 @@ describe('BUY and SELL index tokens', () => {
         assert.deepStrictEqual(actualIndexPrice, expectedIndexPrice.toString(), `Incorrect Index Price expected ${expectedIndexPrice}, but got ${actualIndexPrice}`);
     });
 
+    it('should fail when buying Index Tokens with nominal price since msg.value > 0.01 ETH', async () => {
 
-    it('should properly buy Index Tokens (nominal price calculation + no frontrunning prevention)', async () => {
+        const ethAmount = Ether('0.02');
+        const expectedReason = "IndexFund: totalSupply must > 0 or msg.value must <= 0.01 ETH";
+        try {
+            await fundContract.methods.buy([]).send({
+                from: investor,
+                value: ethAmount,
+                gas: '5000000'
+            });
+            throw null;
+        }
+        catch (error) {
+            assertRevert(error, expectedReason);
+        }
+    });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    it('should properly buy Index Tokens with 0.01 ETH at nominal price without frontrunning prevention', async () => {
         const expectedIndexPrice = BN(await expectTotalEthAmountsOutSum(true)).div(BN(initialComponentSymbols.length));
         log.debug("NOMINAL INDEX PRICE:", expectedIndexPrice.toString());
 
-        const ethAmount = BN(Ether(String(initialComponentSymbols.length * 10)));
+        const ethAmount = BN(Ether('0.01'));
         const expectedIndexTokenAmount = BN(ethAmount).mul(ETHER).div(expectedIndexPrice);
         log.debug("AMOUNT OF NEW INDEX TOKENS:", expectedIndexTokenAmount.toString());
 
-        const ethInForEach = ethAmount.div(BN(initialComponentSymbols.length)).toString();
-        const expectedComponentAmountsOut = await expectComponentAmountsOut(ethInForEach);
+        const expectedComponentAmountsOut = await expectComponentAmountsOut(ethAmount.toString());
         // ---------------------------------------------------
         const indexFundStateBefore = await snapshotIndexFund();
         const investorStateBefore = await snapshotInvestor();
@@ -399,7 +425,7 @@ describe('BUY and SELL index tokens', () => {
     });
 
 
-    it('should purchase Index Tokens properly (regular price calcualtion + with frontrunning prevention)', async () => {
+    it('should purchase Index Tokens properly at regular price calcualtion with frontrunning prevention)', async () => {
         const indexTokenStateBefore = await snapshotIndexToken();
         assert.strictEqual(indexTokenStateBefore.totalSupply.gt(BN(0)), true, 'Total supply is 0');
         /**
@@ -415,8 +441,7 @@ describe('BUY and SELL index tokens', () => {
          * -----------------------------------------------------------------
          * calculated expected output amounts of component tokens
          */
-        const ethInForEach = ethAmount.div(BN(initialComponentSymbols.length)).toString();
-        const expectedComponentAmountsOut = await expectComponentAmountsOut(ethInForEach);
+        const expectedComponentAmountsOut = await expectComponentAmountsOut(ethAmount.toString());
 
         /**
          * -----------------------------------------------------------------
@@ -516,7 +541,7 @@ describe('BUY and SELL index tokens', () => {
 
     });
 
-    it('should be reverted by the on-chain sell() function due to not enough allowance', async () => {
+    it('should fail when selling Index Tokens due to not approving enough allowance', async () => {
         // selling 9 index tokens
         const saleIndexAmount = BN(5).mul(ETHER);
 
@@ -526,7 +551,7 @@ describe('BUY and SELL index tokens', () => {
             gas: '5000000'
         });
 
-        const expectedErrorReason = 'IndexFund: allowance not enough';
+        const expectedReason = 'IndexFund: allowance not enough';
         try {
             await fundContract.methods.sell(saleIndexAmount, []).send({
                 from: investor,
@@ -535,8 +560,7 @@ describe('BUY and SELL index tokens', () => {
             throw null;
         }
         catch (error) {
-            assert(error, "Expected an error but did not get one");
-            assertRevert(error.message, expectedErrorReason);
+            assertRevert(error, expectedReason);
         }
     });
 });
@@ -707,16 +731,15 @@ describe('UPDATE the portfolio through the oracle infrastructure', () => {
             but got ${new Date(actualUpdateTime).toUTCString()}`);
     });
 
-    it('should fail when the lock time of 2 days is not due yet', async () => {
+    it('should fail when the lock time of 2 days is not yet due', async () => {
         // try to commit and get reverted since update time is not due yet
-        const expectedErrorMessage = "TimeLock: function is timelocked";
+        const expectedReason = "TimeLock: function is timelocked";
         try {
             await commit(componentSymbolsOut, componentSymbolsIn);
             throw null;
         }
         catch (error) {
-            assert(error, "Expected an error but did not get one");
-            assertRevert(error.message, expectedErrorMessage);
+            assertRevert(error, expectedReason);
         }
     });
 

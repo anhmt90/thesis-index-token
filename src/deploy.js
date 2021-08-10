@@ -23,10 +23,15 @@ const {
     getAllAddrs,
     float2TokenUnits,
     assembleTokenSet,
-    filterTokenSet
-} = require('./utils');
+    filterTokenSet,
+    computeFutureAddress,
+    getContract,
+    CONTRACTS,
 
-const BN = web3.utils.toBN;
+    BN,
+    Ether,
+    ETHER
+} = require('./utils');
 
 
 const mintDaiToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
@@ -129,13 +134,6 @@ const deployAuxContracts = async () => {
     //     args: [float2TokenUnits(initialSupply)]
     // });
 
-    // allAddr.oracle = await deployContract({
-    //     name: 'Oracle',
-    //     msgSender: admin,
-    //     contractJson: ORACLE_JSON,
-    //     args: [trustedOracleServer]
-    // });
-
 
     // --------------------------------
 
@@ -198,7 +196,18 @@ const deployAuxContracts = async () => {
     log.info('-------------------------------------------------------------');
 };
 
-const deployIndexContract = async (componentNames) => {
+const deployCoreContracts = async (componentNames) => {
+    const futureIndexFundAddr = await computeFutureAddress(admin, 1)
+    log.debug('Future INDEX TOKEN address:', futureIndexFundAddr);
+
+    allAddrs.oracle = await deployContract({
+        name: 'Oracle',
+        msgSender: admin,
+        contractJson: ORACLE_JSON,
+        args: [futureIndexFundAddr]
+    });
+
+
     let componentAddrs = [];
     const preparePortfolio = (portfolio) => {
         /**
@@ -218,7 +227,7 @@ const deployIndexContract = async (componentNames) => {
         name: 'IndexFund',
         msgSender: admin,
         contractJson: INDEX_FUND_JSON,
-        args: [componentNames, componentAddrs, allAddrs.uniswapRouter]
+        args: [componentNames, componentAddrs, allAddrs.uniswapRouter, allAddrs.oracle]
     });
 
     const fundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
@@ -238,20 +247,6 @@ const deployIndexContract = async (componentNames) => {
     storeAddresses(allAddrs);
     log.info('Finished deployments of IndexFund, IndexToken and Oracle contracts');
     log.info('-------------------------------------------------------------');
-};
-
-const setUpIndexFund = async () => {
-    // const oracleInstance = new web3.eth.Contract(ORACLE_JSON.abi, allAddr.oracle);
-    // await oracleInstance.methods.addClient(allAddr.indexFund).send({
-    //     from: admin,
-    //     gas: '3000000'
-    // });
-
-    // const indexTokenInstance = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddr.indexToken);
-    // await indexTokenInstance.methods.transfer(allAddr.indexFund, float2TokenUnits(initialSupply)).send({
-    //     from: admin,
-    //     gas: '3000000'
-    // });
 };
 
 const mintTokens = async ({ tokenSymbol, value, receiver }) => {
@@ -301,7 +296,6 @@ const setDeployGlobalVars = (_tokensNotOnUniswap = []) => {
 const setUp = async () => {
     setDeployGlobalVars(tokensNotOnUniswap);
 
-    await setUpIndexFund();
     await mintTokens({ tokenSymbol: 'dai', value: 1000000, receiver: admin });
     await provisionLiquidity(300);
 };
@@ -309,7 +303,7 @@ const setUp = async () => {
 
 const main = async () => {
     await deployAuxContracts();
-    await deployIndexContract(initialPortfolio);
+    await deployCoreContracts(initialPortfolio);
     await setUp();
 };
 
@@ -335,9 +329,8 @@ if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
 
 module.exports = {
     deployAuxContracts,
-    deployIndexContract,
+    deployCoreContracts,
     setUp,
-    setUpIndexFund,
     setDeployGlobalVars,
     mintTokens,
     provisionLiquidity,
