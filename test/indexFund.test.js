@@ -622,6 +622,20 @@ describe('REBALANCE PORTFOLIO from admin and from update', () => {
             but got ${new Date(actualRebalancingTime).toUTCString()}`);
     });
 
+    it('should fail when the 2-day lock time for function `IndexFund.rebalance()` not yet due', async () => {
+        // try to commit and get reverted since update time is not due yet
+        const expectedReason = "TimeLock: function is timelocked";
+        try {
+            await fundContract.methods.rebalance().send({
+                from: admin,
+                gas: '5000000'
+            });
+            throw null;
+        }
+        catch (error) {
+            assertRevert(error, expectedReason);
+        }
+    });
 
     it('should rebalance the portfolio correctly ', async () => {
         // snapshot the state of IndexFund before rebalancing
