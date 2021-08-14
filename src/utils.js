@@ -258,6 +258,54 @@ const queryUniswapEthOutForTokensOut = async (componentSymbolsOut, componentSymb
     return [_amountsOutMinOut, _amountsOutMinIn]
 }
 
+
+
+
+
+
+
+
+
+
+
+const computeParamertersCommitRebalancing =  async () => {
+    const fundContract = getContract(CONTRACTS.INDEX_FUND);
+    const componentSymbols = await fundContract.methods.getComponentSymbols().call();
+
+    const portfolioSize = BN(componentSymbols.length);
+    const navSum = BN(await queryPortfolioEthOutSum());
+    const indexFundETH = BN(await web3.eth.getBalance(_allAddrs.indexFund));
+    const navAverage = (navSum.add(indexFundETH)).div(portfolioSize);
+
+    const routerContract = getContract(CONTRACTS.UNISWAP_ROUTER);
+    const ethsOutMin = [];
+    const cpntsOutMin = [];
+    for (let i = 0; i < componentSymbols.length; i++) {
+        const symbol = componentSymbols[i].toLowerCase();
+        const cpntBalance = await getContract(CONTRACTS[componentSymbols[i]]).methods.balanceOf(_allAddrs.indexFund).call();
+        const nav = BN(await queryUniswapEthOut(symbol, cpntBalance));
+
+        if (navAverage.lt(nav)) {
+            const path = [_allAddrs[symbol], _allAddrs.weth];
+            const amountToSell = (await routerContract.methods.getAmountsIn(nav.sub(navAverage), path).call())[0];
+            ethsOutMin.push(await queryUniswapEthOut(symbol, amountToSell));
+            cpntsOutMin.push('000');
+        } else if(navAverage.gt(nav)) {
+            const path = [_allAddrs.weth, _allAddrs[symbol]];
+            const amountToBuy = (await routerContract.methods.getAmountsOut(navAverage.sub(nav), path).call())[1];
+            ethsOutMin.push('000');
+            cpntsOutMin.push(amountToBuy)
+        } else {
+            ethsOutMin.push('000');
+            cpntsOutMin.push('000');
+        }
+    }
+
+    log.debug("ETHs OUT MIN REBALANCING PARAMETERS ===>", ethsOutMin)
+    log.debug("COMPONENTS OUT MIN REBALANCING PARAMETERS ===>", cpntsOutMin)
+    return [ethsOutMin, cpntsOutMin]
+}
+
 /* ************************************************************************* */
 
 const float2TokenUnits = (num, decimals = 18) => {
@@ -365,7 +413,6 @@ const CONTRACTS = {
     INDEX_FUND: "indexFund",
     INDEX_TOKEN: "indexToken",
     ORACLE: "oracle",
-
 };
 
 const getContract = (contract) => {
@@ -375,6 +422,8 @@ const getContract = (contract) => {
 
     if (Object.keys(_allAddrs).length === 0) {
         _allAddrs = getAllAddrs();
+        console.log(_allAddrs)
+        console.log(_allAddrs[contract])
     }
 
     switch (contract) {
@@ -457,6 +506,8 @@ module.exports = {
     queryAllComponentBalancesOfIndexFund,
     queryAllComponentEthsOutOfIndexFund,
     queryAllComponentAmountsOut,
+
+    computeParamertersCommitRebalancing,
 
     getContract,
     CONTRACTS,

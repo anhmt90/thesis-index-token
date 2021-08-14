@@ -127,15 +127,6 @@ const addLiquidityExactWETH = async ({ ethAmount, rate, msgSender, tokenAddr, to
 
 const deployAuxContracts = async () => {
     if (!admin) await setAdmin();
-    // allAddr.indexToken = await deployContract({
-    //     name: 'Index Token',
-    //     msgSender: admin,
-    //     contractJson: INDEX_TOKEN_JSON,
-    //     args: [float2TokenUnits(initialSupply)]
-    // });
-
-
-    // --------------------------------
 
     allAddrs.dai = await deployContract({
         name: 'DAI',
@@ -208,15 +199,22 @@ const deployAuxContracts = async () => {
 };
 
 const deployCoreContracts = async (componentNames) => {
-    const futureIndexFundAddr = await computeFutureAddress(admin, 1)
-    log.debug('Future INDEX TOKEN address:', futureIndexFundAddr);
+    // const futureIndexFundAddr = await computeFutureAddress(admin, 1)
+    // log.debug('Future INDEX TOKEN address:', futureIndexFundAddr);
 
     allAddrs.oracle = await deployContract({
         name: 'Oracle',
         msgSender: admin,
         contractJson: ORACLE_JSON,
-        args: [futureIndexFundAddr]
+        args: []
     });
+
+    // allAddrs.indexToken = await deployContract({
+    //     name: 'Index Token',
+    //     msgSender: admin,
+    //     contractJson: INDEX_TOKEN_JSON,
+    //     args: []
+    // });
 
 
     let componentAddrs = [];
@@ -238,13 +236,33 @@ const deployCoreContracts = async (componentNames) => {
         name: 'IndexFund',
         msgSender: admin,
         contractJson: INDEX_FUND_JSON,
-        args: [componentNames, componentAddrs, allAddrs.uniswapRouter, allAddrs.oracle]
+        args: [
+            componentNames,
+            componentAddrs,
+            allAddrs.uniswapRouter,
+            allAddrs.oracle
+        ]
     });
 
     const fundContract = new web3.eth.Contract(INDEX_FUND_JSON.abi, allAddrs.indexFund);
 
     allAddrs.indexToken = await fundContract.methods.indexToken().call();
+    log.debug('INDEX FUND deployed at:', allAddrs.indexFund);
+
+    // const indexTokenContract = new web3.eth.Contract(INDEX_TOKEN_JSON.abi, allAddrs.indexToken);
+    // await indexTokenContract.methods.transferOwnership(allAddrs.indexFund).send({
+    //     from: admin,
+    //     gas: '3000000'
+    // })
+
+    allAddrs.indexToken = await fundContract.methods.indexToken().call();
     log.debug('INDEX TOKEN deployed at:', allAddrs.indexToken);
+
+    const oracleContract = new web3.eth.Contract(ORACLE_JSON.abi, allAddrs.oracle);
+    await oracleContract.methods.setIndexFund(allAddrs.indexFund).send({
+        from: admin,
+        gas: '3000000'
+    })
 
     allAddrs.oracle = await fundContract.methods.oracle().call();
     log.debug('ORACLE deployed at:', allAddrs.oracle);

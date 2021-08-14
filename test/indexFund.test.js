@@ -29,8 +29,10 @@ const {
 const {
     setOracleGlobalVars,
     selectNewPortfolio,
-    announce,
-    commit
+    announceUpdate,
+    commitUpdate,
+    announceRebalancing,
+    commitRebalancing
 } = require('../src/oracle/oracle');
 
 const {
@@ -76,6 +78,9 @@ let oracleContract;
 let routerContract;
 let initialComponentAddrs;
 let initialComponentJsons;
+
+const ENUM_UPDATE_FUNC = 0;
+const ENUM_REBLANCE_FUNC = 1;
 
 /**
  * --------------------------------------------------------------------------------
@@ -274,9 +279,9 @@ before(async () => {
 });
 
 
-describe('Deploy and setup smart contracts', () => {
+describe('DEPLOY and SETUP of the smart contract ecosystem', () => {
 
-    it('should deploy Index Token and Index Fund Contracts', () => {
+    it('should validate the deployment of the IndexToken and IndexFund contracts', () => {
         assert.ok(allAddrs.indexToken);
         assert.ok(allAddrs.indexFund);
     });
@@ -289,16 +294,6 @@ describe('Deploy and setup smart contracts', () => {
         assert.strictEqual('0', indexFundIdxBalance);
     });
 
-    // it(`should mint ${initialSupply} DAI to admin`, async () => {
-    //     await mintTokens({ tokenSymbol: 'dai', value: initialSupply, receiver: admin });
-    //     const daiContract = new web3.eth.Contract(DAI_JSON.abi, allAddrs.dai);
-    //     const adminDaiBalance = await daiContract.methods.balanceOf(admin).call();
-    //     assert.strictEqual(float2TokenUnits(initialSupply), adminDaiBalance);
-    // });
-
-});
-
-describe('Uniswap lidquidity provision', () => {
     it(' should provision all Uniswap ERC20/WETH pools with the expected liquidity', async () => {
         const ethAmount = 500;
         await provisionLiquidity(ethAmount);
@@ -312,13 +307,6 @@ describe('Uniswap lidquidity provision', () => {
             assert.strictEqual(actualToken, expectedTokenAmount, `Token ${symbol}: expected ${expectedTokenAmount} token units but got ${actualToken}`);
         }
     });
-});
-
-
-
-describe('BUY and SELL index tokens', () => {
-    const ETH_AMOUNT_1 = Ether('0.01');
-    const ETH_AMOUNT_2 = Ether('50')
 
     it('should set the portfolio properly in the Index Fund smart contract', async () => {
         const expectedComponentSymbols = initialComponentSymbols;
@@ -331,6 +319,12 @@ describe('BUY and SELL index tokens', () => {
         assert.deepStrictEqual(actualComponentAddrs, expectedComponentAddrs, 'Token addresses not match');
     });
 
+});
+
+
+describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
+    const ETH_AMOUNT_1 = Ether('0.01');
+    const ETH_AMOUNT_2 = Ether('50')
 
     it('should return correct *nominal* Index price when totalSupply = 0', async () => {
         const curIndexTokenState = await snapshotIndexToken();
@@ -422,7 +416,7 @@ describe('BUY and SELL index tokens', () => {
     });
 
 
-    it('should purchase Index Tokens properly at regular price calcualtion with frontrunning prevention)', async () => {
+    it('should purchase Index Tokens properly at regular price calculation with frontrunning prevention)', async () => {
         const indexTokenStateBefore = await snapshotIndexToken();
         assert.strictEqual(indexTokenStateBefore.totalSupply.gt(BN(0)), true, 'Total supply is 0');
         /**
@@ -590,11 +584,7 @@ describe('BUY and SELL index tokens', () => {
 });
 
 
-
-
-
 describe('REBALANCE PORTFOLIO from admin and from update', () => {
-    const ENUM_REBLANCE_FUNC = 1;
     before(async () => {
         await fundContract.methods.buy([]).send({
             from: investor,
@@ -608,35 +598,32 @@ describe('REBALANCE PORTFOLIO from admin and from update', () => {
             gas: '5000000'
         });
 
-        const saleAmount = Ether('20');
+        // const saleAmount = Ether('20');
 
-        await indexContract.methods.approve(allAddrs.indexFund, saleAmount).send({
-            from: investor,
-            gas: '5000000'
-        });
+        // await indexContract.methods.approve(allAddrs.indexFund, saleAmount).send({
+        //     from: investor,
+        //     gas: '5000000'
+        // });
 
-        await fundContract.methods.sell(saleAmount, []).send({
-            from: investor,
-            gas: '5000000'
-        });
+        // await fundContract.methods.sell(saleAmount, []).send({
+        //     from: investor,
+        //     gas: '5000000'
+        // });
 
     });
 
     it('should activate and validate the lock time of function `IndexFund.rebalance()`', async () => {
-        let currentLockTime = await fundContract.methods.timelock(ENUM_REBLANCE_FUNC).call();
+        let currentLockTime = await oracleContract.methods.getDueTime(ENUM_REBLANCE_FUNC).call();
         assert.deepStrictEqual(currentLockTime, '0', `Epected 0 (unlimited) locktime, but got ${currentLockTime}`);
 
-        const announcementMessage = "Rebalancing will happen after 2 days"
-        await fundContract.methods.announcePortfolioRebalancing(announcementMessage).send({
-            from: admin,
-            gas: '5000000'
-        });
+        const announcementMsg = "Rebalancing will happen after 2 days"
+        await announceRebalancing(announcementMsg);
 
         // check update date
         const tolerance = 1000 * 60 * 15; // 15 mins in miliseconds
         const after2Days = getDateAhead(2);
         const expectedRebalancingInterval = [after2Days.getTime() - tolerance, after2Days.getTime() + tolerance];
-        const actualRebalancingTime = parseInt(await fundContract.methods.timelock(ENUM_REBLANCE_FUNC).call()) * 1000;
+        const actualRebalancingTime = parseInt(await oracleContract.methods.getDueTime(ENUM_REBLANCE_FUNC).call()) * 1000;
 
         assert.ok(expectedRebalancingInterval[0] <= actualRebalancingTime && actualRebalancingTime <= expectedRebalancingInterval[1],
             `Expected time in interval [${new Date(expectedRebalancingInterval[0]).toUTCString()}, ${new Date(expectedRebalancingInterval[1]).toUTCString()}],
@@ -647,10 +634,7 @@ describe('REBALANCE PORTFOLIO from admin and from update', () => {
         // try to commit and get reverted since update time is not due yet
         const expectedReason = "TimeLock: function is timelocked";
         try {
-            await fundContract.methods.rebalance([], []).send({
-                from: admin,
-                gas: '5000000'
-            });
+            await commitRebalancing();
             throw null;
         }
         catch (error) {
@@ -690,10 +674,7 @@ describe('REBALANCE PORTFOLIO from admin and from update', () => {
         await increaseGanacheBlockTime();
 
         // execute the rebalancing
-        await fundContract.methods.rebalance([], []).send({
-            from: admin,
-            gas: '5000000'
-        });
+        await commitRebalancing();
 
         // assert the changes of component balances
         expectedIndexFundDiffs = {
@@ -762,7 +743,7 @@ describe('UPDATE PORTFOLIO through the oracle infrastructure', () => {
         const newPortfolio = await selectNewPortfolio();
 
         // call oracle function to announce the update
-        [componentSymbolsOut, componentSymbolsIn] = await announce(newPortfolio);
+        [componentSymbolsOut, componentSymbolsIn] = await announceUpdate(newPortfolio);
         assert.deepStrictEqual(new Set(componentSymbolsIn), new Set(candidatesSubbedIn), `Expected ${candidatesSubbedIn}, but got ${componentSymbolsIn}`);
 
         // check the time to be next 2 days and all the data on oracle are correctly set
@@ -793,7 +774,7 @@ describe('UPDATE PORTFOLIO through the oracle infrastructure', () => {
         const tolerance = 1000 * 60 * 15; // 15 mins in miliseconds
         const after4days = getDateAhead(4);
         const expectedUpdateInterval = [after4days.getTime() - tolerance, after4days.getTime() + tolerance];
-        const actualUpdateTime = parseInt(await oracleContract.methods.getNextUpdateTime().call()) * 1000;
+        const actualUpdateTime = parseInt(await oracleContract.methods.getDueTime(ENUM_UPDATE_FUNC).call()) * 1000;
 
         assert.ok(expectedUpdateInterval[0] <= actualUpdateTime && actualUpdateTime <= expectedUpdateInterval[1],
             `Expected time in interval [${new Date(expectedUpdateInterval[0]).toUTCString()}, ${new Date(expectedUpdateInterval[1]).toUTCString()}], 
@@ -804,7 +785,7 @@ describe('UPDATE PORTFOLIO through the oracle infrastructure', () => {
         // try to commit and get reverted since update time is not due yet
         const expectedReason = "TimeLock: function is timelocked";
         try {
-            await commit(componentSymbolsOut, componentSymbolsIn);
+            await commitUpdate(componentSymbolsOut, componentSymbolsIn);
             throw null;
         }
         catch (error) {
@@ -834,7 +815,7 @@ describe('UPDATE PORTFOLIO through the oracle infrastructure', () => {
         await increaseGanacheBlockTime()
 
         // execute the portfolio update process using the commit() function
-        await commit(componentSymbolsOut, componentSymbolsIn);
+        await commitUpdate(componentSymbolsOut, componentSymbolsIn);
 
         // validate the portfolio onchain in IndexFund contract
 

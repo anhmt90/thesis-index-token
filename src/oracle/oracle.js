@@ -25,6 +25,7 @@ const {
     getAllAddrs,
     assembleUniswapTokenSet,
     getContract,
+    computeParamertersCommitRebalancing,
     CONTRACTS
 } = require('../utils');
 
@@ -47,8 +48,11 @@ const ETHER = web3.utils.toWei(BN(1));
 
 
 const selectNewPortfolio = async () => {
-    // await fetchEthereumTokens([`${ITC_EIN_V100}=${EIN_FININS_DEFI__LENDINGSAVING}`]);
-    // how to get the token contract addresses on the tokens fetched from ITSA --> Etherscan api?
+    if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
+        await fetchEthereumTokens([`${ITC_EIN_V100}=${EIN_FININS_DEFI__LENDINGSAVING}`]);
+        // how to get the token contract addresses on the tokens fetched from ITSA --> manually from Etherscan
+
+    }
 
     /**
      * check which tokens have Uniswap pools
@@ -232,7 +236,7 @@ const _buy = async () => {
     });
 };
 
-const announce = async (allNextComponentSymbols) => {
+const announceUpdate = async (allNextComponentSymbols, _msg) => {
     const [componentSymbolsOut, componentSymbolsIn] = await _deriveSubbedOutAndSubbedInComponents(allNextComponentSymbols);
 
     //get componentAddrsIn
@@ -242,23 +246,21 @@ const announce = async (allNextComponentSymbols) => {
     const _componentITINs = loadITINsFromSymbolsAndITC(allNextComponentSymbols, ITC_EIN_V100, EIN_FININS_DEFI__LENDINGSAVING);
     log.debug("_componentITINs ===>", _componentITINs);
 
-    // make _announcementMessage
-    const today = new Date();
-    const next2Days = new Date(today.setDate(today.getDate() + 2)).toUTCString();
-    const _announcementMessage = `The next portfolio update in the IndexFund contract (${allAddrs.indexFund}) will be on <${next2Days} +/- 15 minutes>.`;
-    log.debug("_announcementMessage ===>", _announcementMessage);
+    // make _announcementMsg
+    const _announcementMsg = _makeAnnouncementMsg('rebalancing', _msg)
+    log.debug("_announcementMsg ===>", _announcementMsg);
 
     // call the announce() func of oracle contact
     oracleContract = getContract(CONTRACTS.ORACLE);
-    await oracleContract.methods.announce(
+    await oracleContract.methods.announceUpdate(
         componentSymbolsOut.map(symbol => symbol.toUpperCase()),
         componentAddrsIn,
         allNextComponentSymbols.map(symbol => symbol.toUpperCase()),
         _componentITINs,
-        _announcementMessage
+        _announcementMsg
     ).send({
         from: admin,
-        gas: '9000000'
+        gas: '4000000'
     }).on('receipt', async (txReceipt) => {
         log.debug(`Gas used (oracle.announce()): `, txReceipt.gasUsed);
     });
@@ -266,7 +268,7 @@ const announce = async (allNextComponentSymbols) => {
     return [componentSymbolsOut, componentSymbolsIn];
 };
 
-const commit = async (componentSymbolsOut, componentSymbolsIn) => {
+const commitUpdate = async (componentSymbolsOut, componentSymbolsIn) => {
     // get _amountsOutMinOut and _amountsOutMinIn
     const [_amountsOutMinOut, _amountsOutMinIn] = await queryUniswapEthOutForTokensOut(componentSymbolsOut, componentSymbolsIn);
 
@@ -275,11 +277,38 @@ const commit = async (componentSymbolsOut, componentSymbolsIn) => {
     const nextUpdateTime = new Date(parseInt(nextUpdateEpochSeconds) * 1000).toUTCString();
     log.debug("nextUpdateTime ========> ", nextUpdateTime);
 
-    await oracleContract.methods.commit(_amountsOutMinOut, _amountsOutMinIn).send({
+    await oracleContract.methods.commitUpdate(_amountsOutMinOut, _amountsOutMinIn).send({
         from: admin,
-        gas: '9000000'
+        gas: '4000000'
     });
 };
+
+const _makeAnnouncementMsg = (action, _announcementMsg) => {
+    const today = new Date();
+    const next2Days = new Date(today.setDate(today.getDate() + 2)).toUTCString();
+    if (!_announcementMsg) {
+        _announcementMsg = `The next portfolio ${action} in the IndexFund contract (${allAddrs.indexFund}) will be on <${next2Days} +/- 15 minutes>.`;
+    }
+    return _announcementMsg;
+}
+
+
+const announceRebalancing = async (_msg) => {
+    const _announcementMsg = _makeAnnouncementMsg('rebalancing', _msg)
+    await oracleContract.methods.announceRebalancing(_announcementMsg).send({
+        from: admin,
+        gas: '4000000'
+    });
+}
+
+const commitRebalancing = async () => {
+    const [ethsOutMin, cpntsOutMin] = await computeParamertersCommitRebalancing()
+    await oracleContract.methods.commitRebalancing(ethsOutMin, cpntsOutMin).send({
+        from: admin,
+        gas: '4000000'
+    });
+}
+
 
 const setOracleGlobalVars = async () => {
     const accounts = await web3.eth.getAccounts();
@@ -298,8 +327,8 @@ const run = async () => {
     // const decision = await decidePortfolioSubstitution(newPortfolio);
     // log.debug('DECISON:', decision);
 
-    const [componentSymbolsOut, componentSymbolsIn] = await announce(newPortfolio);
-    await commit(componentSymbolsOut, componentSymbolsIn);
+    const [componentSymbolsOut, componentSymbolsIn] = await announceUpdate(newPortfolio);
+    await commitUpdate(componentSymbolsOut, componentSymbolsIn);
 };
 
 
@@ -312,6 +341,8 @@ if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
 module.exports = {
     setOracleGlobalVars,
     selectNewPortfolio,
-    announce,
-    commit
+    announceUpdate,
+    commitUpdate,
+    announceRebalancing,
+    commitRebalancing
 };
