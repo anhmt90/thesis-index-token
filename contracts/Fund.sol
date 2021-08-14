@@ -5,17 +5,15 @@ import "./IndexToken.sol";
 
 abstract contract Fund {
 
-    // uint256 constant MAX_UINT256 = 2**256 - 1;
-
     // instance of the ERC20 Index Token contract
     address immutable public indexToken;
 
     // instance of the price Oracle contract
     address immutable public oracle;
 
-    // <componentToken_name> is at <componentToken_address>
+    // <cpntToken_name> is at <cpntToken_address>
     mapping(string => address) public portfolio;
-    string[] public componentSymbols;
+    string[] public components;
 
     constructor (address _oracle) {
         indexToken = address(new IndexToken());
@@ -36,7 +34,7 @@ abstract contract Fund {
     event PortfolioUpdated(
         address indexed _oracle,
         address indexed _txOrigin,
-        string[]  _componentsReplaced,
+        string[]  _cpntsReplaced,
         string[] indexed _newPortfolio
     );
 
@@ -45,7 +43,6 @@ abstract contract Fund {
         uint256 indexed _time,
         uint256 _ethAverage
     );
-
 
 
     function buy(uint256[] calldata _amountsOutMin) external payable virtual;
@@ -57,7 +54,7 @@ abstract contract Fund {
     function announcePortfolioRebalancing(string calldata _message) external virtual;
 
     function getComponentSymbols() external view returns (string[] memory) {
-        return componentSymbols;
+        return components;
     }
 
     function getAddressesInPortfolio()
@@ -65,13 +62,13 @@ abstract contract Fund {
         view
         returns (address[] memory _addrs)
     {
-        _addrs = new address[](componentSymbols.length);
-        for (uint256 i = 0; i < componentSymbols.length; i++) {
+        _addrs = new address[](components.length);
+        for (uint256 i = 0; i < components.length; i++) {
             require(
-                portfolio[componentSymbols[i]] != address(0),
+                portfolio[components[i]] != address(0),
                 "IndexFund : A token in portfolio has address 0"
             );
-            _addrs[i] = portfolio[componentSymbols[i]];
+            _addrs[i] = portfolio[components[i]];
         }
     }
 }

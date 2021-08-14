@@ -21,17 +21,22 @@ abstract contract TimeLock {
         string _message
     );
 
+    modifier onlySupported(Functions _fn) {
+        require(_fn == Functions.UPDATE_PORTFOLIO || _fn == Functions.REBALANCE, "TimeLock: function not supported");
+        _;
+    }
+
     modifier notLocked(Functions _fn) {
         require(timelock[_fn] != 0 && timelock[_fn] <= block.timestamp, "TimeLock: function is timelocked");
         _;
     }
 
-    function lockUnlimited(Functions _fn) internal {
+    function lockUnlimited(Functions _fn) onlySupported(_fn) internal {
         timelock[_fn] = 0;
         emit TimeLockAnnouncement(_fn, 0, "Locked indefinitely");
     }
 
-    function lock2days(Functions _fn, string calldata _message) internal {
+    function lock2days(Functions _fn, string calldata _message) internal onlySupported(_fn) {
         timelock[_fn] = block.timestamp + TIMELOCK;
         emit TimeLockAnnouncement(
             _fn,

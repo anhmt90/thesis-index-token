@@ -15,31 +15,25 @@ contract Oracle is Ownable {
     string[] public componentITINs;
 
 
-    /**
-     * @dev Throws if called by any account other than the owner of IndexFund.
-     */
-    modifier onlyFundOwner() {
-        require(owner() == IndexFund(indexFund).owner(), "Oracle: caller is not the owner of IndexFund");
-        _;
-    }
+    // constructor (address payable _indexFund) {
+    //     indexFund = _indexFund;
+    // }
 
-    constructor (address payable _indexFund) {
-        if(_indexFund != payable(0)) {
-            indexFund = _indexFund;
-        }
-    }
 
-    function announce(
+    function announceUpdate(
         string[] memory _componentSymbolsOut,
         address[] memory _componentAddrsIn,
         string[] memory _allNextComponentSymbols,
         string[] memory _componentITINs,
         string calldata _announcementMessage
-    ) external onlyOwner onlyFundOwner {
+    ) external onlyOwner {
         require(_componentSymbolsOut.length > 0, "Oracle: no components will be replaced");
         require(_componentSymbolsOut.length == _componentAddrsIn.length, "Oracle: number of component to be added and to be removed not matched");
         require(_allNextComponentSymbols.length > 0, "Oracle: an empty portfolio is now allowed");
 
+        for (uint256 i = 0; i < _componentAddrsIn.length; i++) {
+            require(_componentAddrsIn[i] != address(0), "Oracle: new address is 0");
+        }
 
         componentSymbolsOut = _componentSymbolsOut;
         componentAddrsIn = _componentAddrsIn;
@@ -49,7 +43,10 @@ contract Oracle is Ownable {
         IndexFund(indexFund).announcePortfolioUpdating(_announcementMessage);
     }
 
-    function commit(uint256[] calldata _amountsOutMinOut, uint256[] calldata _amountsOutMinIn) external onlyOwner onlyFundOwner {
+    function commitUpdate(uint256[] calldata _amountsOutMinOut, uint256[] calldata _amountsOutMinIn) external onlyOwner {
+        require(componentSymbolsOut.length == _amountsOutMinOut.length, "Oracle: length of _componentSymbolsOut and _amountsOutMinOut not matched");
+        require(componentAddrsIn.length == _amountsOutMinIn.length, "Oracle: length of _componentAddrsIn and _amountsOutMinIn not matched");
+
         IndexFund(indexFund).updatePorfolio(
             componentSymbolsOut,
             _amountsOutMinOut,
@@ -59,8 +56,23 @@ contract Oracle is Ownable {
         );
     }
 
-    function getNextUpdateTime() external view returns(uint256 _date) {
-        return IndexFund(indexFund).timelock(TimeLock.Functions.UPDATE_PORTFOLIO);
+    function announceRebalancing(string calldata _announcementMessage) external onlyOwner {
+        IndexFund(indexFund).announcePortfolioRebalancing(_announcementMessage);
+    }
+
+    function commitRebalancing(
+        uint256[] calldata _amountsETHOutMin,
+        uint256[] calldata _amountsCpntOutMin)
+    external onlyOwner {
+        require(_amountsETHOutMin.length == _amountsCpntOutMin.length, "Oracle: length of _amountsETHOutMin and _amountsCpntOutMin not matched");
+        require(_amountsETHOutMin.length == _amountsCpntOutMin.length, "Oracle: length of _amountsETHOutMin and _amountsCpntOutMin not matched");
+
+        IndexFund(indexFund).rebalance(_amountsETHOutMin, _amountsCpntOutMin);
+    }
+
+
+    function getDueTime(TimeLock.Functions _fn) external view returns(uint256 _date) {
+        return IndexFund(indexFund).timelock(_fn);
     }
 
     function getComponentSymbolsOut() public view returns(string[] memory) {
@@ -79,7 +91,7 @@ contract Oracle is Ownable {
         return componentITINs;
     }
 
-    function setIndexFund(address payable _indexFund) external onlyOwner {
-        indexFund = _indexFund;
+    function setIndexFund(address _indexFund) public {
+        indexFund = payable(_indexFund);
     }
 }
