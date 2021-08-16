@@ -37,3 +37,9 @@ truffle compile
 ```console
 npm run test
 ```
+
+## Configure logging options
+The `LOG_LEVEL` environment variable in `./config/env.test` can be changed to different options to control the log out of the test:
+- `debug` to show all debug information during the test
+- `info` to show only info logs
+- `error` to show only errors
