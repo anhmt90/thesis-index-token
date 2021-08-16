@@ -262,7 +262,7 @@ const announceUpdate = async (allNextComponentSymbols, _msg) => {
         from: admin,
         gas: '4000000'
     }).on('receipt', async (txReceipt) => {
-        log.debug(`Gas used (oracle.announce()): `, txReceipt.gasUsed);
+        log.debug(`Gas used (ANNOUNCE UPDATE): `, txReceipt.gasUsed);
     });
 
     return [componentSymbolsOut, componentSymbolsIn];
@@ -280,6 +280,8 @@ const commitUpdate = async (componentSymbolsOut, componentSymbolsIn) => {
     await oracleContract.methods.commitUpdate(_amountsOutMinOut, _amountsOutMinIn).send({
         from: admin,
         gas: '4000000'
+    }).on('receipt', async (txReceipt) => {
+        log.debug(`Gas used (COMMIT UPDATE): `, txReceipt.gasUsed);
     });
 };
 
@@ -298,6 +300,8 @@ const announceRebalancing = async (_msg) => {
     await oracleContract.methods.announceRebalancing(_announcementMsg).send({
         from: admin,
         gas: '4000000'
+    }).on('receipt', async (txReceipt) => {
+        log.debug(`Gas used (ANOUNNCE REBALANCING): `, txReceipt.gasUsed);
     });
 }
 
@@ -306,6 +310,8 @@ const commitRebalancing = async () => {
     await oracleContract.methods.commitRebalancing(ethsOutMin, cpntsOutMin).send({
         from: admin,
         gas: '4000000'
+    }).on('receipt', async (txReceipt) => {
+        log.debug(`Gas used (COMMIT REBALANCING): `, txReceipt.gasUsed);
     });
 }
 

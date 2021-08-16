@@ -374,6 +374,8 @@ describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
             from: investor,
             value: ethAmount,
             gas: '5000000'
+        }).on('receipt', async (txReceipt) => {
+            log.debug(`Gas used (BUY): `, txReceipt.gasUsed);
         });
 
         const ethNAV = Object.values(await queryEthNav(expectedComponentAmountsOut)).reduce(
@@ -455,6 +457,8 @@ describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
             from: investor,
             value: ethAmount,
             gas: '5000000'
+        }).on('receipt', async (txReceipt) => {
+            log.debug(`Gas used (BUY): `, txReceipt.gasUsed);
         });
 
         const ethNAV = Object.values(await queryEthNav(expectedComponentAmountsOut)).reduce(
@@ -559,6 +563,8 @@ describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
         const tx = await fundContract.methods.sell(indexAmountToSell.toString(), []).send({
             from: investor,
             gas: '5000000'
+        }).on('receipt', async (txReceipt) => {
+            log.debug(`Gas used (SELL): `, txReceipt.gasUsed);
         });
 
         const txFees = await getTxFees(tx);
@@ -599,25 +605,33 @@ describe('REBALANCE PORTFOLIO from admin and from update', () => {
             from: investor,
             value: Ether('0.01'),
             gas: '5000000'
+        }).on('receipt', async (txReceipt) => {
+            log.debug(`Gas used (BUY): `, txReceipt.gasUsed);
         });
 
         await fundContract.methods.buy([]).send({
             from: investor,
             value: Ether('250'),
             gas: '5000000'
+        }).on('receipt', async (txReceipt) => {
+            log.debug(`Gas used (BUY): `, txReceipt.gasUsed);
         });
 
-        // const saleAmount = Ether('20');
+        const saleAmount = Ether('20');
 
-        // await indexContract.methods.approve(allAddrs.indexFund, saleAmount).send({
-        //     from: investor,
-        //     gas: '5000000'
-        // });
+        await indexContract.methods.approve(allAddrs.indexFund, saleAmount).send({
+            from: investor,
+            gas: '5000000'
+        }).on('receipt', async (txReceipt) => {
+            log.debug(`Gas used (SELL): `, txReceipt.gasUsed);
+        });
 
-        // await fundContract.methods.sell(saleAmount, []).send({
-        //     from: investor,
-        //     gas: '5000000'
-        // });
+        await fundContract.methods.sell(saleAmount, []).send({
+            from: investor,
+            gas: '5000000'
+        }).on('receipt', async (txReceipt) => {
+            log.debug(`Gas used (SELL): `, txReceipt.gasUsed);
+        });
 
     });
 
