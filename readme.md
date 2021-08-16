@@ -33,7 +33,7 @@ Compile the contracts:
 truffle compile
 ```
 
-### 1. Run all unit tests
+### 2. Run all unit tests
 ```console
 npm run test
 ```
