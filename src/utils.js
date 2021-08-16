@@ -207,6 +207,17 @@ const queryAllComponentEthsOutOfIndexFund = async () => {
     return Object.fromEntries(ethsOut);
 }
 
+const queryEthNav = async (amountsComponent) => {
+    const componentSymbols = await getContract(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call();
+    const ethNav = {}
+    for (let i = 0; i < componentSymbols.length; i++) {
+        const symbol = componentSymbols[i];
+        const amount = amountsComponent[i];
+        ethNav[symbol] = await queryUniswapEthOut(symbol, amount);
+    }
+    return ethNav;
+}
+
 
 const queryAllComponentAmountsOut = async (amountEthTotal) => {
     const currentPortfolio = (await getContract(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
@@ -257,7 +268,6 @@ const queryUniswapEthOutForTokensOut = async (componentSymbolsOut, componentSymb
 
     return [_amountsOutMinOut, _amountsOutMinIn]
 }
-
 
 
 
@@ -506,6 +516,7 @@ module.exports = {
     queryAllComponentBalancesOfIndexFund,
     queryAllComponentEthsOutOfIndexFund,
     queryAllComponentAmountsOut,
+    queryEthNav,
 
     computeParamertersCommitRebalancing,
 

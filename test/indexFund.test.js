@@ -51,6 +51,7 @@ const {
     queryAllComponentBalancesOfIndexFund,
     queryAllComponentEthsOutOfIndexFund,
     queryAllComponentAmountsOut,
+    queryEthNav,
     assembleUniswapTokenSet,
     filterTokenSet,
     loadITINsFromSymbolsAndITC,
@@ -358,10 +359,9 @@ describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
         log.debug("NOMINAL INDEX PRICE:", expectedIndexPrice.toString());
 
         const ethAmount = BN(ETH_AMOUNT_1);
-        const expectedIndexTokenAmount = BN(ethAmount).mul(ETHER).div(expectedIndexPrice);
-        log.debug("AMOUNT OF NEW INDEX TOKENS:", expectedIndexTokenAmount.toString());
-
         const expectedComponentAmountsOut = await expectComponentAmountsOut(ethAmount.toString());
+
+
         // ---------------------------------------------------
         const indexFundStateBefore = await snapshotIndexFund();
         const investorStateBefore = await snapshotInvestor();
@@ -376,8 +376,13 @@ describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
             gas: '5000000'
         });
 
-        const txFees = await getTxFees(tx);
+        const ethNAV = Object.values(await queryEthNav(expectedComponentAmountsOut)).reduce(
+            (accum, ethAmount) => accum.add(BN(ethAmount)), BN(0)
+        ).toString()
+        const expectedAmountIndexTokenMinted = BN(ethNAV).mul(ETHER).div(expectedIndexPrice);
+        log.debug("AMOUNT OF NEW INDEX TOKENS:", expectedAmountIndexTokenMinted.toString());
 
+        const txFees = await getTxFees(tx);
         const expectedIndexFundDiffs = {
             ethBalance: BN(0),
             indexBalance: BN(0),
@@ -386,11 +391,11 @@ describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
 
         const expectedInvestorDiffs = {
             ethBalance: ethAmount.add(txFees).neg(),
-            indexBalance: expectedIndexTokenAmount,
+            indexBalance: expectedAmountIndexTokenMinted,
         };
 
         const expectedIndexTokenDiffs = {
-            totalSupply: expectedIndexTokenAmount
+            totalSupply: expectedAmountIndexTokenMinted
         };
 
         await assertIndexFundState(indexFundStateBefore, expectedIndexFundDiffs);
@@ -426,13 +431,13 @@ describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
         const expectedIndexPrice = BN(await expectTotalEthAmountsOutSum()).mul(ETHER).div(indexTokenStateBefore.totalSupply);
 
         const ethAmount = BN(ETH_AMOUNT_2);
-        const expectedAmountToMint = ethAmount.mul(ETHER).div(expectedIndexPrice);
-
         /**
          * -----------------------------------------------------------------
          * calculated expected output amounts of component tokens
+         * and expected amount of index token minted
          */
         const expectedComponentAmountsOut = await expectComponentAmountsOut(ethAmount.toString());
+
 
         /**
          * -----------------------------------------------------------------
@@ -452,8 +457,13 @@ describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
             gas: '5000000'
         });
 
-        const txFees = await getTxFees(tx);
+        const ethNAV = Object.values(await queryEthNav(expectedComponentAmountsOut)).reduce(
+            (accum, ethAmount) => accum.add(BN(ethAmount)), BN(0)
+            ).toString()
+            const expectedAmountIndexTokenMinted = BN(ethNAV).mul(ETHER).div(expectedIndexPrice);
+        log.debug("AMOUNT OF NEW INDEX TOKENS:", expectedAmountIndexTokenMinted.toString());
 
+        const txFees = await getTxFees(tx);
         const expectedIndexFundDiffs = {
             ethBalance: BN(0),
             indexBalance: BN(0),
@@ -462,11 +472,11 @@ describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
 
         const expectedInvestorDiffs = {
             ethBalance: ethAmount.add(txFees).neg(),
-            indexBalance: expectedAmountToMint,
+            indexBalance: expectedAmountIndexTokenMinted,
         };
 
         const expectedIndexTokenDiffs = {
-            totalSupply: expectedAmountToMint
+            totalSupply: expectedAmountIndexTokenMinted
         };
 
         await assertIndexFundState(indexFundStateBefore, expectedIndexFundDiffs);
@@ -517,7 +527,6 @@ describe('BUY and SELL and CALCULATE PRICE of index tokens', () => {
             expectedAmountsComponentWithdrawn.push(amountsTokenIn);
 
             const amountsOut = await routerContract.methods.getAmountsOut(amountsTokenIn, path).call();
-            log.debug("amountsOut ==> ", amountsOut)
 
             expectedEthSumOut = expectedEthSumOut.add(BN(amountsOut[1]))
         }
@@ -712,13 +721,13 @@ describe('UPDATE PORTFOLIO through the oracle infrastructure', () => {
     let componentSymbolsOut = [];
     let componentSymbolsIn = [];
 
-    before(async () => {
-        await fundContract.methods.buy([]).send({
-            from: investor,
-            value: Ether('60'),
-            gas: '5000000'
-        });
-    });
+    // before(async () => {
+    //     await fundContract.methods.buy([]).send({
+    //         from: investor,
+    //         value: Ether('60'),
+    //         gas: '5000000'
+    //     });
+    // });
 
 
     it('should set all state variables of Oracle contract correctly ', async () => {
@@ -827,7 +836,9 @@ describe('UPDATE PORTFOLIO through the oracle infrastructure', () => {
 
         const componentBalanceSetAfter = await queryAllComponentBalancesOfIndexFund();
         const actualComponentBalances = Object.values(componentBalanceSetAfter).sort();
-        assert.deepStrictEqual(actualComponentBalances, expectedComponentBalances,
-            `Expected: ${expectedComponentBalances},but got ${actualComponentBalances}`);
+        for (let i = 0; i < expectedComponentBalances.length; i++) {
+            const diff = BN(actualComponentBalances[i]).sub(BN(expectedComponentBalances[i])).abs();
+            assert.ok(diff.lte(BN(1)), "Component balances do no match");
+        }
     });
 });

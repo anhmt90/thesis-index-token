@@ -117,7 +117,7 @@ contract IndexFund is Fund, TimeLock {
         // replace the entire old symbol array with this new symbol array.
         components = _allNextCpntSymbols;
 
-        require(address(this).balance < components.length, "IndexToken: too much ETH left");
+        require(address(this).balance < components.length, "IndexFund: too much ETH left");
 
         // lock unlimited time, a next update must always have 2 days grace period.
         lockUnlimited(Functions.UPDATE_PORTFOLIO);
@@ -160,7 +160,7 @@ contract IndexFund is Fund, TimeLock {
         }
         _swapExactETHForTokens(0, _ethsDiff, _amountsCpntOutMin);
 
-        require(address(this).balance < components.length, "IndexToken: too much ETH left");
+        require(address(this).balance < components.length, "IndexFund: too much ETH left");
         lockUnlimited(Functions.REBALANCE);
         emit PortfolioRebalanced(msg.sender, block.timestamp, ethAvg);
     }
@@ -200,7 +200,7 @@ contract IndexFund is Fund, TimeLock {
         require(msg.value > 0, "IndexFund: Investment sum must be greater than 0.");
 
         require(_amountsOutMin.length == 0 || _amountsOutMin.length == components.length,
-            "IndexToken: offchainPrices must either be empty or have many entries as the portfolio"
+            "IndexFund: offchainPrices must either be empty or have many entries as the portfolio"
         );
 
         uint256 totalSupply = IERC20Metadata(indexToken).totalSupply();
@@ -211,17 +211,29 @@ contract IndexFund is Fund, TimeLock {
         // calculate the current price based on cpnt tokens
         uint256 _price = getIndexPrice();
 
-        uint256 _amount;
-        if (_price > 0) {
-            _amount = (msg.value * 1e18) / _price;
-        }
-
         // swap the ETH sent with the transaction for cpnt tokens on Uniswap
         uint256 _ethForEachCpnt = msg.value / components.length;
-        _swapExactETHForTokens(_ethForEachCpnt, new uint256[](0), _amountsOutMin);
+        uint256[] memory _amountsOut = _swapExactETHForTokens(
+            _ethForEachCpnt,
+            new uint256[](0),
+            _amountsOutMin
+        );
 
-        // mint new <_amount> IndexTokens
-        require(IndexToken(indexToken).mint(msg.sender, _amount), "Unable to mint new Index tokens for buyer");
+        address[] memory path = new address[](2);
+        path[1] = weth;
+        // Net asset value of the purchase
+        uint256 nav = 0;
+        for (uint256 i = 0; i < _amountsOut.length; i++) {
+            path[0] = portfolio[components[i]];
+            nav += IUniswapV2Router02(router).getAmountsOut(_amountsOut[i], path)[1];
+        }
+        uint256 _amount;
+        if (_price > 0) {
+            _amount = (nav * 1e18) / _price;
+        }
+
+        // mint new <_amount> DFAMs
+        require(DFAM(indexToken).mint(msg.sender, _amount), "Unable to mint new Index tokens for buyer");
 
         emit Buy(msg.sender, _amount, _price);
     }
@@ -230,10 +242,11 @@ contract IndexFund is Fund, TimeLock {
         uint256 _ethInSame,
         uint256[] memory _ethsInDistinct,
         uint256[] calldata _amountsOutMin
-    ) internal {
+    ) internal returns (uint256[] memory _amountsOut) {
         address[] memory path = new address[](2);
         path[0] = weth;
 
+        _amountsOut = new uint256[](components.length);
         uint256 _amountOutMin;
         for (uint256 i = 0; i < components.length; i++) {
             path[1] = portfolio[components[i]];
@@ -245,12 +258,12 @@ contract IndexFund is Fund, TimeLock {
                 _amountOutMin = _amountsOutMin[i];
             }
 
-            IUniswapV2Router02(router).swapExactETHForTokens{value: _ethIn}(
+            _amountsOut[i] = IUniswapV2Router02(router).swapExactETHForTokens{value: _ethIn}(
                 _amountOutMin,
                 path,
                 address(this),
                 block.timestamp + 10
-            );
+            )[1];
         }
     }
 
@@ -263,7 +276,7 @@ contract IndexFund is Fund, TimeLock {
     {
         require(_amount > 0, "IndexFund: a non-zero allowance is required");
 
-        IndexToken _indexToken = IndexToken(indexToken);
+        DFAM _indexToken = DFAM(indexToken);
         require(
             _amount <= _indexToken.allowance(msg.sender, address(this)),
             "IndexFund: allowance not enough"
