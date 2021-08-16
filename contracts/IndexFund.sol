@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-import "./IndexToken.sol";
+import "./DFAM.sol";
 import "./Fund.sol";
 import "./TimeLock.sol";
 import "./oracle/Oracle.sol";
