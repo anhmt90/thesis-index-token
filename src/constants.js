@@ -10,7 +10,7 @@ const UNISWAP_FACTORY_JSON = require('@uniswap/v2-core/build/UniswapV2Factory.js
 const UNISWAP_ROUTER_JSON = require('@uniswap/v2-periphery/build/UniswapV2Router02.json');
 const UNISWAP_PAIR_JSON = require('@uniswap/v2-core/build/UniswapV2Pair.json');
 
-const INDEX_TOKEN_JSON = require('../build/contracts/IndexToken.json');
+const INDEX_TOKEN_JSON = require('../build/contracts/DFAM.json');
 const ORACLE_JSON = require('../build/contracts/Oracle.json');
 const INDEX_FUND_JSON = require('../build/contracts/IndexFund.json');
 

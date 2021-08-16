@@ -2,7 +2,7 @@ const fs = require('fs');
 const Web3 = require('web3');
 const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8545'));
 
-const TOKEN_CONTRACT_JSON = require('../build/contracts/IndexToken.json');
+const TOKEN_CONTRACT_JSON = require('../build/contracts/DFAM.json');
 const INVESTMENT_CONTRACT_JSON = require('../build/contracts/PassiveInvestment.json');
 
 let tokenContractAddress;
