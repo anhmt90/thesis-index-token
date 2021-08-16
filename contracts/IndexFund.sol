@@ -58,6 +58,8 @@ contract IndexFund is Fund, TimeLock {
         // oracle = address(new Oracle(msg.sender));
     }
 
+    // @notice Allows to announce the upcoming portfolio update and activate lock-time on updatePrtfolio()
+    // @param _message The announcement that update will happen in 2 days
     function announcePortfolioUpdating(string calldata _message)
         external
         override
@@ -66,6 +68,8 @@ contract IndexFund is Fund, TimeLock {
         lock2days(Functions.UPDATE_PORTFOLIO, _message);
     }
 
+    // @notice Allows to announce the upcoming portfolio rebalancing and activate lock-time on rebalance()
+    // @param _message The announcement that rebalancing will happen in 2 days
     function announcePortfolioRebalancing(string calldata _message)
         external
         override
@@ -74,6 +78,13 @@ contract IndexFund is Fund, TimeLock {
         lock2days(Functions.REBALANCE, _message);
     }
 
+    // @notice performs portfolio upate
+    // @dev this function has a notLocked modifier -> required lock-time to be over
+    // @param _cpntSymbolsOut symbol array of undesired tokens
+    // @param _amountsOutMinOut expected Uniswap's output of amount of undesire tokens  (frontrunning prevention)
+    // @param _cpntAddrsIn address array of new tokens
+    // @param _amountsOutMinOut expected Uniswap's output of amount of new tokens  (frontrunning prevention)
+    // @param _allNextCpntSymbols symbol array of new portfolio
     function updatePorfolio(
         string[] memory _cpntSymbolsOut,
         uint256[] calldata _amountsOutMinOut,
@@ -127,7 +138,10 @@ contract IndexFund is Fund, TimeLock {
     }
 
     /** -------------------------------------------------------------------------- */
-
+    // @notice performs portfolio rebalacing
+    // @dev this function has a notLocked modifier -> required lock-time to be over
+    // @param _amountsETHOutMin expected Uniswap's output of ETH amount (frontrunning prevention)
+    // @param _amountsCpntOutMin expected Uniswap's output of new tokens' amount  (frontrunning prevention)
     function rebalance(
         uint256[] calldata _amountsETHOutMin,
         uint256[] calldata _amountsCpntOutMin
@@ -166,7 +180,7 @@ contract IndexFund is Fund, TimeLock {
     }
 
     /** -------------------------------------------------------------------------- */
-
+    // @notice get price of DFAM token
     function getIndexPrice() public view returns (uint256 _price) {
         uint256 totalSupply = IERC20Metadata(indexToken).totalSupply();
         address[] memory path = new address[](2);
@@ -190,7 +204,9 @@ contract IndexFund is Fund, TimeLock {
 
     /** -------------------------------------------------------------------------- */
 
-    // payable: function can exec Tx
+    // @notice performs  purchasing of DFAM
+    // @dev payable function can exec Tx
+    // @param _amountsOutMin expected Uniswap's output of tokens' amount  (frontrunning prevention)
     function buy(uint256[] calldata _amountsOutMin)
         external
         payable
@@ -238,6 +254,7 @@ contract IndexFund is Fund, TimeLock {
         emit Buy(msg.sender, _amount, _price);
     }
 
+    // @dev internal helper function for swapping from exact ETH for tokens
     function _swapExactETHForTokens(
         uint256 _ethInSame,
         uint256[] memory _ethsInDistinct,
@@ -268,7 +285,9 @@ contract IndexFund is Fund, TimeLock {
     }
 
     /** -------------------------------------------------------------------------- */
-
+    // @notice performs selling of DFAM
+    // @param _amount amount of DFAM to sell
+    // @param _amountsETHOutMin expected Uniswap's output of ETH amount  (frontrunning prevention)
     function sell(uint256 _amount, uint256[] calldata _amountsETHOutMin)
         external
         override
@@ -296,6 +315,7 @@ contract IndexFund is Fund, TimeLock {
         emit Sell(msg.sender, _amount);
     }
 
+    // @dev internal helper function for swapping from exact tokens for ETH
     function _swapExactTokensForETH(
         address _to,
         uint256 _ethOutSame,
