@@ -728,20 +728,17 @@ describe('REBALANCE PORTFOLIO from admin and from update', () => {
 });
 
 
-
-
-
 describe('UPDATE PORTFOLIO through the oracle infrastructure', () => {
     let componentSymbolsOut = [];
     let componentSymbolsIn = [];
 
-    // before(async () => {
-    //     await fundContract.methods.buy([]).send({
-    //         from: investor,
-    //         value: Ether('60'),
-    //         gas: '5000000'
-    //     });
-    // });
+    before(async () => {
+        await fundContract.methods.buy([]).send({
+            from: investor,
+            value: Ether('0.01'),
+            gas: '5000000'
+        });
+    });
 
 
     it('should set all state variables of Oracle contract correctly ', async () => {

@@ -14,6 +14,7 @@ const {
 } = require('../constants');
 
 const {
+    storeTokenPrices,
     queryUniswapPriceInEth,
     queryUniswapEthOut,
     queryUniswapTokenOut,

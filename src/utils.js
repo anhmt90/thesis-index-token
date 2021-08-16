@@ -42,8 +42,16 @@ const storeAddresses = (addresses) => {
     pickle(addresses, PATH_ADDRESS_FILE);
 };
 
+
 const storeTokenPrices = (tokenPrices) => {
-    pickle(tokenPrices, PATH_TOKENPRICE_FILE);
+    const priceFiles = fg.sync(['data/tokenPrices-[[:digit:]].json']);
+    if(priceFiles.length === 0) {
+        pickle(tokenPrices, path.join(__dirname, `../data/tokenPrices-0.json`));
+    } else {
+        const mostRecentPriceFile = priceFiles[priceFiles.length - 1];
+        const nextNum = parseInt(mostRecentPriceFile.match(/\d+/)[0]) + 1
+        pickle(tokenPrices, path.join(__dirname, `../data/tokenPrices-${nextNum}.json`));
+    }
 };
 
 const storeItcTokens = (tokens) => {
@@ -54,7 +62,7 @@ const pickle = (obj, path) => {
     const json = JSON.stringify(obj, null, 4);
     fs.writeFileSync(path, json, (err) => {
         if (err) throw err;
-        log.debug('\nJson file saved at:', savePath);
+        log.debug('\nJson file saved at:', path);
     });
 };
 

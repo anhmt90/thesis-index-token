@@ -2,6 +2,10 @@ const fetch = require('node-fetch');
 const { storeItcTokens } = require('../utils');
 
 const fetchEthereumTokens = async (filters = []) => {
+    if (!process.env.ITSA_KEY) {
+        return;
+    }
+
     const site = 'https://api.itsa.global/v1/';
     const endpoint = "search-tokens";
     const queries = filters.concat(["itc_tts_v100=TTS42ET01", "rows=99999"])

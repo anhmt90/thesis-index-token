@@ -1,12 +1,12 @@
 const fs = require('fs');
 const assert = require('assert');
-const web3 = require('../src/getWeb3');
+const web3 = require('../../src/getWeb3');
 
 const {
     DAI_JSON,
     INDEX_TOKEN_JSON,
     PATH_ADDRESS_FILE,
-} = require('./fixtures/constants');
+} = require('../fixtures/constants');
 
 const {
     deploy,
@@ -15,13 +15,13 @@ const {
     mintTokens,
     provisionLiquidity,
     initialSupply,
-} = require('../src/deploy');
+} = require('../../src/deploy');
 
 
 const {
     queryReserves,
     float2TokenUnits,
-} = require('../src/utils');
+} = require('../../src/utils');
 
 let accounts;
 let allAddrs;
