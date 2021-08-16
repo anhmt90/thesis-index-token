@@ -16,7 +16,7 @@ abstract contract Fund {
     string[] public components;
 
     constructor (address _oracle) {
-        indexToken = address(new IndexToken());
+        indexToken = address(new DFAM());
         oracle = _oracle;
     }
 
