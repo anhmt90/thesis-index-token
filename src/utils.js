@@ -77,12 +77,14 @@ const _loadAddresses = () => {
     return _load(PATH_ADDRESS_FILE, 'Contract Addresses');
 };
 
-const loadTokenPrices = () => {
-    const priceFiles = fg.sync([`${dataPath}/tokenPrices-[[:digit:]].json`]);
-    if (priceFiles.length === 0) {
-        throw Error(`No price list found in ${dataPath}`)
-    }
-    return _load(priceFiles[priceFiles.length - 1], 'Token Prices');
+const loadTokenPricesForLP = () => {
+    // const priceFiles = fg.sync([`${dataPath}/tokenPrices-[[:digit:]].json`]);
+    // if (priceFiles.length === 0) {
+    //     throw Error(`No price list found in ${dataPath}`)
+    // }
+    // return _load(priceFiles[priceFiles.length - 1], 'Token Prices');
+    return _load(PATH_TOKENPRICE_FILE, 'Token Prices');
+
 };
 
 const loadItsaTokenInfo = () => {
@@ -91,6 +93,7 @@ const loadItsaTokenInfo = () => {
 
 const loadLastUniswapPrices = () => {
     const priceFiles = fg.sync([`${dataPath}/tokenPrices-[[:digit:]].json`]);
+    log.debug("priceFiles ===> ", priceFiles);
     const mostRecentPriceFile = priceFiles[priceFiles.length - 1];
     const mostRecentPriceFilePath = path.join(__dirname, '../', mostRecentPriceFile);
     const mostRecentPrices = _load(mostRecentPriceFilePath, mostRecentPriceFile.replace('/data', ''));
@@ -189,7 +192,8 @@ const _getSwapPathAndRouterContract = (tokenSymbol, eth2Token = true) => {
 const queryUniswapPriceInEth = async (tokenSymbol) => {
     const [path, routerContract] = _getSwapPathAndRouterContract(tokenSymbol, true);
     const amounts = await routerContract.methods.getAmountsOut(Ether('1'), path).call();
-    return BN(Ether(Ether('1'))).div(BN(amounts[1])).toString();
+    const decimals = await getContract(CONTRACTS[tokenSymbol.toUpperCase()]).methods.decimals().call();
+    return BN(Ether('1')).mul(BN(float2TokenUnits('1', decimals))).div(BN(amounts[1])).toString();
 };
 
 const queryUniswapEthOut = async (tokenSymbol, amountToken) => {
@@ -362,7 +366,7 @@ const getAllAddrs = () => {
 const assembleTokenSet = () => {
     if (Object.keys(_tokenSet).length === 0) {
         _allAddrs = getAllAddrs();
-        const prices = loadTokenPrices();
+        const prices = loadTokenPricesForLP();
 
         Object.entries(REAL_TOKEN_JSONS)
             .forEach(([symbol, json]) => {
@@ -522,7 +526,7 @@ module.exports = {
     storeTokenPrices,
     storeItcTokens,
 
-    loadTokenPrices,
+    loadTokenPricesForLP,
     loadItsaTokenInfo,
     loadLastUniswapPrices,
     loadITINsFromSymbolsAndITC,
@@ -558,5 +562,6 @@ module.exports = {
 
     BN,
     Ether,
-    ETHER
+    ETHER,
+    isTesting
 };

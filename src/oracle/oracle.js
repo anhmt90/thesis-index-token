@@ -27,7 +27,8 @@ const {
     assembleUniswapTokenSet,
     getContract,
     computeParamertersCommitRebalancing,
-    CONTRACTS
+    CONTRACTS,
+    isTesting
 } = require('../utils');
 
 const {
@@ -49,7 +50,7 @@ const ETHER = web3.utils.toWei(BN(1));
 
 
 const selectNewPortfolio = async () => {
-    if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
+    if (!isTesting) {
         await fetchEthereumTokens([`${ITC_EIN_V100}=${EIN_FININS_DEFI__LENDINGSAVING}`]);
         // how to get the token contract addresses on the tokens fetched from ITSA --> manually from Etherscan
 
@@ -74,7 +75,9 @@ const selectNewPortfolio = async () => {
         curPrices[symbol] = await queryUniswapPriceInEth(symbol);
     }
     log.debug("CURRENT PRICES ===> ", curPrices);
-    storeTokenPrices({...prevPrices, ...curPrices});
+
+    if(!isTesting)
+        storeTokenPrices({...prevPrices, ...curPrices});
 
     const priceDiffPercentages = [];
     for (const [symbol, curPrice] of Object.entries(curPrices)) {
@@ -136,8 +139,10 @@ const _deriveSubbedOutAndSubbedInComponents = async (newPortfolio) => {
         );
     log.debug("REMOVED COMPONENTS ===> ", componentsOut);
 
-    if (componentsOut.length === 0)
-        return false;
+    if (componentsOut.length === 0) {
+        log.info("Portfolio in good form, update not necessary!");
+        return [[], []];
+    }
 
     // derive new components that are not in the current portfolio (components in)
     const curPortfolioSet = new Set(curPortfolio.map(component => component.toLowerCase()));
@@ -240,6 +245,9 @@ const _buy = async () => {
 
 const announceUpdate = async (allNextComponentSymbols, _msg) => {
     const [componentSymbolsOut, componentSymbolsIn] = await _deriveSubbedOutAndSubbedInComponents(allNextComponentSymbols);
+    if (componentSymbolsOut.length === 0) {
+        return [[], []];
+    }
 
     //get componentAddrsIn
     const componentAddrsIn = componentSymbolsIn.map(symbol => allAddrs[symbol]);
@@ -271,6 +279,10 @@ const announceUpdate = async (allNextComponentSymbols, _msg) => {
 };
 
 const commitUpdate = async (componentSymbolsOut, componentSymbolsIn) => {
+    if (componentSymbolsOut.length === 0) {
+        return;
+    }
+
     // get _amountsOutMinOut and _amountsOutMinIn
     const [_amountsOutMinOut, _amountsOutMinIn] = await queryUniswapEthOutForTokensOut(componentSymbolsOut, componentSymbolsIn);
 
@@ -334,7 +346,6 @@ const run = async () => {
     await _buy();
     // const decision = await decidePortfolioSubstitution(newPortfolio);
     // log.debug('DECISON:', decision);
-
     const [componentSymbolsOut, componentSymbolsIn] = await announceUpdate(newPortfolio);
     await commitUpdate(componentSymbolsOut, componentSymbolsIn);
 };

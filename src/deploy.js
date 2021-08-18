@@ -60,8 +60,6 @@ const transferToken = async ({ tokenSymbol, value, msgSender }) => {
 
 /* **************************************************************************************************** */
 
-
-
 const deployContract = async ({ name, msgSender, contractJson, args }) => {
     log.debug(`\nDeploying ${name} contract  ...`);
     log.debug("Using account:", msgSender);
