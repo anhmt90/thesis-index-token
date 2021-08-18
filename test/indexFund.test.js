@@ -10,8 +10,7 @@ const {
     PATH_ADDRESS_FILE,
     UNISWAP_ROUTER_JSON,
     ORACLE_JSON,
-    DAI_JSON
-} = require('./fixtures/constants');
+} = require('../src/constants');
 
 const {
     deployAuxContracts,
