@@ -25,12 +25,16 @@ const {
     INDEX_FUND_JSON,
     ORACLE_JSON,
     ERC20_INSTANCE_JSON
-} = require(process.env.NODE_ENV && (process.env.NODE_ENV).toUpperCase() === 'TEST' ?
-    '../test/fixtures/constants.js' : './constants.js');
+} = require('./constants.js');
+
+// require(process.env.NODE_ENV && (process.env.NODE_ENV).toUpperCase() === 'TEST' ? '../test/fixtures/constants.js' : './constants.js');
 
 const BN = web3.utils.toBN;
 const Ether = web3.utils.toWei;
 const ETHER = web3.utils.toWei(BN(1));
+
+const isTesting = (process.env.NODE_ENV).toUpperCase() === 'TEST';
+const dataPath = isTesting? 'test/fixtures' : 'data';
 
 let _tokenSet = {};
 let _allAddrs = {};
@@ -44,13 +48,14 @@ const storeAddresses = (addresses) => {
 
 
 const storeTokenPrices = (tokenPrices) => {
-    const priceFiles = fg.sync(['data/tokenPrices-[[:digit:]].json']);
+    const priceFiles = fg.sync([`${dataPath}/tokenPrices-[[:digit:]].json`]);
     if(priceFiles.length === 0) {
-        pickle(tokenPrices, path.join(__dirname, `../data/tokenPrices-0.json`));
+        const filePath = path.join(__dirname, `../${dataPath}/tokenPrices-0.json`);
+        pickle(tokenPrices, filePath);
     } else {
         const mostRecentPriceFile = priceFiles[priceFiles.length - 1];
         const nextNum = parseInt(mostRecentPriceFile.match(/\d+/)[0]) + 1
-        pickle(tokenPrices, path.join(__dirname, `../data/tokenPrices-${nextNum}.json`));
+        pickle(tokenPrices, path.join(__dirname, `../${dataPath}/tokenPrices-${nextNum}.json`));
     }
 };
 
@@ -73,7 +78,11 @@ const _loadAddresses = () => {
 };
 
 const loadTokenPrices = () => {
-    return _load(PATH_TOKENPRICE_FILE, 'Token Prices');
+    const priceFiles = fg.sync([`${dataPath}/tokenPrices-[[:digit:]].json`]);
+    if (priceFiles.length === 0) {
+        throw Error(`No price list found in ${dataPath}`)
+    }
+    return _load(priceFiles[priceFiles.length - 1], 'Token Prices');
 };
 
 const loadItsaTokenInfo = () => {
@@ -81,7 +90,7 @@ const loadItsaTokenInfo = () => {
 };
 
 const loadLastUniswapPrices = () => {
-    const priceFiles = fg.sync(['data/tokenPrices-[[:digit:]].json']);
+    const priceFiles = fg.sync([`${dataPath}/tokenPrices-[[:digit:]].json`]);
     const mostRecentPriceFile = priceFiles[priceFiles.length - 1];
     const mostRecentPriceFilePath = path.join(__dirname, '../', mostRecentPriceFile);
     const mostRecentPrices = _load(mostRecentPriceFilePath, mostRecentPriceFile.replace('/data', ''));

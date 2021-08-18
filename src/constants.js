@@ -1,5 +1,7 @@
 const path = require('path');
 
+const isTesting = (process.env.NODE_ENV).toUpperCase() === 'TEST';
+
 const DAI_JSON = require(`./token-jsons/DAI.json`);
 const BNB_JSON = require(`./token-jsons/BNB.json`);
 const ZRX_JSON = require(`./token-jsons/ZRX.json`);
@@ -14,9 +16,13 @@ const INDEX_TOKEN_JSON = require('../build/contracts/DFAM.json');
 const ORACLE_JSON = require('../build/contracts/Oracle.json');
 const INDEX_FUND_JSON = require('../build/contracts/IndexFund.json');
 
-const PATH_ADDRESS_FILE = path.join(__dirname, '../data/contractAddresses.json');
-const PATH_TOKENPRICE_FILE = path.join(__dirname, '../data/tokenPrices.json');
-const PATH_ITC_ERC20_TOKENS_FILE = path.join(__dirname, '../data/itc_erc20_tokens.json');
+const dataPath = isTesting ? '../test/fixtures' : '../data';
+const PATH_ADDRESS_FILE = path.join(__dirname, `${dataPath}/contractAddresses.json`);
+const PATH_TOKENPRICE_FILE = path.join(__dirname, `${dataPath}/tokenPrices-0.json`);
+const PATH_ITC_ERC20_TOKENS_FILE = path.join(__dirname, `${dataPath}/itc_erc20_tokens.json`);
+
+
+
 
 const COINGECKO_ID_SYM_MAP = {
     'binancecoin': 'bnb',

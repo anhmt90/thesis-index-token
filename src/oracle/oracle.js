@@ -74,6 +74,7 @@ const selectNewPortfolio = async () => {
         curPrices[symbol] = await queryUniswapPriceInEth(symbol);
     }
     log.debug("CURRENT PRICES ===> ", curPrices);
+    storeTokenPrices({...prevPrices, ...curPrices});
 
     const priceDiffPercentages = [];
     for (const [symbol, curPrice] of Object.entries(curPrices)) {

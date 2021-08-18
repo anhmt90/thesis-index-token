@@ -287,7 +287,6 @@ const mintTokens = async ({ tokenSymbol, value, receiver }) => {
 };
 
 const provisionLiquidity = async (ethAmount) => {
-    allAddrs = getAllAddrs();
     for (const [symbol, token] of Object.entries(uniswapTokenSet)) {
         const tokenContract = new web3.eth.Contract(token.json.abi, token.address);
         const decimals = parseInt(await tokenContract.methods.decimals().call());
