@@ -55,6 +55,7 @@ const {
     assembleUniswapTokenSet,
     filterTokenSet,
     loadITINsFromSymbolsAndITC,
+    calcTokenAmountFromEthAmountAndPoolPrice,
     getContract,
     CONTRACTS,
     increaseGanacheBlockTime,
@@ -304,7 +305,7 @@ describe('DEPLOY and SETUP of the smart contract ecosystem', () => {
             const decimals = parseInt(await getContract(CONTRACTS[symbol.toUpperCase()]).methods.decimals().call());
             const expectedWeth = Ether(String(ethAmount));
             assert.strictEqual(expectedWeth, actualWeth, `expected ${expectedWeth} wei but got ${actualWeth}`);
-            const expectedTokenAmount = float2TokenUnits(ethAmount * token.price, decimals);
+            const expectedTokenAmount = calcTokenAmountFromEthAmountAndPoolPrice(ethAmount, token.price, decimals);
             assert.strictEqual(actualToken, expectedTokenAmount, `Token ${symbol}: expected ${expectedTokenAmount} token units but got ${actualToken}`);
         }
     });

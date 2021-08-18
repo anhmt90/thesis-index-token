@@ -86,8 +86,9 @@ const loadLastUniswapPrices = () => {
     const mostRecentPriceFilePath = path.join(__dirname, '../', mostRecentPriceFile);
     const mostRecentPrices = _load(mostRecentPriceFilePath, mostRecentPriceFile.replace('/data', ''));
     const mostRecentPricesInEth = {};
-    for (const [sym, price] of Object.entries(mostRecentPrices)) {
-        mostRecentPricesInEth[sym] = BN('1' + '0'.repeat(18 * 2)).div(BN(float2TokenUnits(price))).toString();
+    for (const [symbol, price] of Object.entries(mostRecentPrices)) {
+        // const decimals = await getContract(CONTRACTS[symbol]).methods.decimals().call();
+        mostRecentPricesInEth[symbol] = price;
     }
     return mostRecentPricesInEth;
 };
@@ -285,7 +286,6 @@ const queryUniswapEthOutForTokensOut = async (componentSymbolsOut, componentSymb
 
 
 
-
 const computeParamertersCommitRebalancing =  async () => {
     const fundContract = getContract(CONTRACTS.INDEX_FUND);
     const componentSymbols = await fundContract.methods.getComponentSymbols().call();
@@ -322,6 +322,12 @@ const computeParamertersCommitRebalancing =  async () => {
     log.debug("ETHs OUT MIN REBALANCING PARAMETERS ===>", ethsOutMin)
     log.debug("COMPONENTS OUT MIN REBALANCING PARAMETERS ===>", cpntsOutMin)
     return [ethsOutMin, cpntsOutMin]
+}
+
+const calcTokenAmountFromEthAmountAndPoolPrice = (ethAmount, price, decimals) => {
+    const unitPrice = BN(Ether('1')).mul(BN(float2TokenUnits('1', decimals))).div(BN(price));
+    const tokenAmount = BN(ethAmount).mul(unitPrice).toString()
+    return tokenAmount;
 }
 
 /* ************************************************************************* */
@@ -384,6 +390,9 @@ const filterTokenSet = (tokenSet, excludedTokens = []) => {
     return filteredTokenSet;
 };
 
+/**
+ * Assemble an object of (symbol -> token_price) of all tokens having liquidity pool on Uniswap.
+ */
 const assembleUniswapTokenSet = async () => {
     const itsaTokens = loadItsaTokenInfo();
 
@@ -394,7 +403,7 @@ const assembleUniswapTokenSet = async () => {
 
     /**
      * From Uniswap's docs: The most obvious way to get the address for a pair is to call getPair
-     * on the factory. If the pair exists, this function will return its address, else address(0)
+     * on the factory. If the pair exists, this function will return its address, else address(0x0)
      **/
     const factoryContract = getContract(CONTRACTS.UNISWAP_FACTORY);
     const uniswapTokenSet = {};
@@ -527,6 +536,7 @@ module.exports = {
     queryEthNav,
 
     computeParamertersCommitRebalancing,
+    calcTokenAmountFromEthAmountAndPoolPrice,
 
     getContract,
     CONTRACTS,

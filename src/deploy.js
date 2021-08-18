@@ -27,6 +27,7 @@ const {
     computeFutureAddress,
     getContract,
     CONTRACTS,
+    calcTokenAmountFromEthAmountAndPoolPrice,
 
     BN,
     Ether,
@@ -86,17 +87,22 @@ const deployContract = async ({ name, msgSender, contractJson, args }) => {
 };
 
 
-const addLiquidityExactWETH = async ({ ethAmount, rate, msgSender, tokenAddr, tokenJson, routerAddr }) => {
-    const tokenContract = new web3.eth.Contract(tokenJson.abi, tokenAddr);
-    const symbol = await tokenContract.methods.symbol().call();
+
+const addLiquidityExactWETH = async ({ ethAmount, msgSender, symbol, price }) => {
+    const tokenContract = getContract(CONTRACTS[symbol.toUpperCase()]);
     const decimals = await tokenContract.methods.decimals().call();
     log.info(`******** ADD LIQUIDITY ${symbol}/WETH ********`);
 
     /** Approve before adding liquidity */
-    const tokenAmount = ethAmount * rate;
-    const tokenAmountInUnit = float2TokenUnits(tokenAmount, decimals);
-    log.debug('APRROVING', ethAmount * rate, `${symbol} to Uniswap Router...`);
-    await tokenContract.methods.approve(routerAddr, BN(tokenAmountInUnit)).send({
+    log.debug("ethAmount =====================> ", ethAmount)
+    log.debug("price =====================> ", price)
+    log.debug("uniswapRouter =====================> ", allAddrs.uniswapRouter)
+    // const unitPrice = BN(Ether('1')).mul(BN(float2TokenUnits('1', decimals))).div(BN(price));
+    // const tokenAmount = BN(ethAmount).mul(unitPrice).toString() ;
+    // const tokenAmountInUnit = float2TokenUnits(tokenAmount, decimals);
+    const tokenAmountInUnit = calcTokenAmountFromEthAmountAndPoolPrice(ethAmount, price, decimals)
+    log.debug('APRROVING', tokenAmountInUnit, `units of ${symbol} to Uniswap Router...`);
+    await tokenContract.methods.approve(allAddrs.uniswapRouter, BN(tokenAmountInUnit)).send({
         from: msgSender,
         gas: '3000000'
     });
@@ -107,10 +113,10 @@ const addLiquidityExactWETH = async ({ ethAmount, rate, msgSender, tokenAddr, to
     const to = msgSender;
     const deadline = String(Math.floor(Date.now() / 1000) + 5);
 
-    log.debug(`Adding ${ethAmount} ETH and ${tokenAmount} ${symbol} to pool`);
-    const routerContract = new web3.eth.Contract(UNISWAP_ROUTER_JSON.abi, routerAddr);
+    log.debug(`Adding ${ethAmount} ETH and ${tokenAmountInUnit} ${symbol} to pool`);
+    const routerContract = getContract(CONTRACTS.UNISWAP_ROUTER);
     await routerContract.methods.addLiquidityETH(
-        tokenAddr,
+        allAddrs[symbol],
         amountTokenDesired,
         amountTokenMin,
         amountETHMin,
@@ -209,14 +215,6 @@ const deployCoreContracts = async (componentNames) => {
         args: []
     });
 
-    // allAddrs.indexToken = await deployContract({
-    //     name: 'Index Token',
-    //     msgSender: admin,
-    //     contractJson: INDEX_TOKEN_JSON,
-    //     args: []
-    // });
-
-
     let componentAddrs = [];
     const preparePortfolio = (portfolio) => {
         /**
@@ -289,6 +287,7 @@ const mintTokens = async ({ tokenSymbol, value, receiver }) => {
 };
 
 const provisionLiquidity = async (ethAmount) => {
+    allAddrs = getAllAddrs();
     for (const [symbol, token] of Object.entries(uniswapTokenSet)) {
         const tokenContract = new web3.eth.Contract(token.json.abi, token.address);
         const decimals = parseInt(await tokenContract.methods.decimals().call());
@@ -298,11 +297,12 @@ const provisionLiquidity = async (ethAmount) => {
 
         await addLiquidityExactWETH({
             ethAmount,
-            rate: token.price,
             msgSender: admin,
-            tokenAddr: token.address,
-            tokenJson: token.json,
-            routerAddr: allAddrs.uniswapRouter
+            symbol,
+            price: token.price,
+            // tokenAddr: token.address,
+            // tokenJson: token.json,
+            // routerAddr: allAddrs.uniswapRouter
         });
         await queryReserves(symbol, true);
 
