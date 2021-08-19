@@ -25,26 +25,26 @@ const PATH_ITC_ERC20_TOKENS_FILE = path.join(__dirname, `${dataPath}/itc_erc20_t
 
 
 const COINGECKO_ID_SYM_MAP = {
-    'binancecoin': 'bnb',
-    'dai': 'dai',
-    '0x': 'zrx'
+    'binancecoin': 'BNB',
+    'dai': 'DAI',
+    '0x': 'ZRX'
 };
 
 const REAL_TOKEN_JSONS = {
-    'dai': DAI_JSON,
-    'bnb': BNB_JSON,
-    'zrx': ZRX_JSON,
+    'DAI': DAI_JSON,
+    'BNB': BNB_JSON,
+    'ZRX': ZRX_JSON,
 };
 
 const LENDING_TOKENS = {
-    aave: "Aave Token",
-    comp: "Compound",
-    bzrx: "bZx Protocol Token",
-    cel: "Celsius",
-    yfii: "YFII.finance",
-    mkr: "Maker",
-    enzf: "Rhino Fund",
-    yfi: "yearn.finance"
+    AAVE: "Aave Token",
+    COMP: "Compound",
+    BZRX: "bZx Protocol Token",
+    CEL: "Celsius",
+    YFII: "YFII.finance",
+    MKR: "Maker",
+    ENZF: "Rhino Fund",
+    YFI: "yearn.finance"
 }
 
 module.exports = {

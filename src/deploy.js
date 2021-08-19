@@ -45,7 +45,7 @@ const mintDaiToAdmin = async ({ msgSender, value, tokenAddr, tokenJson }) => {
 };
 
 const transferToken = async ({ tokenSymbol, value, msgSender }) => {
-    const token = tokenSet[tokenSymbol.toLowerCase()];
+    const token = tokenSet[tokenSymbol];
     const tokenContract = new web3.eth.Contract(token.json.abi, tokem.address);
     const decimals = parseInt(await tokenContract.methods.decimals().call());
     await tokenContract.methods.transfer(msgSender, BN(String(value) + "0".repeat(decimals))).send({
@@ -63,6 +63,7 @@ const transferToken = async ({ tokenSymbol, value, msgSender }) => {
 const deployContract = async ({ name, msgSender, contractJson, args }) => {
     log.debug(`\nDeploying ${name} contract  ...`);
     log.debug("Using account:", msgSender);
+    log.debug("Arguments:", args);
 
     let contractAddress;
     const contractInstance = new web3.eth.Contract(contractJson.abi);
@@ -72,7 +73,7 @@ const deployContract = async ({ name, msgSender, contractJson, args }) => {
     })
         .send({
             from: msgSender,
-            gas: '10000000'
+            gas: '8000000'
         })
         .on('receipt', async (txReceipt) => {
             if (txReceipt.contractAddress) {
@@ -92,12 +93,6 @@ const addLiquidityExactWETH = async ({ ethAmount, msgSender, symbol, price }) =>
     log.info(`******** ADD LIQUIDITY ${symbol}/WETH ********`);
 
     /** Approve before adding liquidity */
-    log.debug("ethAmount =====================> ", ethAmount)
-    log.debug("price =====================> ", price)
-    log.debug("uniswapRouter =====================> ", allAddrs.uniswapRouter)
-    // const unitPrice = BN(Ether('1')).mul(BN(float2TokenUnits('1', decimals))).div(BN(price));
-    // const tokenAmount = BN(ethAmount).mul(unitPrice).toString() ;
-    // const tokenAmountInUnit = float2TokenUnits(tokenAmount, decimals);
     const tokenAmountInUnit = calcTokenAmountFromEthAmountAndPoolPrice(ethAmount, price, decimals)
     log.debug('APRROVING', tokenAmountInUnit, `units of ${symbol} to Uniswap Router...`);
     await tokenContract.methods.approve(allAddrs.uniswapRouter, BN(tokenAmountInUnit)).send({
@@ -132,30 +127,30 @@ const addLiquidityExactWETH = async ({ ethAmount, msgSender, symbol, price }) =>
 const deployAuxContracts = async () => {
     if (!admin) await setAdmin();
 
-    allAddrs.dai = await deployContract({
-        name: 'DAI',
+    allAddrs.DAI = await deployContract({
+        name: CONTRACTS.DAI,
         msgSender: admin,
         contractJson: DAI_JSON,
         args: [1337]
     });
 
-    allAddrs.bnb = await deployContract({
-        name: 'BNB',
+    allAddrs.BNB = await deployContract({
+        name: CONTRACTS.BNB,
         msgSender: admin,
         contractJson: BNB_JSON,
         args: [String(initialSupply) + '0'.repeat(18), 'BNB', 18, 'BNB']
     });
 
-    allAddrs.zrx = await deployContract({
-        name: 'ZRX',
+    allAddrs.ZRX = await deployContract({
+        name: CONTRACTS.ZRX,
         msgSender: admin,
         contractJson: ZRX_JSON,
         args: []
     });
 
     const getDecimals = (symbol) => {
-        switch (symbol.toUpperCase()) {
-            case 'CEL':
+        switch (symbol) {
+            case CONTRACTS.CEL:
                 return 4;
             default:
                 return 18;
@@ -165,16 +160,16 @@ const deployAuxContracts = async () => {
     for (const [symbol, name] of Object.entries(LENDING_TOKENS)) {
         const decimals = getDecimals(symbol);
 
-        allAddrs[symbol.toLowerCase()] = await deployContract({
-            name: symbol.toUpperCase(),
+        allAddrs[symbol] = await deployContract({
+            name: symbol,
             msgSender: admin,
             contractJson: ERC20_INSTANCE_JSON,
-            args: [name, symbol.toUpperCase(), decimals]
+            args: [name, symbol, decimals]
         });
     }
 
-    allAddrs.weth = await deployContract({
-        name: 'WETH',
+    allAddrs.WETH = await deployContract({
+        name: CONTRACTS.WETH,
         msgSender: admin,
         contractJson: WETH_JSON,
         args: []
@@ -193,7 +188,7 @@ const deployAuxContracts = async () => {
         name: 'UniswapV2Router02',
         msgSender: admin,
         contractJson: UNISWAP_ROUTER_JSON,
-        args: [allAddrs.uniswapFactory, allAddrs.weth]
+        args: [allAddrs.uniswapFactory, allAddrs.WETH]
     });
 
 
@@ -218,13 +213,13 @@ const deployCoreContracts = async (componentNames) => {
         /**
          * Set portfolio
          */
-        if (portfolio.length == 0) {
+        if (portfolio.length === 0) {
             throw Error("indexFund: cannot set empty portfolio");
         }
-        portfolio = portfolio.map(component => component.toUpperCase());
+        // portfolio = portfolio.map(component => component.toUpperCase());
 
         componentNames = portfolio;
-        componentAddrs = portfolio.map(component => allAddrs[component.toLowerCase()]);
+        componentAddrs = portfolio.map(component => allAddrs[component]);
     };
 
     preparePortfolio(componentNames);
@@ -311,7 +306,7 @@ const provisionLiquidity = async (ethAmount) => {
 };
 
 const setDeployGlobalVars = (_tokensNotOnUniswap = []) => {
-    if (Object.keys(allAddrs).length == 0) {
+    if (Object.keys(allAddrs).length === 0) {
         allAddrs = getAllAddrs();
     }
     tokenSet = assembleTokenSet();
@@ -322,7 +317,7 @@ const setDeployGlobalVars = (_tokensNotOnUniswap = []) => {
 const setUp = async () => {
     setDeployGlobalVars(tokensNotOnUniswap);
 
-    await mintTokens({ tokenSymbol: 'dai', value: 1000000, receiver: admin });
+    await mintTokens({ tokenSymbol: CONTRACTS.DAI, value: 1000000, receiver: admin });
     await provisionLiquidity(300);
 };
 
@@ -338,8 +333,8 @@ let allAddrs = {};
 let tokenSet;
 let uniswapTokenSet;
 const initialSupply = 1000000;
-const tokensNotOnUniswap = ['dai', 'bnb', 'zrx', 'enzf'];
-const initialPortfolio = ["aave", "comp", "bzrx", "cel", "yfii"];
+const tokensNotOnUniswap = [CONTRACTS.DAI, CONTRACTS.BNB, CONTRACTS.ZRX, CONTRACTS.ENZF];
+const initialPortfolio = [CONTRACTS.AAVE, CONTRACTS.COMP, CONTRACTS.BZRX, CONTRACTS.CEL, CONTRACTS.YFII];
 
 
 let admin;

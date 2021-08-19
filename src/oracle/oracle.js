@@ -128,15 +128,12 @@ const _compareComponent = (a, b) => {
 const _deriveSubbedOutAndSubbedInComponents = async (newPortfolio) => {
     // get current portfolio onchain
     const fundContract = getContract(CONTRACTS.INDEX_FUND);
-    const curPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(component => component.toLowerCase());
+    const curPortfolio = await fundContract.methods.getComponentSymbols().call();
     log.debug("CURRENT PORTFOLIO ===> ", curPortfolio);
 
     // derive subtituted components (components out) from current portfolio
     const newPortfolioSet = new Set(newPortfolio);
-    const componentsOut = curPortfolio
-        .filter(component => !newPortfolioSet.has(component.toLowerCase()))
-        .map(component => component.toLowerCase()
-        );
+    const componentsOut = curPortfolio.filter(component => !newPortfolioSet.has(component));
     log.debug("REMOVED COMPONENTS ===> ", componentsOut);
 
     if (componentsOut.length === 0) {
@@ -145,7 +142,7 @@ const _deriveSubbedOutAndSubbedInComponents = async (newPortfolio) => {
     }
 
     // derive new components that are not in the current portfolio (components in)
-    const curPortfolioSet = new Set(curPortfolio.map(component => component.toLowerCase()));
+    const curPortfolioSet = new Set(curPortfolio);
     const componentsIn = newPortfolio.filter(component => !curPortfolioSet.has(component));
     log.debug("NEW COMPONENTS ===> ", componentsIn);
 
@@ -222,7 +219,7 @@ const _buy = async () => {
 
     await getContract(CONTRACTS.UNISWAP_ROUTER).methods.swapExactETHForTokens(
         0,
-        [allAddrs.weth, allAddrs.yfi],
+        [allAddrs.WETH, allAddrs.YFI],
         investor,
         ((await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp + 10000).toString()
     ).send({
@@ -233,7 +230,7 @@ const _buy = async () => {
 
     await getContract(CONTRACTS.UNISWAP_ROUTER).methods.swapExactETHForTokens(
         0,
-        [allAddrs.weth, allAddrs.mkr],
+        [allAddrs.WETH, allAddrs.MRK],
         investor,
         ((await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp + 10000).toString()
     ).send({
@@ -263,9 +260,9 @@ const announceUpdate = async (allNextComponentSymbols, _msg) => {
     // call the announce() func of oracle contact
     oracleContract = getContract(CONTRACTS.ORACLE);
     await oracleContract.methods.announceUpdate(
-        componentSymbolsOut.map(symbol => symbol.toUpperCase()),
+        componentSymbolsOut,
         componentAddrsIn,
-        allNextComponentSymbols.map(symbol => symbol.toUpperCase()),
+        allNextComponentSymbols,
         _componentITINs,
         _announcementMsg
     ).send({

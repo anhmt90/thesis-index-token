@@ -34,7 +34,7 @@ const Ether = web3.utils.toWei;
 const ETHER = web3.utils.toWei(BN(1));
 
 const isTesting = (process.env.NODE_ENV).toUpperCase() === 'TEST';
-const dataPath = isTesting? 'test/fixtures' : 'data';
+const dataPath = isTesting ? 'test/fixtures' : 'data';
 
 let _tokenSet = {};
 let _allAddrs = {};
@@ -49,7 +49,7 @@ const storeAddresses = (addresses) => {
 
 const storeTokenPrices = (tokenPrices) => {
     const priceFiles = fg.sync([`${dataPath}/tokenPrices-[[:digit:]].json`]);
-    if(priceFiles.length === 0) {
+    if (priceFiles.length === 0) {
         const filePath = path.join(__dirname, `../${dataPath}/tokenPrices-0.json`);
         pickle(tokenPrices, filePath);
     } else {
@@ -107,10 +107,9 @@ const loadLastUniswapPrices = () => {
 
 const loadITINsFromSymbolsAndITC = (symbols, itcKey, itcVal) => {
     const itsaTokens = loadItsaTokenInfo();
-    symbols = symbols.map(symbol => symbol.toUpperCase());
     const symbolSet = new Set(symbols);
     const _itsaTokensFiltered = itsaTokens.filter(token => token[itcKey].startsWith(itcVal)
-        && symbolSet.has(token.symbol.toUpperCase())).map(token => [token.symbol.toUpperCase(), token.itin]);
+        && symbolSet.has(token.symbol)).map(token => [token.symbol, token.itin]);
     const _itsaTokensSymbolItinMaps = Object.fromEntries(_itsaTokensFiltered);
     // loop through symbols to get itins in the order of components
     const itins = symbols.map(symbol => _itsaTokensSymbolItinMaps[symbol]);
@@ -137,8 +136,8 @@ const queryEthBalance = async (account) => {
     return web3.utils.fromWei(await web3.eth.getBalance(account), 'ether');
 };
 
-const queryTokenBalance = async ({ tokenSymbol, account }) => {
-    const token = _tokenSet[tokenSymbol.toLowerCase()];
+const queryTokenBalance = async ({tokenSymbol, account}) => {
+    const token = _tokenSet[tokenSymbol];
     const tokenContract = new web3.eth.Contract(token.json.abi, token.address);
     return (await tokenContract.methods.balanceOf(account).call());
 };
@@ -150,29 +149,29 @@ const queryIndexBalance = async (account) => {
 };
 
 const queryPairAddress = async (tokenSymbol) => {
-    const token = _tokenSet[tokenSymbol.toLowerCase()];
+    const token = _tokenSet[tokenSymbol];
     const factoryContract = new web3.eth.Contract(UNISWAP_FACTORY_JSON.abi, _allAddrs.uniswapFactory);
-    const pairAddress = await factoryContract.methods.getPair(token.address, _allAddrs.weth).call();
+    const pairAddress = await factoryContract.methods.getPair(token.address, _allAddrs.WETH).call();
     return pairAddress;
 };
 
 const queryReserves = async (tokenSymbol, print = false) => {
-    const symbol = tokenSymbol.toLowerCase();
+    const symbol = tokenSymbol;
     const pairAddr = await queryPairAddress(symbol);
     const pairContract = new web3.eth.Contract(UNISWAP_PAIR_JSON.abi, pairAddr);
     const reserves = await pairContract.methods.getReserves().call();
     let resWeth, resToken;
     if (reserves[0] !== '0' && reserves[1] !== '0') {
         const token0Addr = await pairContract.methods.token0().call();
-        resWeth = reserves[(token0Addr == _allAddrs.weth) ? 0 : 1];
-        resToken = reserves[(token0Addr == _allAddrs.weth) ? 1 : 0];
+        resWeth = reserves[(token0Addr === _allAddrs.WETH) ? 0 : 1];
+        resToken = reserves[(token0Addr === _allAddrs.WETH) ? 1 : 0];
 
         if (print) {
-            const decimals = parseInt(await getContract(CONTRACTS[symbol.toUpperCase()]).methods.decimals().call());
+            const decimals = parseInt(await getContract(CONTRACTS[symbol]).methods.decimals().call());
             const wethOverToken = BN(Ether(resWeth)).div(BN(resToken + '0'.repeat(18 - decimals)));
             const tokenOverweth = BN(resToken + '0'.repeat(18 - decimals)).div(BN(resWeth))
             log.debug('reserve WETH =', web3.utils.fromWei(resWeth) + ' ETH',
-                `, reserve ${symbol} =`, BN(resToken).div(BN('1' + '0'.repeat(decimals))).toString() + ` ${symbol.toUpperCase()}` ,
+                `, reserve ${symbol} =`, BN(resToken).div(BN('1' + '0'.repeat(decimals))).toString() + ` ${symbol}`,
                 `--> price: WETH/${symbol} = ${wethOverToken} and`, `${symbol}/WETH=${tokenOverweth}`);
         }
     } else {
@@ -183,8 +182,8 @@ const queryReserves = async (tokenSymbol, print = false) => {
 
 const _getSwapPathAndRouterContract = (tokenSymbol, eth2Token = true) => {
     if (Object.keys(_tokenSet).length === 0) _tokenSet = assembleTokenSet();
-    const tokenAddr = _tokenSet[tokenSymbol.toLowerCase()].address;
-    const path = eth2Token ? [_allAddrs.weth, tokenAddr] : [tokenAddr, _allAddrs.weth];
+    const tokenAddr = _tokenSet[tokenSymbol].address;
+    const path = eth2Token ? [_allAddrs.WETH, tokenAddr] : [tokenAddr, _allAddrs.WETH];
     const routerContract = getContract(CONTRACTS.UNISWAP_ROUTER);
     return [path, routerContract];
 };
@@ -192,7 +191,7 @@ const _getSwapPathAndRouterContract = (tokenSymbol, eth2Token = true) => {
 const queryUniswapPriceInEth = async (tokenSymbol) => {
     const [path, routerContract] = _getSwapPathAndRouterContract(tokenSymbol, true);
     const amounts = await routerContract.methods.getAmountsOut(Ether('1'), path).call();
-    const decimals = await getContract(CONTRACTS[tokenSymbol.toUpperCase()]).methods.decimals().call();
+    const decimals = await getContract(CONTRACTS[tokenSymbol]).methods.decimals().call();
     return BN(Ether('1')).mul(BN(float2TokenUnits('1', decimals))).div(BN(amounts[1])).toString();
 };
 
@@ -212,7 +211,7 @@ const queryUniswapTokenOut = async (tokenSymbol, amountEth) => {
 
 const queryAllComponentBalancesOfIndexFund = async () => {
     _allAddrs = getAllAddrs();
-    const currentPortfolio = (await getContract(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
+    const currentPortfolio = (await getContract(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call());
     const componentBalanceSet = {};
     for (const symbol of currentPortfolio) {
         componentBalanceSet[symbol] = await getContract(symbol).methods.balanceOf(_allAddrs.indexFund).call();
@@ -223,7 +222,7 @@ const queryAllComponentBalancesOfIndexFund = async () => {
 const queryAllComponentEthsOutOfIndexFund = async () => {
     const componentBalanceSet = await queryAllComponentBalancesOfIndexFund();
     const ethsOut = []
-    for (const [symbol, balance] of Object.entries(componentBalanceSet)){
+    for (const [symbol, balance] of Object.entries(componentBalanceSet)) {
         ethsOut.push([symbol, await queryUniswapEthOut(symbol, balance)])
     }
     return Object.fromEntries(ethsOut);
@@ -242,7 +241,7 @@ const queryEthNav = async (amountsComponent) => {
 
 
 const queryAllComponentAmountsOut = async (amountEthTotal) => {
-    const currentPortfolio = (await getContract(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
+    const currentPortfolio = (await getContract(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call());
     const ethInForEach = BN(amountEthTotal).div(BN(currentPortfolio.length));
     const componentAmountsOut = [];
     for (const componentSymbol of currentPortfolio) {
@@ -255,11 +254,11 @@ const queryAllComponentAmountsOut = async (amountEthTotal) => {
 const queryPortfolioEthOutSum = async (with1EtherEach = false) => {
     _allAddrs = getAllAddrs();
     const fundContract = getContract(CONTRACTS.INDEX_FUND);
-    const currentPortfolio = (await fundContract.methods.getComponentSymbols().call()).map(symbol => symbol.toLowerCase());
+    const currentPortfolio = (await fundContract.methods.getComponentSymbols().call());
     let sum = BN(0);
     let ethOut;
     for (const componentSymbol of currentPortfolio) {
-        const decimals = parseInt(await getContract(CONTRACTS[componentSymbol.toUpperCase()]).methods.decimals().call());
+        const decimals = parseInt(await getContract(CONTRACTS[componentSymbol]).methods.decimals().call());
         if (with1EtherEach) {
             ethOut = await queryUniswapEthOut(componentSymbol, '1' + '0'.repeat(decimals));
         } else {
@@ -292,14 +291,7 @@ const queryUniswapEthOutForTokensOut = async (componentSymbolsOut, componentSymb
 }
 
 
-
-
-
-
-
-
-
-const computeParamertersCommitRebalancing =  async () => {
+const computeParamertersCommitRebalancing = async () => {
     const fundContract = getContract(CONTRACTS.INDEX_FUND);
     const componentSymbols = await fundContract.methods.getComponentSymbols().call();
 
@@ -312,17 +304,17 @@ const computeParamertersCommitRebalancing =  async () => {
     const ethsOutMin = [];
     const cpntsOutMin = [];
     for (let i = 0; i < componentSymbols.length; i++) {
-        const symbol = componentSymbols[i].toLowerCase();
+        const symbol = componentSymbols[i];
         const cpntBalance = await getContract(CONTRACTS[componentSymbols[i]]).methods.balanceOf(_allAddrs.indexFund).call();
         const nav = BN(await queryUniswapEthOut(symbol, cpntBalance));
 
         if (navAverage.lt(nav)) {
-            const path = [_allAddrs[symbol], _allAddrs.weth];
+            const path = [_allAddrs[symbol], _allAddrs.WETH];
             const amountToSell = (await routerContract.methods.getAmountsIn(nav.sub(navAverage), path).call())[0];
             ethsOutMin.push(await queryUniswapEthOut(symbol, amountToSell));
             cpntsOutMin.push('000');
-        } else if(navAverage.gt(nav)) {
-            const path = [_allAddrs.weth, _allAddrs[symbol]];
+        } else if (navAverage.gt(nav)) {
+            const path = [_allAddrs.WETH, _allAddrs[symbol]];
             const amountToBuy = (await routerContract.methods.getAmountsOut(navAverage.sub(nav), path).call())[1];
             ethsOutMin.push('000');
             cpntsOutMin.push(amountToBuy)
@@ -339,7 +331,7 @@ const computeParamertersCommitRebalancing =  async () => {
 
 const calcTokenAmountFromEthAmountAndPoolPrice = (ethAmount, price, decimals) => {
     const unitPrice = BN(Ether('1')).mul(BN(float2TokenUnits('1', decimals))).div(BN(price));
-    const tokenAmount = BN(ethAmount).mul(unitPrice).toString()
+    const tokenAmount = BN(ethAmount).mul(unitPrice).toString();
     return tokenAmount;
 }
 
@@ -390,7 +382,7 @@ const assembleTokenSet = () => {
 };
 
 const filterTokenSet = (tokenSet, excludedTokens = []) => {
-    const filteredTokenSet = { ...tokenSet };
+    const filteredTokenSet = {...tokenSet};
     const _excludedTokens = new Set(excludedTokens);
 
     if (Object.keys(filteredTokenSet).length > 0) {
@@ -411,8 +403,8 @@ const assembleUniswapTokenSet = async () => {
 
     // filter and keep only tokens that we know their addresses
     const knownTokenSet = assembleTokenSet();
-    const knownTokenSymbols = new Set(Object.keys(knownTokenSet).map(sym => sym.toLowerCase()));
-    const knownItsaTokens = itsaTokens.filter(token => knownTokenSymbols.has(token.symbol.toLowerCase()));
+    const knownTokenSymbols = new Set(Object.keys(knownTokenSet));
+    const knownItsaTokens = itsaTokens.filter(token => knownTokenSymbols.has(token.symbol));
 
     /**
      * From Uniswap's docs: The most obvious way to get the address for a pair is to call getPair
@@ -421,10 +413,10 @@ const assembleUniswapTokenSet = async () => {
     const factoryContract = getContract(CONTRACTS.UNISWAP_FACTORY);
     const uniswapTokenSet = {};
     for (const itsaToken of knownItsaTokens) {
-        const sym = itsaToken.symbol.toLowerCase();
-        const poolAddr = await factoryContract.methods.getPair(knownTokenSet[sym].address, _allAddrs.weth).call();
+        const symbol = itsaToken.symbol;
+        const poolAddr = await factoryContract.methods.getPair(knownTokenSet[symbol].address, _allAddrs.WETH).call();
         if (parseInt(poolAddr) !== 0) {
-            uniswapTokenSet[sym] = knownTokenSet[sym];
+            uniswapTokenSet[symbol] = knownTokenSet[symbol];
         }
     }
 
@@ -434,19 +426,19 @@ const assembleUniswapTokenSet = async () => {
 /* ************************************************************************* */
 
 const CONTRACTS = {
-    DAI: "dai",
-    BNB: "bnb",
-    ZRX: "zrx",
-    AAVE: "aave",
-    COMP: "comp",
-    BZRX: "bzrx",
-    CEL: "cel",
-    YFII: "yfii",
-    MKR: "mkr",
-    ENZF: "enzf",
-    YFI: "yfi",
+    DAI: "DAI",
+    BNB: "BNB",
+    ZRX: "ZRX",
+    AAVE: "AAVE",
+    COMP: "COMP",
+    BZRX: "BZRX",
+    CEL: "CEL",
+    YFII: "YFII",
+    MKR: "MKR",
+    ENZF: "ENZF",
+    YFI: "YFI",
 
-    WETH: "weth",
+    WETH: "WETH",
     UNISWAP_FACTORY: "uniswapFactory",
     UNISWAP_ROUTER: "uniswapRouter",
 
@@ -510,14 +502,16 @@ const increaseGanacheBlockTime = async (timeAdvancedInSecs = 60 * 60 * 24 * 2) =
         method: 'evm_increaseTime',
         params: [timeAdvancedInSecs],
         id: new Date().getSeconds()
-    }, () => { });
+    }, () => {
+    });
 
     await web3.currentProvider.send({
         jsonrpc: '2.0',
         method: 'evm_mine',
         params: [],
         id: new Date().getSeconds()
-    }, () => { });
+    }, () => {
+    });
 }
 /* ************************************************************************* */
 
