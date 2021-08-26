@@ -8,3 +8,6 @@ data/*
 !data/tokenPrices-0.json
 test/fixtures/contractAddresses.test.json
 config/.env.secret
+
+client/src/abis
+client/src/data

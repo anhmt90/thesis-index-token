@@ -10,7 +10,8 @@
     "compile": "truffle compile",
     "migrate": "truffle migrate",
     "chain": "ganache-cli --allowUnlimitedContractSize -l 90000000 -d -e 10000",
-    "deploy": "env-cmd -f config/.env node src/deploy.js main",
+    "cp-client": "cp data/contractAddresses.json client/data/addresses/8545.json",
+    "deploy": "env-cmd -f config/.env node src/deploy.js main && ",
     "oracle": "env-cmd -f config/.env node src/oracle/oracle.js",
     "fetchitc": "env-cmd -f config/.env.secret node src/oracle/fetchITSA.js",
     "test": "env-cmd -f config/.env.test mocha --timeout 30000"
