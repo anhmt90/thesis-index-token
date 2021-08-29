@@ -2,21 +2,24 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 
 import reportWebVitals from "./reportWebVitals";
-import App from './components/App';
+import App from './App';
 import getWeb3 from './getWeb3';
+import 'semantic-ui-css/semantic.min.css'
 
-ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
-);
+
+// ReactDOM.render(
+//   <React.StrictMode>
+//     <App />
+//   </React.StrictMode>,
+//   document.getElementById('root')
+// );
+
 
 
 getWeb3().then(web3 => {
     ReactDOM.render(
         <React.StrictMode>
-                <App web3={web3} />
+            <App web3={web3} />
         </React.StrictMode>,
         document.getElementById('root')
     );
