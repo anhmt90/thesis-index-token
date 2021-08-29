@@ -10,14 +10,21 @@
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-scripts": "4.0.3",
+    "semantic-ui-css": "^2.4.1",
+    "semantic-ui-react": "^2.0.3",
     "web-vitals": "^1.0.1",
     "web3": "^1.5.2"
   },
   "scripts": {
+    "eject": "react-scripts eject",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "compile-sol": "truffle compile",
+    "cp-data": "copyfiles --exclude \"../data/*.bak.json\" -f ../data/*.json ./src/data/",
+    "cp-abis": "copyfiles --exclude \"../build/contracts/Migrations.json\" -f ../build/contracts/*.json ./src/abis/",
+    "rm-abis": "rm ./src/abis/*",
+    "recompile": "yarn compile-sol && rm-abis && yarn cp-abis && yarn cp-data"
   },
   "eslintConfig": {
     "extends": [
@@ -36,5 +43,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "copyfiles": "^2.4.1"
   }
 }
