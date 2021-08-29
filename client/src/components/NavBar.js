@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useContext} from 'react';
-import {Menu, Icon, Label, Image, Button} from 'semantic-ui-react';
+import {Menu, Image, Button} from 'semantic-ui-react';
 import AppContext from "../context";
 
 const NavBar = () => {

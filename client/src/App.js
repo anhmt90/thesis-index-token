@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
+import _ from 'lodash';
 
 import AppContext from './context';
 import NavBar from "./components/NavBar";
 
 import addresses from "./data/contractAddresses.json";
+import InvestorPage from "./components/investor/InvestorPage";
 
 
 
 const App = ({ web3 }) => {
-    const indexFundAddress = ''
-
     const [account, setAccount] = useState('');
     const [isAccountChanged, setIsAccountChanged] = useState(false);
     const [isWalletDetected, setIsWalletDetected] = useState(false);
@@ -43,7 +43,7 @@ const App = ({ web3 }) => {
         }}>
             <div style={{ width: '100vw', height: '100vh' }}>
                 <NavBar />
-                <h1>{Object.entries(addresses).map(([k, v]) => v + ', \n')}</h1>
+                <InvestorPage />
             </div>
 
         </AppContext.Provider>
