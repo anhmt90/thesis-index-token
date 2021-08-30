@@ -1,9 +1,8 @@
-import React, {Fragment, useContext, useEffect, useState} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import AppContext from "../context";
-import {Image, List} from "semantic-ui-react";
+import {Header, Icon, Image, List, Segment} from "semantic-ui-react";
 
-import {getContract, CONTRACTS} from '../utils/getContract'
-import allAddrs from "../data/contractAddresses.json";
+import {CONTRACTS, getInstance, getAddress} from '../utils/getContract'
 
 const PortfolioBoard = () => {
     const {web3} = useContext(AppContext);
@@ -13,7 +12,7 @@ const PortfolioBoard = () => {
 
     useEffect(() => {
         const fetchPortfolio = async () => {
-            const indexFundContract = getContract(CONTRACTS.INDEX_FUND, web3);
+            const indexFundContract = getInstance(CONTRACTS.INDEX_FUND);
             const symbols = await indexFundContract.methods.getComponentSymbols().call();
             const addrs = await indexFundContract.methods.getAddressesInPortfolio().call();
             if (symbols) {
@@ -45,9 +44,15 @@ const PortfolioBoard = () => {
     }
 
     return (
-        <List>
-            {displayPortfolio()}
-        </List>
+        <Segment raised>
+            <Header as='h3'>
+                <Icon name='briefcase' />
+                Portfolio
+            </Header>
+            <List>
+                {displayPortfolio()}
+            </List>
+        </Segment>
     )
 }
 

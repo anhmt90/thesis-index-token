@@ -5,26 +5,23 @@ import _ from 'lodash';
 
 import AppContext from "../../context";
 import PortfolioBoard from '../PortfolioBoard';
+import PriceBoard from "../PriceBoard";
 
 const InvestorPage = () => {
     const {web3, account, isWalletDetected} = useContext(AppContext);
 
 
-
-
     return (
         <Fragment>
-            <Grid style={{ margin: '3% auto' }}>
+            <Grid style={{margin: '3% auto'}}>
                 <GridRow>
                     <GridColumn width={6} style={{backgroundColor: 'green'}}>
-                        <Segment raised>
-                            <Header as='h3'>
-                                <Icon name='briefcase' />
-                                Portfolio
-                            </Header>
-                            <PortfolioBoard />
-                        </Segment>
-
+                        <GridRow>
+                            <PortfolioBoard/>
+                        </GridRow>
+                        <GridRow>
+                            <PriceBoard />
+                        </GridRow>
                     </GridColumn>
                     <GridColumn width={10} style={{backgroundColor: 'blue'}}>
 

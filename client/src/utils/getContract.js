@@ -39,7 +39,7 @@ export const CONTRACTS = {
     ORACLE: "oracle",
 };
 
-export const getContract = (contract, web3) => {
+export const getInstance = (contract) => {
     if (!contract) {
         throw new Error("Contract is not defined");
     }
@@ -68,3 +68,11 @@ export const getContract = (contract, web3) => {
             return new web3.eth.Contract(ORACLE_JSON.abi, allAddrs[contract]);
     }
 };
+
+export const getAddress = (contract) => {
+    if (!contract) {
+        throw new Error("Contract is not defined");
+    }
+
+    return allAddrs[contract]
+}
