@@ -8,7 +8,7 @@ import {
     FormField, FormInput, Grid, GridColumn, GridRow, Header, Icon,
     Image,
     Input,
-    Label, List, ListIcon, ListItem,
+    Label, List, ListDescription, ListIcon, ListItem,
     Segment, SegmentGroup
 } from "semantic-ui-react";
 import AppContext from "../../context";
@@ -39,6 +39,17 @@ const InvestorPanel = () => {
         fetchPortfolio();
     }, [])
 
+    useEffect(() => {
+        const expectAmountsOut = async () => {
+            if(capital && capital !== '0') {
+                const amountsOut = await queryAllComponentAmountsOut(web3.utils.toWei(capital));
+                setMinAmountsOut(amountsOut)
+                console.log('amountsOut', amountsOut)
+            }
+        }
+        expectAmountsOut();
+    }, [capital, web3.utils])
+
 
     const handleSubmit = () => {
         if(capital) {
@@ -55,16 +66,20 @@ const InvestorPanel = () => {
     }
 
     function displayMinAmountsOut() {
-
-        return portfolioSymbols.map(symbol => (
-            <List.Item key={symbol}>
-                <Image avatar src='https://react.semantic-ui.com/images/avatar/small/daniel.jpg'/>
-                <List.Content>
-                    <List.Header as='a'>{symbol}</List.Header>
-                </List.Content>
-            </List.Item>
-
-        ))
+        const items = []
+        for (let i = 0; i < portfolioSymbols.length; i++) {
+            const item = (
+                <List.Item key={i}>
+                    <Image avatar src='https://react.semantic-ui.com/images/avatar/small/daniel.jpg'/>
+                    <List.Content>
+                        <List.Header>{portfolioSymbols[i]}</List.Header>
+                        {minAmountsOut.length > 0 && <ListDescription>{minAmountsOut[i]}</ListDescription>}
+                    </List.Content>
+                </List.Item>
+            )
+            items.push(item);
+        }
+        return items;
     }
 
     return (
@@ -128,7 +143,7 @@ const InvestorPanel = () => {
                                 />
                             </FormField>
 
-                            <List horizontal relaxed>
+                            <List horizontal>
                                 {displayMinAmountsOut()}
                             </List>
                         </GridColumn>
