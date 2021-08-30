@@ -44,7 +44,7 @@ const PortfolioBoard = () => {
     }
 
     return (
-        <Segment raised>
+        <Segment>
             <Header as='h3'>
                 <Icon name='briefcase' />
                 Portfolio

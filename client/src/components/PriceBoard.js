@@ -28,7 +28,7 @@ const PriceBoard = () => {
 
 
     return (
-        <Segment raised>
+        <Segment>
             <Header as='h3'>
                 <Icon name='dollar' />
                 Price

@@ -16,7 +16,7 @@ const InvestorPage = () => {
         <Fragment>
             <Grid style={{margin: '3% auto'}}>
                 <GridRow>
-                    <GridColumn width={6} style={{backgroundColor: 'green'}}>
+                    <GridColumn width={6}>
                         <GridRow>
                             <PortfolioBoard/>
                         </GridRow>
@@ -24,7 +24,7 @@ const InvestorPage = () => {
                             <PriceBoard />
                         </GridRow>
                     </GridColumn>
-                    <GridColumn width={10} style={{backgroundColor: 'blue'}}>
+                    <GridColumn width={10}>
                         <InvestorPanel />
                     </GridColumn>
                 </GridRow>

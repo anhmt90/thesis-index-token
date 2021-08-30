@@ -5,7 +5,7 @@ import {
     Container, Divider,
     Form, FormButton,
     FormCheckbox,
-    FormField, Grid, GridColumn, GridRow, Header, Icon,
+    FormField, FormInput, Grid, GridColumn, GridRow, Header, Icon,
     Image,
     Input,
     Label, List, ListIcon, ListItem,
@@ -41,11 +41,13 @@ const InvestorPanel = () => {
 
 
     const handleSubmit = () => {
-        indexFundContract.current.methods.buy([]).send({
-            from: account,
-            value: capital,
-            gas: '3000000'
-        })
+        if(capital) {
+            indexFundContract.current.methods.buy([]).send({
+                from: account,
+                value: web3.utils.toWei(capital),
+                gas: '3000000'
+            })
+        }
     }
 
     const handleChange = (_capital) => {
@@ -55,7 +57,7 @@ const InvestorPanel = () => {
     function displayMinAmountsOut() {
 
         return portfolioSymbols.map(symbol => (
-            <List.Item>
+            <List.Item key={symbol}>
                 <Image avatar src='https://react.semantic-ui.com/images/avatar/small/daniel.jpg'/>
                 <List.Content>
                     <List.Header as='a'>{symbol}</List.Header>
@@ -67,10 +69,10 @@ const InvestorPanel = () => {
     }
 
     return (
-        <Segment>
+        <Segment raised>
             <Container style={{width: '50%', marginBottom: '20px'}}>
                 <ButtonGroup fluid>
-                    <Button color={isBuy && 'purple'}>Buy</Button>
+                    <Button color={isBuy && 'purple'}>Purchase</Button>
                     <Button color={!isBuy && 'purple'}>Redeem</Button>
                 </ButtonGroup>
             </Container>
@@ -81,9 +83,7 @@ const InvestorPanel = () => {
                         value={capital}
                         // label={{ content: label, color: 'purple', basic: 'true' }}
                         placeholder='Investment Capital'
-                        onChange={e => {
-                            handleChange(e.target.value);
-                        }}
+                        onChange={e => {handleChange(e.target.value);}}
                         type='number'
                         size='large'
                         iconPosition='left'
@@ -110,6 +110,14 @@ const InvestorPanel = () => {
                                     </ListItem>
                                 </List>
                             </Header>
+                            <FormField>
+                                <Input
+                                    type={'number'}
+                                    label={{ basic: true, content: '%' }}
+                                    labelPosition='right'
+                                    placeholder='Enter percentage...'
+                                />
+                            </FormField>
 
                             <List horizontal relaxed>
                                 {displayMinAmountsOut()}
@@ -118,12 +126,10 @@ const InvestorPanel = () => {
                         <GridColumn width={5}>
                             <FormField>
                                 <Header as='h4'>
-                                    {/*<Icon name='calculator' size='mini'/>*/}
                                     Estimations
                                 </Header>
                                 <List style={{paddingLeft: '15%'}}>
                                     <List.Item>
-                                        {/*<Image avatar src='../images/DFAM.jpg' size='mini'/>*/}
                                         <Image avatar src='../images/DFAM.jpg'/>
                                         <List.Content verticalAlign='middle'>
                                             <Label basic circular color='green' size='large'>
@@ -146,7 +152,11 @@ const InvestorPanel = () => {
                     </GridRow>
                     <GridRow>
                         <GridColumn textAlign='center'>
-                            <FormButton basic color='purple' style={{width: '50%', margin: '0 auto'}}>
+                            <FormButton
+                                color='purple'
+                                style={{width: '75%', margin: '0 auto'}}
+                                onClick={handleSubmit}
+                            >
                                 Buy
                                 <Icon name='right arrow'/>
                             </FormButton>
