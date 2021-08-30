@@ -35,4 +35,12 @@ const getWeb3 = async () => {
     return web3;
 };
 
+export let BN;
+export let web3;
+getWeb3().then(_web3 => {
+    BN = _web3.utils.toBN
+    web3 = _web3
+});
+
+
 export default getWeb3;

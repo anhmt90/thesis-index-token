@@ -1,6 +1,6 @@
 import React, {useContext, useEffect, useRef, useState} from 'react';
 import AppContext from "../context";
-import {Header, Icon, Image, List, Segment} from "semantic-ui-react";
+import {Header, Icon, Segment} from "semantic-ui-react";
 
 import {CONTRACTS, getInstance} from '../utils/getContract'
 
@@ -10,14 +10,16 @@ const PriceBoard = () => {
     const [supply, setSupply] = useState('');
     const [indexPrice, setIndexPrice] = useState('');
 
+    const indexFundContract = useRef(getInstance(CONTRACTS.INDEX_FUND));
+    const dfamContract = useRef(getInstance(CONTRACTS.INDEX_TOKEN));
+
 
     useEffect(() => {
-        const indexFundContract = getInstance(CONTRACTS.INDEX_FUND);
-        const dfamContract = getInstance(CONTRACTS.INDEX_TOKEN);
+
         console.log("supply (before): ", supply)
         const fetchPrice = async () => {
-            const supply = await dfamContract.methods.totalSupply().call();
-            const price = await indexFundContract.methods.getIndexPrice().call();
+            const supply = await dfamContract.current.methods.totalSupply().call();
+            const price = await indexFundContract.current.methods.getIndexPrice().call();
             setSupply(supply);
             setIndexPrice(price);
         }

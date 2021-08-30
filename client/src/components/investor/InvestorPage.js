@@ -6,6 +6,7 @@ import _ from 'lodash';
 import AppContext from "../../context";
 import PortfolioBoard from '../PortfolioBoard';
 import PriceBoard from "../PriceBoard";
+import InvestorPanel from "./InvestorPanel";
 
 const InvestorPage = () => {
     const {web3, account, isWalletDetected} = useContext(AppContext);
@@ -24,7 +25,7 @@ const InvestorPage = () => {
                         </GridRow>
                     </GridColumn>
                     <GridColumn width={10} style={{backgroundColor: 'blue'}}>
-
+                        <InvestorPanel />
                     </GridColumn>
                 </GridRow>
             </Grid>

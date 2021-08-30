@@ -1,4 +1,4 @@
-import getWeb3 from '../getWeb3';
+import getWeb3, {web3} from '../getWeb3';
 import indexFund from '../abis/IndexFund.json';
 
 import allAddrs from "../data/contractAddresses.json";
@@ -15,10 +15,12 @@ const DFAM_JSON = require('../abis/DFAM.json');
 const ORACLE_JSON = require('../abis/Oracle.json');
 const INDEX_FUND_JSON = require('../abis/IndexFund.json');
 
-
-let web3;
-getWeb3().then(_web3 => web3 = _web3);
-
+// export let BN;
+// export let web3;
+// export const web3 = getWeb3().then(_web3 => {
+//     BN = _web3.utils.toBN
+//     return _web3
+// });
 
 export const CONTRACTS = {
     AAVE: "AAVE",
@@ -76,3 +78,7 @@ export const getAddress = (contract) => {
 
     return allAddrs[contract]
 }
+
+// module.exports = {
+//     web3
+// }
