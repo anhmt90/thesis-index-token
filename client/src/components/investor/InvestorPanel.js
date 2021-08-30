@@ -1,15 +1,15 @@
 import {useContext, useEffect, useRef, useState} from "react";
 import {
     Button,
-    ButtonGroup,
-    Container,
+    ButtonGroup, Checkbox,
+    Container, Divider,
     Form, FormButton,
     FormCheckbox,
-    FormField, Header, Icon,
+    FormField, Grid, GridColumn, GridRow, Header, Icon,
     Image,
     Input,
-    Label, List, ListIcon,
-    Segment
+    Label, List, ListIcon, ListItem,
+    Segment, SegmentGroup
 } from "semantic-ui-react";
 import AppContext from "../../context";
 import {CONTRACTS, getInstance} from "../../utils/getContract";
@@ -74,72 +74,88 @@ const InvestorPanel = () => {
                     <Button color={!isBuy && 'purple'}>Redeem</Button>
                 </ButtonGroup>
             </Container>
-            <Container>
-                <Form onSubmit={handleSubmit}>
-                    <FormField>
-                        <Input
-                            value={capital}
-                            // label={{ content: label, color: 'purple', basic: 'true' }}
-                            placeholder='Investment Capital'
-                            onChange={e => {
-                                handleChange(e.target.value);
-                            }}
-                            size='large'
-                            type='number'
-                            iconPosition='left'
-                            icon='ethereum'
 
-                            // actionPosition='right'
-                            // action={{
-                            //     color: 'purple',
-                            //     icon: 'arrow right',
-                            //     size: 'big'
-                            // }}
-                        />
-                    </FormField>
-                    <FormField>
-                        <FormCheckbox toggle label='Activate Front-running Prevention'/>
-                        <List horizontal relaxed>
-                            {displayMinAmountsOut()}
-                        </List>
-                    </FormField>
-                    <FormField>
-                        <Segment padded style={{width: '50%', margin: '0 auto'}}>
-                            <Header as='h3'>
-                                {/*<Icon name='calculator' />*/}
-                                Estimation
+            <Form onSubmit={handleSubmit}>
+                <FormField>
+                    <Input
+                        value={capital}
+                        // label={{ content: label, color: 'purple', basic: 'true' }}
+                        placeholder='Investment Capital'
+                        onChange={e => {
+                            handleChange(e.target.value);
+                        }}
+                        type='number'
+                        size='large'
+                        iconPosition='left'
+                        icon='ethereum'
+
+                        // actionPosition='right'
+                        // action={{
+                        //     color: 'purple',
+                        //     icon: 'arrow right',
+                        //     size: 'big'
+                        // }}
+                    />
+                </FormField>
+                <Grid divided>
+                    <GridRow>
+                        <GridColumn width={11}>
+                            <Header as='h4'>
+                                <List horizontal>
+                                    <ListItem>
+                                        <Header as='h4' content='Front-running Prevention'/>
+                                    </ListItem>
+                                    <ListItem>
+                                        <Checkbox toggle label='&nbsp;' />
+                                    </ListItem>
+                                </List>
                             </Header>
-                            <List relaxed>
-                                <List.Item>
-                                    {/*<Image avatar src='../images/DFAM.jpg' size='mini'/>*/}
-                                    <Image avatar src='../images/DFAM.jpg'/>
-                                    <List.Content verticalAlign='middle'>
-                                        <Label basic circular color='green' size='large'>
-                                            {999} DFAM
-                                        </Label>
-                                    </List.Content>
-                                </List.Item>
-                                <List.Item>
-                                    {/*<Image avatar src='https://react.semantic-ui.com/images/avatar/small/stevie.jpg' />*/}
-                                    <ListIcon name='gripfire' size='big' color='blue' />
-                                    <List.Content verticalAlign='middle'>
-                                        <Label basic circular color='blue' size='large'>
-                                            {3000000} Gas used
-                                        </Label>
-                                    </List.Content>
-                                </List.Item>
-                            </List>
-                        </Segment>
-                    </FormField>
 
-                    <FormField style={{width: '75%', margin: '0 auto'}}>
-                        <FormButton primary style={{width: '100%', margin: '0 auto'}}>
-                            Buy
-                            <Icon name='right arrow' />
-                        </FormButton>
-                    </FormField>
-                </Form>
-            </Container>
+                            <List horizontal relaxed>
+                                {displayMinAmountsOut()}
+                            </List>
+                        </GridColumn>
+                        <GridColumn width={5}>
+                            <FormField>
+                                <Header as='h4'>
+                                    {/*<Icon name='calculator' size='mini'/>*/}
+                                    Estimations
+                                </Header>
+                                <List style={{paddingLeft: '15%'}}>
+                                    <List.Item>
+                                        {/*<Image avatar src='../images/DFAM.jpg' size='mini'/>*/}
+                                        <Image avatar src='../images/DFAM.jpg'/>
+                                        <List.Content verticalAlign='middle'>
+                                            <Label basic circular color='green' size='large'>
+                                                {999} DFAM
+                                            </Label>
+                                        </List.Content>
+                                    </List.Item>
+                                    <List.Item>
+                                        {/*<Image avatar src='https://react.semantic-ui.com/images/avatar/small/stevie.jpg' />*/}
+                                        <ListIcon name='gripfire' size='big' color='blue'/>
+                                        <List.Content verticalAlign='middle'>
+                                            <Label basic circular color='blue' size='large'>
+                                                {3000000} Gas used
+                                            </Label>
+                                        </List.Content>
+                                    </List.Item>
+                                </List>
+                            </FormField>
+                        </GridColumn>
+                    </GridRow>
+                    <GridRow>
+                        <GridColumn textAlign='center'>
+                            <FormButton basic color='purple' style={{width: '50%', margin: '0 auto'}}>
+                                Buy
+                                <Icon name='right arrow'/>
+                            </FormButton>
+                        </GridColumn>
+                    </GridRow>
+                </Grid>
+
+
+            </Form>
         </Segment>
     )
 }
