@@ -24,7 +24,7 @@ const NavBar = () => {
         if (window.ethereum) {
             return !isWalletDetected && !account ?
                 <Button className='connect-metamask' onClick={handleConnect}>No wallet detected</Button>
-                : account;
+                : account.substring(0, 8) + '...' + account.substring(36);
         } else {
             return <Button className='connect-metamask' onClick={handleInstall}>Install MetaMask</Button>;
         }
@@ -91,11 +91,11 @@ const NavBar = () => {
 
                 <Menu.Menu position='right'>
                     <Menu.Item>
-                        <span>Network: {renderNetworkLabel()}</span>
+                        <span>{renderNetworkLabel()}</span>
                     </Menu.Item>
 
                     <Menu.Item>
-                        <span>Wallet: {renderMetaMaskLabel()}</span>
+                        <span>{renderMetaMaskLabel()}</span>
                     </Menu.Item>
 
                 </Menu.Menu>
