@@ -1,10 +1,13 @@
-import React, {useState, useEffect, useContext} from 'react';
-import {Menu, Image, Button} from 'semantic-ui-react';
+import React, {useState, useEffect, useContext, useRef} from 'react';
+import {Menu, Image, Button, List, ListItem, ListContent, Label} from 'semantic-ui-react';
 import AppContext from "../context";
+import {CONTRACTS, getInstance} from "../utils/getContract";
 
 const NavBar = () => {
     const {web3, account, isWalletDetected} = useContext(AppContext);
     const [networkId, setNetworkId] = useState('');
+    const [indexBalance, setIndexBalance] = useState('');
+    const dfamContract = useRef(getInstance(CONTRACTS.INDEX_TOKEN));
 
     useEffect(() => {
         (async () => {
@@ -14,6 +17,15 @@ const NavBar = () => {
             }
         })();
     }, [networkId, web3.eth.net]);
+
+    useEffect(() => {
+        (async () => {
+            if(account){
+                const balance = await dfamContract.current.methods.balanceOf(account).call();
+                setIndexBalance(balance)
+            }
+        })();
+    }, [account]);
 
     //if metamask is installed but not connected
     const handleConnect = () => {
@@ -39,7 +51,6 @@ const NavBar = () => {
     };
 
     const renderNetworkLabel = () => {
-        console.log(networkId);
         let network = '';
         switch (networkId) {
             case 1:
@@ -74,14 +85,13 @@ const NavBar = () => {
         }
     }
 
-
     return (
         <div className='navbar'>
-            <Menu size='massive'  style={{borderRadius: '0px', alignItems: 'center'}}>
+            <Menu size='massive' style={{borderRadius: '0px', alignItems: 'center'}}>
 
 
-                <Menu.Header style={{ padding: '10px 30px'}}>
-                    <Image src='../images/DFAM.jpg' wrapped size={'tiny'} style={{height: '35px'}}  />
+                <Menu.Header style={{padding: '10px 30px'}}>
+                    <Image src='../images/DFAM.jpg' wrapped size={'tiny'} style={{height: '35px'}}/>
                 </Menu.Header>
 
 
@@ -96,6 +106,12 @@ const NavBar = () => {
 
                     <Menu.Item>
                         <span>{renderMetaMaskLabel()}</span>
+                    </Menu.Item>
+
+                    <Menu.Item>
+                        <b>{web3.utils.fromWei(indexBalance)}</b>
+                        &nbsp;
+                        <Image avatar src='../images/DFAM.jpg' style={{width: '25px', height: '25px'}}/>
                     </Menu.Item>
 
                 </Menu.Menu>
