@@ -15,20 +15,20 @@ const PriceBoard = () => {
 
 
     useEffect(() => {
-
         console.log("supply (before): ", supply)
+        console.log("indexPrice (before): ", indexPrice)
         const fetchPrice = async () => {
             const supply = await dfamContract.current.methods.totalSupply().call();
             const price = await indexFundContract.current.methods.getIndexPrice().call();
             setSupply(supply);
             setIndexPrice(price);
         }
-        fetchPrice().then(r => console.log("r: ", r));
-    }, [supply])
+        fetchPrice();
+    }, [supply, indexPrice])
 
 
     return (
-        <Segment>
+        <Segment padded>
             <Header as='h3'>
                 <Icon name='dollar' />
                 Price

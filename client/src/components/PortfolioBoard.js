@@ -29,7 +29,7 @@ const PortfolioBoard = () => {
         const items = []
         for (let i = 0; i < portfolioSymbols.length; i++) {
             const item = (
-                <List.Item>
+                <List.Item key={i}>
                     <Image avatar src='https://react.semantic-ui.com/images/avatar/small/rachel.png'/>
                     <List.Content>
                         <List.Header as='a'>{portfolioSymbols[i]}</List.Header>
@@ -44,7 +44,7 @@ const PortfolioBoard = () => {
     }
 
     return (
-        <Segment>
+        <Segment padded>
             <Header as='h3'>
                 <Icon name='briefcase' />
                 Portfolio

@@ -65,11 +65,10 @@ const InvestorPanel = () => {
             </List.Item>
 
         ))
-
     }
 
     return (
-        <Segment raised>
+        <Segment raised padded>
             <Container style={{width: '50%', marginBottom: '20px'}}>
                 <ButtonGroup fluid>
                     <Button color={isBuy && 'purple'}>Purchase</Button>
@@ -77,33 +76,42 @@ const InvestorPanel = () => {
                 </ButtonGroup>
             </Container>
 
-            <Form onSubmit={handleSubmit}>
+            <Form style={{marginTop: '5%'}}>
                 <FormField>
+                    <Header as='h4'>
+                        <Icon name='money bill alternate outline' />
+                        Investment Capital
+                    </Header>
                     <Input
                         value={capital}
-                        // label={{ content: label, color: 'purple', basic: 'true' }}
-                        placeholder='Investment Capital'
+                        placeholder='0.00'
                         onChange={e => {handleChange(e.target.value);}}
                         type='number'
+                        step='any'
                         size='large'
                         iconPosition='left'
                         icon='ethereum'
 
-                        // actionPosition='right'
-                        // action={{
-                        //     color: 'purple',
-                        //     icon: 'arrow right',
-                        //     size: 'big'
+                        // labelPosition='left'
+                        // label={{
+                        //     basic: true,
+                        //     icon: 'ethereum',
+                        //     iconPosition: 'right',
+                        //     content: 'Investment Capital',
                         // }}
                     />
                 </FormField>
-                <Grid divided>
+
+                <Grid divided style={{marginTop: '5%'}}>
                     <GridRow>
                         <GridColumn width={11}>
                             <Header as='h4'>
                                 <List horizontal>
                                     <ListItem>
-                                        <Header as='h4' content='Front-running Prevention'/>
+                                        <Header as='h4'>
+                                            <Icon name='shield' />
+                                            Front-running Prevention
+                                        </Header>
                                     </ListItem>
                                     <ListItem>
                                         <Checkbox toggle label='&nbsp;' />
@@ -112,10 +120,11 @@ const InvestorPanel = () => {
                             </Header>
                             <FormField>
                                 <Input
-                                    type={'number'}
+                                    type='number'
                                     label={{ basic: true, content: '%' }}
                                     labelPosition='right'
                                     placeholder='Enter percentage...'
+                                    style={{width: '35%'}}
                                 />
                             </FormField>
 
@@ -126,6 +135,7 @@ const InvestorPanel = () => {
                         <GridColumn width={5}>
                             <FormField>
                                 <Header as='h4'>
+                                    <Icon name='calculator' />
                                     Estimations
                                 </Header>
                                 <List style={{paddingLeft: '15%'}}>
@@ -154,7 +164,7 @@ const InvestorPanel = () => {
                         <GridColumn textAlign='center'>
                             <FormButton
                                 color='purple'
-                                style={{width: '75%', margin: '0 auto'}}
+                                style={{width: '75%', margin: '5% auto'}}
                                 onClick={handleSubmit}
                             >
                                 Buy

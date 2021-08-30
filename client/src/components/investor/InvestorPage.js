@@ -17,7 +17,7 @@ const InvestorPage = () => {
             <Grid style={{margin: '3% auto'}}>
                 <GridRow>
                     <GridColumn width={6}>
-                        <GridRow>
+                        <GridRow style={{marginBottom: '5%'}}>
                             <PortfolioBoard/>
                         </GridRow>
                         <GridRow>
