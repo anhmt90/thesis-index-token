@@ -1,4 +1,4 @@
-import {useContext, useEffect, useRef, useState} from "react";
+import {Fragment, useContext, useEffect, useRef, useState} from "react";
 import {
     Button,
     ButtonGroup, Checkbox,
@@ -14,6 +14,8 @@ import {
 import AppContext from "../../context";
 import {CONTRACTS, getInstance} from "../../utils/getContract";
 import {queryAllComponentAmountsOut} from "../../utils/queryAmountsOut";
+import {estimateMintedDFAM} from "../../utils/estimations";
+import {fromWei, toWei} from "../../getWeb3";
 
 
 const InvestorPanel = () => {
@@ -21,7 +23,7 @@ const InvestorPanel = () => {
 
     const [isBuy, setIsBuy] = useState(true);
     const [capital, setCapital] = useState(null);
-    const [isValidInput, setIsValidInput] = useState(true);
+    const [estimationDFAM, setEstimationDFAM] = useState('0');
     const [minAmountsOut, setMinAmountsOut] = useState([]);
 
     const indexFundContract = useRef(getInstance(CONTRACTS.INDEX_FUND));
@@ -41,21 +43,21 @@ const InvestorPanel = () => {
 
     useEffect(() => {
         const expectAmountsOut = async () => {
-            if(capital && capital !== '0') {
-                const amountsOut = await queryAllComponentAmountsOut(web3.utils.toWei(capital));
+            if (capital && capital !== '0') {
+                const amountsOut = await queryAllComponentAmountsOut(toWei(capital));
                 setMinAmountsOut(amountsOut)
                 console.log('amountsOut', amountsOut)
             }
         }
         expectAmountsOut();
-    }, [capital, web3.utils])
+    }, [capital])
 
 
     const handleSubmit = () => {
-        if(capital) {
+        if (capital) {
             indexFundContract.current.methods.buy([]).send({
                 from: account,
-                value: web3.utils.toWei(capital),
+                value: toWei(capital),
                 gas: '3000000'
             })
         }
@@ -63,13 +65,22 @@ const InvestorPanel = () => {
 
     const handleChange = (_capital) => {
         setCapital(_capital)
+        if(_capital && parseFloat(_capital) > 0.00) {
+            estimateMintedDFAM(toWei(_capital)).then(estimation => {
+                console.log('DFAM estimation: ', estimation)
+                setEstimationDFAM(estimation)
+            })
+        } else {
+            setEstimationDFAM('0')
+        }
+
     }
 
     function displayMinAmountsOut() {
         const items = []
         for (let i = 0; i < portfolioSymbols.length; i++) {
             const item = (
-                <List.Item key={i}>
+                <List.Item key={i} style={{paddingLeft: '100px!important'}}>
                     <Image avatar src='https://react.semantic-ui.com/images/avatar/small/daniel.jpg'/>
                     <List.Content>
                         <List.Header>{portfolioSymbols[i]}</List.Header>
@@ -83,115 +94,123 @@ const InvestorPanel = () => {
     }
 
     return (
-        <Segment raised padded>
-            <Container style={{width: '50%', marginBottom: '20px'}}>
-                <ButtonGroup fluid>
-                    <Button color={isBuy && 'purple'}>Purchase</Button>
-                    <Button color={!isBuy && 'purple'}>Redeem</Button>
-                </ButtonGroup>
-            </Container>
+        <Fragment>
+            <ButtonGroup fluid attached='top'>
+                <Button color={isBuy && 'purple'}>Purchase</Button>
+                <Button color={!isBuy && 'purple'}>Redeem</Button>
+            </ButtonGroup>
+            <Segment raised padded attached color='purple'>
+                {/*<Container style={{width: '50%', marginBottom: '20px'}}>*/}
+                {/*    <ButtonGroup fluid>*/}
+                {/*        <Button color={isBuy && 'purple'}>Purchase</Button>*/}
+                {/*        <Button color={!isBuy && 'purple'}>Redeem</Button>*/}
+                {/*    </ButtonGroup>*/}
+                {/*</Container>*/}
 
-            <Form style={{marginTop: '5%'}}>
-                <FormField>
-                    <Header as='h4'>
-                        <Icon name='money bill alternate outline' />
-                        Investment Capital
-                    </Header>
-                    <Input
-                        value={capital}
-                        placeholder='0.00'
-                        onChange={e => {handleChange(e.target.value);}}
-                        type='number'
-                        step='any'
-                        size='large'
-                        iconPosition='left'
-                        icon='ethereum'
+                <Form style={{marginTop: '5%'}}>
+                    <FormField>
+                        <Header as='h4'>
+                            <Icon name='money bill alternate outline'/>
+                            Investment Capital
+                        </Header>
+                        <Input
+                            value={capital}
+                            placeholder='0.00'
+                            onChange={e => {
+                                handleChange(e.target.value);
+                            }}
+                            type='number'
+                            step='any'
+                            size='large'
+                            iconPosition='left'
+                            icon='ethereum'
 
-                        // labelPosition='left'
-                        // label={{
-                        //     basic: true,
-                        //     icon: 'ethereum',
-                        //     iconPosition: 'right',
-                        //     content: 'Investment Capital',
-                        // }}
-                    />
-                </FormField>
+                            // labelPosition='left'
+                            // label={{
+                            //     basic: true,
+                            //     icon: 'ethereum',
+                            //     iconPosition: 'right',
+                            //     content: 'Investment Capital',
+                            // }}
+                        />
+                    </FormField>
 
-                <Grid divided style={{marginTop: '5%'}}>
-                    <GridRow>
-                        <GridColumn width={11}>
-                            <Header as='h4'>
-                                <List horizontal>
-                                    <ListItem>
-                                        <Header as='h4'>
-                                            <Icon name='shield' />
-                                            Front-running Prevention
-                                        </Header>
-                                    </ListItem>
-                                    <ListItem>
-                                        <Checkbox toggle label='&nbsp;' />
-                                    </ListItem>
-                                </List>
-                            </Header>
-                            <FormField>
-                                <Input
-                                    type='number'
-                                    label={{ basic: true, content: '%' }}
-                                    labelPosition='right'
-                                    placeholder='Enter percentage...'
-                                    style={{width: '35%'}}
-                                />
-                            </FormField>
-
-                            <List horizontal>
-                                {displayMinAmountsOut()}
-                            </List>
-                        </GridColumn>
-                        <GridColumn width={5}>
-                            <FormField>
+                    <Grid divided style={{marginTop: '5%'}}>
+                        <GridRow>
+                            <GridColumn width={10} style={{paddingRight: '30px'}}>
                                 <Header as='h4'>
-                                    <Icon name='calculator' />
-                                    Estimations
+                                    <List horizontal>
+                                        <ListItem>
+                                            <Header as='h4'>
+                                                <Icon name='shield'/>
+                                                Front-running Prevention
+                                            </Header>
+                                        </ListItem>
+                                        <ListItem>
+                                            <Checkbox toggle label='&nbsp;'/>
+                                        </ListItem>
+                                    </List>
                                 </Header>
-                                <List style={{paddingLeft: '15%'}}>
-                                    <List.Item>
-                                        <Image avatar src='../images/DFAM.jpg'/>
-                                        <List.Content verticalAlign='middle'>
-                                            <Label basic circular color='green' size='large'>
-                                                {999} DFAM
-                                            </Label>
-                                        </List.Content>
-                                    </List.Item>
-                                    <List.Item>
-                                        {/*<Image avatar src='https://react.semantic-ui.com/images/avatar/small/stevie.jpg' />*/}
-                                        <ListIcon name='gripfire' size='big' color='blue'/>
-                                        <List.Content verticalAlign='middle'>
-                                            <Label basic circular color='blue' size='large'>
-                                                {3000000} Gas used
-                                            </Label>
-                                        </List.Content>
-                                    </List.Item>
+                                <FormField>
+                                    <Input
+                                        type='number'
+                                        label={{basic: true, content: '%'}}
+                                        labelPosition='right'
+                                        placeholder='Enter percentage...'
+                                        style={{width: '35%'}}
+                                    />
+                                </FormField>
+
+                                <List horizontal relaxed>
+                                    {displayMinAmountsOut()}
                                 </List>
-                            </FormField>
-                        </GridColumn>
-                    </GridRow>
-                    <GridRow>
-                        <GridColumn textAlign='center'>
-                            <FormButton
-                                color='purple'
-                                style={{width: '75%', margin: '5% auto'}}
-                                onClick={handleSubmit}
-                            >
-                                Buy
-                                <Icon name='right arrow'/>
-                            </FormButton>
-                        </GridColumn>
-                    </GridRow>
-                </Grid>
+                            </GridColumn>
+                            <GridColumn width={6} style={{paddingLeft: '30px'}}>
+                                <FormField>
+                                    <Header as='h4'>
+                                        <Icon name='calculator'/>
+                                        Estimations
+                                    </Header>
+                                    <List style={{paddingLeft: '15%'}}>
+                                        <List.Item>
+                                            <Image avatar src='../images/DFAM.jpg'/>
+                                            <List.Content verticalAlign='middle'>
+                                                <Label basic circular color='green' size='large'>
+                                                    {fromWei(estimationDFAM)}
+                                                </Label>
+                                            </List.Content>
+                                        </List.Item>
+                                        <List.Item>
+                                            {/*<Image avatar src='https://react.semantic-ui.com/images/avatar/small/stevie.jpg' />*/}
+                                            <ListIcon name='gripfire' size='big' color='blue'/>
+                                            <List.Content verticalAlign='middle'>
+                                                <Label basic circular color='blue' size='large'>
+                                                    {3000000} Gas used
+                                                </Label>
+                                            </List.Content>
+                                        </List.Item>
+                                    </List>
+                                </FormField>
+                            </GridColumn>
+                        </GridRow>
+                        <GridRow>
+                            <GridColumn textAlign='center'>
+                                <FormButton
+                                    color='purple'
+                                    style={{width: '50%', margin: '5% auto'}}
+                                    onClick={handleSubmit}
+                                >
+                                    Buy
+                                    <Icon name='right arrow'/>
+                                </FormButton>
+                            </GridColumn>
+                        </GridRow>
+                    </Grid>
 
 
-            </Form>
-        </Segment>
+                </Form>
+            </Segment>
+        </Fragment>
     )
 }
 

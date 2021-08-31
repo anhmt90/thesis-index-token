@@ -37,10 +37,15 @@ const getWeb3 = async () => {
 
 export let BN;
 export let web3;
+export let toWei;
+export let fromWei;
+
 getWeb3().then(_web3 => {
     BN = _web3.utils.toBN
     web3 = _web3
-});
+    toWei = web3.utils.toWei;
+    fromWei = web3.utils.fromWei;
 
+});
 
 export default getWeb3;

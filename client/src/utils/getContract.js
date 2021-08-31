@@ -1,4 +1,4 @@
-import getWeb3, {web3} from '../getWeb3';
+import {web3} from '../getWeb3';
 import indexFund from '../abis/IndexFund.json';
 
 import allAddrs from "../data/contractAddresses.json";
@@ -9,18 +9,11 @@ const ERC20_INSTANCE_JSON = require(`../abis/ERC20Instance.json`);
 const WETH_JSON = require('@uniswap/v2-periphery/build/WETH9.json');
 const UNISWAP_FACTORY_JSON = require('@uniswap/v2-core/build/UniswapV2Factory.json');
 const UNISWAP_ROUTER_JSON = require('@uniswap/v2-periphery/build/UniswapV2Router02.json');
-const UNISWAP_PAIR_JSON = require('@uniswap/v2-core/build/UniswapV2Pair.json');
 
 const DFAM_JSON = require('../abis/DFAM.json');
 const ORACLE_JSON = require('../abis/Oracle.json');
 const INDEX_FUND_JSON = require('../abis/IndexFund.json');
 
-// export let BN;
-// export let web3;
-// export const web3 = getWeb3().then(_web3 => {
-//     BN = _web3.utils.toBN
-//     return _web3
-// });
 
 export const CONTRACTS = {
     AAVE: "AAVE",
