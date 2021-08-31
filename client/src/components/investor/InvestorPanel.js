@@ -38,18 +38,6 @@ const InvestorPanel = () => {
     const indexFundContract = useRef(getInstance(CONTRACTS.INDEX_FUND));
     const dfamContract = useRef(getInstance(CONTRACTS.INDEX_TOKEN));
 
-    // const [portfolioSymbols, setPortfolioSymbols] = useState([]);
-
-    // useEffect(() => {
-    //     const fetchPortfolio = async () => {
-    //         const symbols = await indexFundContract.current.methods.getComponentSymbols().call();
-    //         if (symbols) {
-    //             setPortfolioSymbols(symbols);
-    //         }
-    //     }
-    //     fetchPortfolio();
-    // }, [])
-
     useEffect(() => {
         const expectAmountsOut = async () => {
             if (capital && capital !== '0') {

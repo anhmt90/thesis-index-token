@@ -6,6 +6,7 @@ import NavBar from "./components/NavBar";
 
 import addresses from "./data/contractAddresses.json";
 import InvestorPage from "./components/investor/InvestorPage";
+import {CONTRACTS, getInstance} from "./utils/getContract";
 
 
 
@@ -14,7 +15,11 @@ const App = ({ web3 }) => {
     const [isAccountChanged, setIsAccountChanged] = useState(false);
     const [isWalletDetected, setIsWalletDetected] = useState(false);
 
+    const [networkId, setNetworkId] = useState('');
+    const [indexBalance, setIndexBalance] = useState('');
+
     const [portfolio, setPortfolio] = useState([]);
+    const [portfolioAddrs, setPortfolioAddrs] = useState([]);
 
 
     useEffect(() => {
@@ -33,8 +38,43 @@ const App = ({ web3 }) => {
             window.ethereum.on('chainChanged', (_chainId) => window.location.reload());
         }
 
-        detectAccount().then(r => null);
+        detectAccount();
     },[web3.utils, web3.eth])
+
+    useEffect(() => {
+        const detectNetwork = async () => {
+            if (window.ethereum) {
+                const networkId = await web3.eth.net.getId();
+                setNetworkId(networkId);
+            }
+        };
+        detectNetwork();
+    }, [networkId, web3.eth.net]);
+
+    useEffect(() => {
+        const queryDFAMBalance = async () => {
+            if(account){
+                const balance = await getInstance(CONTRACTS.INDEX_TOKEN).methods.balanceOf(account).call();
+                setIndexBalance(balance)
+            }
+        };
+        queryDFAMBalance();
+    }, [account]);
+
+    useEffect(() => {
+        const fetchPortfolio = async () => {
+            const indexFundContract = getInstance(CONTRACTS.INDEX_FUND);
+            const symbols = await indexFundContract.methods.getComponentSymbols().call();
+            const addrs = await indexFundContract.methods.getAddressesInPortfolio().call();
+            if (symbols) {
+                setPortfolio(symbols);
+            }
+            if (addrs) {
+                setPortfolioAddrs(addrs)
+            }
+        }
+        fetchPortfolio();
+    }, [setPortfolio, web3])
 
     return (
         <AppContext.Provider value={{
@@ -43,7 +83,10 @@ const App = ({ web3 }) => {
             isWalletDetected,
 
             portfolio,
-            setPortfolio,
+            portfolioAddrs,
+
+            networkId,
+            indexBalance,
         }}>
             <div style={{ width: '100vw', height: '100vh' }}>
                 <NavBar />

@@ -4,28 +4,14 @@ import AppContext from "../context";
 import {CONTRACTS, getInstance} from "../utils/getContract";
 
 const NavBar = () => {
-    const {web3, account, isWalletDetected} = useContext(AppContext);
-    const [networkId, setNetworkId] = useState('');
-    const [indexBalance, setIndexBalance] = useState('');
-    const dfamContract = useRef(getInstance(CONTRACTS.INDEX_TOKEN));
+    const {
+        web3,
+        account,
+        isWalletDetected,
+        networkId,
+        indexBalance,
+    } = useContext(AppContext);
 
-    useEffect(() => {
-        (async () => {
-            if (window.ethereum) {
-                const networkId = await web3.eth.net.getId();
-                setNetworkId(networkId);
-            }
-        })();
-    }, [networkId, web3.eth.net]);
-
-    useEffect(() => {
-        (async () => {
-            if(account){
-                const balance = await dfamContract.current.methods.balanceOf(account).call();
-                setIndexBalance(balance)
-            }
-        })();
-    }, [account]);
 
     //if metamask is installed but not connected
     const handleConnect = () => {

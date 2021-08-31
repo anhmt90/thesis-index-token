@@ -5,24 +5,7 @@ import {Header, Icon, Image, List, Segment} from "semantic-ui-react";
 import {CONTRACTS, getInstance} from '../utils/getContract'
 
 const PortfolioBoard = () => {
-    const {web3, portfolio, setPortfolio} = useContext(AppContext);
-
-    const [portfolioAddrs, setPortfolioAddrs] = useState([]);
-
-    useEffect(() => {
-        const fetchPortfolio = async () => {
-            const indexFundContract = getInstance(CONTRACTS.INDEX_FUND);
-            const symbols = await indexFundContract.methods.getComponentSymbols().call();
-            const addrs = await indexFundContract.methods.getAddressesInPortfolio().call();
-            if (symbols) {
-                setPortfolio(symbols);
-            }
-            if (addrs) {
-                setPortfolioAddrs(addrs)
-            }
-        }
-        fetchPortfolio();
-    }, [setPortfolio, web3])
+    const {portfolio, portfolioAddrs} = useContext(AppContext);
 
     const displayPortfolio = () => {
         const items = []
