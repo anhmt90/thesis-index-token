@@ -28,7 +28,7 @@ import {fromWei, toWei} from "../../getWeb3";
 
 
 const InvestorPanel = () => {
-    const { account, portfolio} = useContext(AppContext);
+    const {web3, account, portfolio} = useContext(AppContext);
 
     const [isBuy, setIsBuy] = useState(true);
     const [capital, setCapital] = useState(null);
@@ -56,7 +56,19 @@ const InvestorPanel = () => {
                 from: account,
                 value: toWei(capital),
                 gas: '3000000'
-            })
+            }).on('receipt', async (txReceipt) => {
+                const costPaid = txReceipt.gasUsed * fromWei((await web3.eth.getGasPrice()), 'ether');
+                console.log('costPaid', costPaid)
+
+
+
+                // toast(positiveMsg({
+                //     header: `Smart Contract successfully ${!initInputs? 'deployed' : 'updated'}`,
+                //     msg: `TLS-endorsed Smart Contract ${!initInputs? 'deployed' : 'updated'} successully at address ${futureContractAddress}`
+                // }));
+
+
+            });
         }
     }
 

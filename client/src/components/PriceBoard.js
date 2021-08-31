@@ -1,30 +1,26 @@
-import React, {useContext, useEffect, useRef, useState} from 'react';
+import React, {useContext, useEffect} from 'react';
 import AppContext from "../context";
 import {Header, Icon, Segment} from "semantic-ui-react";
 
 import {CONTRACTS, getInstance} from '../utils/getContract'
+import {fromWei} from "../getWeb3";
 
 const PriceBoard = () => {
-    const {web3} = useContext(AppContext);
-
-    const [supply, setSupply] = useState('');
-    const [indexPrice, setIndexPrice] = useState('');
-
-    const indexFundContract = useRef(getInstance(CONTRACTS.INDEX_FUND));
-    const dfamContract = useRef(getInstance(CONTRACTS.INDEX_TOKEN));
+    const {
+        indexPrice, setIndexPrice,
+        supply, setSupply,
+    } = useContext(AppContext);
 
 
     useEffect(() => {
-        console.log("supply (before): ", supply)
-        console.log("indexPrice (before): ", indexPrice)
         const fetchPrice = async () => {
-            const supply = await dfamContract.current.methods.totalSupply().call();
-            const price = await indexFundContract.current.methods.getIndexPrice().call();
-            setSupply(supply);
-            setIndexPrice(price);
+            const _supply = await getInstance(CONTRACTS.INDEX_TOKEN).methods.totalSupply().call();
+            const _price = await getInstance(CONTRACTS.INDEX_FUND).methods.getIndexPrice().call();
+            setSupply(_supply);
+            setIndexPrice(_price);
         }
         fetchPrice();
-    }, [supply, indexPrice])
+    }, [supply, indexPrice, setSupply, setIndexPrice])
 
 
     return (
@@ -33,7 +29,7 @@ const PriceBoard = () => {
                 <Icon name='dollar' />
                 Price
             </Header>
-            <p> {supply === '0' && 'Nominal'} Price: 1 DFAM = {web3.utils.fromWei(indexPrice)} ETH </p>
+            <p> {supply === '0' && 'Nominal'} Price: 1 DFAM = {fromWei(indexPrice)} ETH </p>
             <p>Total Supply: {supply}</p>
 
         </Segment>

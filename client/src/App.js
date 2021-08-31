@@ -21,6 +21,9 @@ const App = ({ web3 }) => {
     const [portfolio, setPortfolio] = useState([]);
     const [portfolioAddrs, setPortfolioAddrs] = useState([]);
 
+    const [supply, setSupply] = useState('');
+    const [indexPrice, setIndexPrice] = useState('');
+
 
     useEffect(() => {
         const detectAccount = async () => {
@@ -76,17 +79,22 @@ const App = ({ web3 }) => {
         fetchPortfolio();
     }, [setPortfolio, web3])
 
+
     return (
         <AppContext.Provider value={{
             web3,
             account,
             isWalletDetected,
 
-            portfolio,
-            portfolioAddrs,
+            portfolio, setPortfolio,
+            portfolioAddrs, setPortfolioAddrs,
 
-            networkId,
-            indexBalance,
+            networkId, setNetworkId,
+            indexBalance, setIndexBalance,
+
+            indexPrice, setIndexPrice,
+            supply, setSupply,
+
         }}>
             <div style={{ width: '100vw', height: '100vh' }}>
                 <NavBar />
