@@ -14,7 +14,8 @@ const App = ({ web3 }) => {
     const [isAccountChanged, setIsAccountChanged] = useState(false);
     const [isWalletDetected, setIsWalletDetected] = useState(false);
 
-    const portfolio = useRef([]);
+    const [portfolio, setPortfolio] = useState([]);
+
 
     useEffect(() => {
         const detectAccount = async () => {
@@ -40,6 +41,9 @@ const App = ({ web3 }) => {
             web3,
             account,
             isWalletDetected,
+
+            portfolio,
+            setPortfolio,
         }}>
             <div style={{ width: '100vw', height: '100vh' }}>
                 <NavBar />

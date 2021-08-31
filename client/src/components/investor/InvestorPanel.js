@@ -1,15 +1,24 @@
 import {Fragment, useContext, useEffect, useRef, useState} from "react";
 import {
     Button,
-    ButtonGroup, Checkbox,
-    Container, Divider,
-    Form, FormButton,
-    FormCheckbox,
-    FormField, FormInput, Grid, GridColumn, GridRow, Header, Icon,
+    ButtonGroup,
+    Checkbox,
+    Form,
+    FormButton,
+    FormField,
+    Grid,
+    GridColumn,
+    GridRow,
+    Header,
+    Icon,
     Image,
     Input,
-    Label, List, ListDescription, ListIcon, ListItem,
-    Segment, SegmentGroup
+    Label,
+    List,
+    ListDescription,
+    ListIcon,
+    ListItem,
+    Segment
 } from "semantic-ui-react";
 import AppContext from "../../context";
 import {CONTRACTS, getInstance} from "../../utils/getContract";
@@ -19,7 +28,7 @@ import {fromWei, toWei} from "../../getWeb3";
 
 
 const InvestorPanel = () => {
-    const {web3, account, isWalletDetected} = useContext(AppContext);
+    const { account, portfolio} = useContext(AppContext);
 
     const [isBuy, setIsBuy] = useState(true);
     const [capital, setCapital] = useState(null);
@@ -29,17 +38,17 @@ const InvestorPanel = () => {
     const indexFundContract = useRef(getInstance(CONTRACTS.INDEX_FUND));
     const dfamContract = useRef(getInstance(CONTRACTS.INDEX_TOKEN));
 
-    const [portfolioSymbols, setPortfolioSymbols] = useState([]);
+    // const [portfolioSymbols, setPortfolioSymbols] = useState([]);
 
-    useEffect(() => {
-        const fetchPortfolio = async () => {
-            const symbols = await indexFundContract.current.methods.getComponentSymbols().call();
-            if (symbols) {
-                setPortfolioSymbols(symbols);
-            }
-        }
-        fetchPortfolio();
-    }, [])
+    // useEffect(() => {
+    //     const fetchPortfolio = async () => {
+    //         const symbols = await indexFundContract.current.methods.getComponentSymbols().call();
+    //         if (symbols) {
+    //             setPortfolioSymbols(symbols);
+    //         }
+    //     }
+    //     fetchPortfolio();
+    // }, [])
 
     useEffect(() => {
         const expectAmountsOut = async () => {
@@ -78,12 +87,12 @@ const InvestorPanel = () => {
 
     function displayMinAmountsOut() {
         const items = []
-        for (let i = 0; i < portfolioSymbols.length; i++) {
+        for (let i = 0; i < portfolio.length; i++) {
             const item = (
                 <List.Item key={i} style={{paddingLeft: '100px!important'}}>
                     <Image avatar src='https://react.semantic-ui.com/images/avatar/small/daniel.jpg'/>
                     <List.Content>
-                        <List.Header>{portfolioSymbols[i]}</List.Header>
+                        <List.Header>{portfolio[i]}</List.Header>
                         {minAmountsOut.length > 0 && <ListDescription>{minAmountsOut[i]}</ListDescription>}
                     </List.Content>
                 </List.Item>

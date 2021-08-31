@@ -2,12 +2,11 @@ import React, {useContext, useEffect, useState} from 'react';
 import AppContext from "../context";
 import {Header, Icon, Image, List, Segment} from "semantic-ui-react";
 
-import {CONTRACTS, getInstance, getAddress} from '../utils/getContract'
+import {CONTRACTS, getInstance} from '../utils/getContract'
 
 const PortfolioBoard = () => {
-    const {web3} = useContext(AppContext);
+    const {web3, portfolio, setPortfolio} = useContext(AppContext);
 
-    const [portfolioSymbols, setPortfolioSymbols] = useState([]);
     const [portfolioAddrs, setPortfolioAddrs] = useState([]);
 
     useEffect(() => {
@@ -16,30 +15,30 @@ const PortfolioBoard = () => {
             const symbols = await indexFundContract.methods.getComponentSymbols().call();
             const addrs = await indexFundContract.methods.getAddressesInPortfolio().call();
             if (symbols) {
-                setPortfolioSymbols(symbols);
+                setPortfolio(symbols);
             }
             if (addrs) {
                 setPortfolioAddrs(addrs)
             }
         }
         fetchPortfolio();
-    }, [web3])
+    }, [setPortfolio, web3])
 
     const displayPortfolio = () => {
         const items = []
-        for (let i = 0; i < portfolioSymbols.length; i++) {
+        for (let i = 0; i < portfolio.length; i++) {
             const item = (
                 <List.Item key={i}>
                     <Image avatar src='https://react.semantic-ui.com/images/avatar/small/rachel.png'/>
                     <List.Content>
-                        <List.Header as='a'>{portfolioSymbols[i]}</List.Header>
+                        <List.Header as='a'>{portfolio[i]}</List.Header>
                         <List.Description content={portfolioAddrs[i]}/>
                     </List.Content>
                 </List.Item>
             )
             items.push(item);
         }
-        console.log("symbols", portfolioSymbols)
+        console.log("symbols", portfolio)
         return items;
     }
 
