@@ -6,11 +6,51 @@ import {CONTRACTS, getInstance} from "../utils/getContract";
 const NavBar = () => {
     const {
         web3,
-        account,
-        isWalletDetected,
-        networkId,
-        indexBalance,
+        account, setAccount,
+        isAccountChanged, setIsAccountChanged,
+        isWalletDetected, setIsWalletDetected,
+        networkId, setNetworkId,
+        indexBalance, setIndexBalance,
     } = useContext(AppContext);
+
+    useEffect(() => {
+        const detectAccount = async () => {
+            const _account = (await web3.eth.getAccounts())[0];
+            setAccount(web3.utils.toChecksumAddress(_account));
+            window.ethereum.on('accountsChanged', function (accounts) {
+                setIsAccountChanged(true);
+                if (!accounts[0]) {
+                    setIsWalletDetected(false);
+                } else {
+                    setIsWalletDetected(true);
+                    setAccount(accounts[0]);
+                }
+            });
+            window.ethereum.on('chainChanged', (_chainId) => window.location.reload());
+        }
+
+        detectAccount();
+    },[web3.utils, web3.eth, setAccount, setIsAccountChanged, setIsWalletDetected])
+
+    useEffect(() => {
+        const detectNetwork = async () => {
+            if (window.ethereum) {
+                const networkId = await web3.eth.net.getId();
+                setNetworkId(networkId);
+            }
+        };
+        detectNetwork();
+    }, [networkId, setNetworkId, web3.eth.net]);
+
+    useEffect(() => {
+        const queryDFAMBalance = async () => {
+            if(account){
+                const balance = await getInstance(CONTRACTS.INDEX_TOKEN).methods.balanceOf(account).call();
+                setIndexBalance(balance)
+            }
+        };
+        queryDFAMBalance();
+    }, [account, setIndexBalance]);
 
 
     //if metamask is installed but not connected

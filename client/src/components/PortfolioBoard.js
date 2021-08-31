@@ -1,11 +1,29 @@
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext, useEffect} from 'react';
 import AppContext from "../context";
 import {Header, Icon, Image, List, Segment} from "semantic-ui-react";
 
 import {CONTRACTS, getInstance} from '../utils/getContract'
 
 const PortfolioBoard = () => {
-    const {portfolio, portfolioAddrs} = useContext(AppContext);
+    const {
+        portfolio, setPortfolio,
+        portfolioAddrs, setPortfolioAddrs,
+    } = useContext(AppContext);
+
+    useEffect(() => {
+        const fetchPortfolio = async () => {
+            const indexFundContract = getInstance(CONTRACTS.INDEX_FUND);
+            const symbols = await indexFundContract.methods.getComponentSymbols().call();
+            const addrs = await indexFundContract.methods.getAddressesInPortfolio().call();
+            if (symbols) {
+                setPortfolio(symbols);
+            }
+            if (addrs) {
+                setPortfolioAddrs(addrs)
+            }
+        }
+        fetchPortfolio();
+    }, [setPortfolio, setPortfolioAddrs])
 
     const displayPortfolio = () => {
         const items = []
