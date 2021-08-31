@@ -20,7 +20,7 @@ const PriceBoard = () => {
             setIndexPrice(_price);
         }
         fetchPrice();
-    }, [supply, indexPrice, setSupply, setIndexPrice])
+    }, [setSupply, setIndexPrice])
 
 
     return (

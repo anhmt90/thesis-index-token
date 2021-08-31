@@ -28,15 +28,21 @@ import {fromWei, toWei} from "../../getWeb3";
 
 
 const InvestorPanel = () => {
-    const {web3, account, portfolio} = useContext(AppContext);
+    const {
+        web3,
+        account,
+        portfolio,
+        setIndexBalance,
+        setEthBalance,
+        setSupply,
+        setIndexPrice,
+    } = useContext(AppContext);
 
     const [isBuy, setIsBuy] = useState(true);
     const [capital, setCapital] = useState(null);
     const [estimationDFAM, setEstimationDFAM] = useState('0');
     const [minAmountsOut, setMinAmountsOut] = useState([]);
 
-    const indexFundContract = useRef(getInstance(CONTRACTS.INDEX_FUND));
-    const dfamContract = useRef(getInstance(CONTRACTS.INDEX_TOKEN));
 
     useEffect(() => {
         const expectAmountsOut = async () => {
@@ -50,9 +56,10 @@ const InvestorPanel = () => {
     }, [capital])
 
 
-    const handleSubmit = () => {
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         if (capital) {
-            indexFundContract.current.methods.buy([]).send({
+            await getInstance(CONTRACTS.INDEX_FUND).methods.buy([]).send({
                 from: account,
                 value: toWei(capital),
                 gas: '3000000'
@@ -60,14 +67,19 @@ const InvestorPanel = () => {
                 const costPaid = txReceipt.gasUsed * fromWei((await web3.eth.getGasPrice()), 'ether');
                 console.log('costPaid', costPaid)
 
-
+                const _indexBalance = await getInstance(CONTRACTS.INDEX_TOKEN).methods.balanceOf(account).call();
+                const _ethBalance = await web3.eth.getBalance(account);
+                const _supply = await getInstance(CONTRACTS.INDEX_TOKEN).methods.totalSupply().call();
+                const _indexPrice = await getInstance(CONTRACTS.INDEX_FUND).methods.getIndexPrice().call();
+                setIndexBalance(_indexBalance);
+                setEthBalance(_ethBalance);
+                setSupply(_supply);
+                setIndexPrice(_indexPrice);
 
                 // toast(positiveMsg({
                 //     header: `Smart Contract successfully ${!initInputs? 'deployed' : 'updated'}`,
                 //     msg: `TLS-endorsed Smart Contract ${!initInputs? 'deployed' : 'updated'} successully at address ${futureContractAddress}`
                 // }));
-
-
             });
         }
     }

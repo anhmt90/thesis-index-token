@@ -1,16 +1,18 @@
 import React, {useState, useEffect, useContext, useRef} from 'react';
-import {Menu, Image, Button, List, ListItem, ListContent, Label} from 'semantic-ui-react';
+import {Menu, Image, Button, List, ListItem, ListContent, Label, Icon} from 'semantic-ui-react';
 import AppContext from "../context";
 import {CONTRACTS, getInstance} from "../utils/getContract";
+import {fromWei} from "../getWeb3";
 
 const NavBar = () => {
     const {
         web3,
         account, setAccount,
-        isAccountChanged, setIsAccountChanged,
+        setIsAccountChanged,
         isWalletDetected, setIsWalletDetected,
         networkId, setNetworkId,
         indexBalance, setIndexBalance,
+        ethBalance, setEthBalance,
     } = useContext(AppContext);
 
     useEffect(() => {
@@ -35,22 +37,32 @@ const NavBar = () => {
     useEffect(() => {
         const detectNetwork = async () => {
             if (window.ethereum) {
-                const networkId = await web3.eth.net.getId();
-                setNetworkId(networkId);
+                const _networkId = await web3.eth.net.getId();
+                setNetworkId(_networkId);
             }
         };
         detectNetwork();
-    }, [networkId, setNetworkId, web3.eth.net]);
+    }, [setNetworkId, web3.eth.net]);
 
     useEffect(() => {
         const queryDFAMBalance = async () => {
             if(account){
-                const balance = await getInstance(CONTRACTS.INDEX_TOKEN).methods.balanceOf(account).call();
-                setIndexBalance(balance)
+                const _indexBalance = await getInstance(CONTRACTS.INDEX_TOKEN).methods.balanceOf(account).call();
+                setIndexBalance(_indexBalance)
             }
         };
         queryDFAMBalance();
     }, [account, setIndexBalance]);
+
+    useEffect(() => {
+        const queryEthBalance = async () => {
+            if(account){
+                const _ethBalance = await web3.eth.getBalance(account);
+                setEthBalance(_ethBalance)
+            }
+        };
+        queryEthBalance();
+    }, [account, setEthBalance, setIndexBalance, web3.eth]);
 
 
     //if metamask is installed but not connected
@@ -135,7 +147,13 @@ const NavBar = () => {
                     </Menu.Item>
 
                     <Menu.Item>
-                        <b>{web3.utils.fromWei(indexBalance)}</b>
+                        <b>{fromWei(ethBalance)}</b>
+                        &nbsp;
+                        <Icon name='ethereum' />
+                    </Menu.Item>
+
+                    <Menu.Item>
+                        <b>{fromWei(indexBalance)}</b>
                         &nbsp;
                         <Image avatar src='../images/DFAM.jpg' style={{width: '25px', height: '25px'}}/>
                     </Menu.Item>

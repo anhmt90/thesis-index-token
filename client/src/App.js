@@ -17,6 +17,7 @@ const App = ({ web3 }) => {
 
     const [networkId, setNetworkId] = useState('');
     const [indexBalance, setIndexBalance] = useState('');
+    const [ethBalance, setEthBalance] = useState('');
 
     const [portfolio, setPortfolio] = useState([]);
     const [portfolioAddrs, setPortfolioAddrs] = useState([]);
@@ -38,6 +39,7 @@ const App = ({ web3 }) => {
 
             networkId, setNetworkId,
             indexBalance, setIndexBalance,
+            ethBalance, setEthBalance,
 
             indexPrice, setIndexPrice,
             supply, setSupply,
