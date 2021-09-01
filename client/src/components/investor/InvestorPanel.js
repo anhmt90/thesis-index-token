@@ -24,7 +24,7 @@ import AppContext from "../../context";
 import {CONTRACTS, getInstance} from "../../utils/getContract";
 import {queryAllComponentAmountsOut} from "../../utils/queryAmountsOut";
 import {estimateMintedDFAM} from "../../utils/estimations";
-import {BN, fromWei, toWei} from "../../getWeb3";
+import {fromWei, toWei} from "../../getWeb3";
 import {calcFrontrunningPrevention} from "../../utils/common";
 import {tokenUnits2Float} from "../../utils/conversions";
 
@@ -47,19 +47,6 @@ const InvestorPanel = () => {
     const [minAmountsOut, setMinAmountsOut] = useState([]);
 
     const expectedAmountsOut = useRef([])
-
-
-    useEffect(() => {
-        const expectAmountsOut = async () => {
-            if (capital && capital !== '0') {
-                const amountsOut = await queryAllComponentAmountsOut(toWei(capital.toString()));
-                expectedAmountsOut.current = amountsOut
-                setMinAmountsOut(calcFrontrunningPrevention(expectedAmountsOut.current, tolerance))
-                console.log('amountsOut', amountsOut)
-            }
-        }
-        expectAmountsOut();
-    }, [capital, tolerance])
 
 
     const handleSubmit = async (e) => {
@@ -92,16 +79,23 @@ const InvestorPanel = () => {
 
     const handleChangeCapital = (_capital) => {
         const maxCapital = parseFloat(tokenUnits2Float(ethBalance));
-        if(parseInt(supply) === 0)
-            setCapital(_capital < 0 ? 0.00 : (_capital > 0.01 ? 0.01 : _capital ))
+        if (parseInt(supply) === 0)
+            _capital = _capital < 0 ? 0.00 : (_capital > 0.01 ? 0.01 : _capital)
         else
-            setCapital(_capital < 0 ? 0.00 : (_capital > maxCapital ? maxCapital : _capital ))
+            _capital = _capital < 0 ? 0.00 : (_capital > maxCapital ? maxCapital : _capital)
 
+        setCapital(_capital)
         if (_capital && parseFloat(_capital) > 0.00) {
             estimateMintedDFAM(toWei(_capital.toString())).then(estimation => {
                 console.log('DFAM estimation: ', estimation)
                 setEstimationDFAM(estimation)
             })
+
+            queryAllComponentAmountsOut(toWei(_capital.toString())).then(amountsOut => {
+                expectedAmountsOut.current = amountsOut;
+                setMinAmountsOut(calcFrontrunningPrevention(amountsOut, tolerance))
+            });
+
         } else {
             setEstimationDFAM('0')
             setMinAmountsOut([])
@@ -110,7 +104,9 @@ const InvestorPanel = () => {
     }
 
     const handleChangeTolerance = (_tolerance) => {
-       setTolerance(_tolerance < 0 ? 0 : (_tolerance > 100 ? 100 : _tolerance))
+        _tolerance = _tolerance < 0 ? 0 : (_tolerance > 100 ? 100 : _tolerance)
+        setTolerance(_tolerance);
+        setMinAmountsOut(calcFrontrunningPrevention(expectedAmountsOut.current, _tolerance));
         // const _minAmountsOut = calcFrontrunningPrevention(expectedAmountsOut.current, _tolerance);
         // setMinAmountsOut(_minAmountsOut)
 
