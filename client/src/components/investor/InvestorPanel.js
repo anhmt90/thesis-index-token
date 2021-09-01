@@ -1,8 +1,9 @@
-import {Fragment, useCallback, useContext, useEffect, useRef, useState} from "react";
+import {useCallback, useContext, useEffect, useRef, useState} from "react";
 import {
     Button,
     ButtonGroup,
     Checkbox,
+    Container,
     Form,
     FormButton,
     FormField,
@@ -15,7 +16,8 @@ import {
     Input,
     Label,
     List,
-    ListDescription, ListHeader,
+    ListDescription,
+    ListHeader,
     ListIcon,
     ListItem,
     Segment
@@ -156,12 +158,12 @@ const InvestorPanel = () => {
 
 
     return (
-        <Fragment>
+        <Container style={{boxShadow: '0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19)' }}>
             <ButtonGroup fluid attached='top'>
                 <Button color={isBuy && 'purple'}>Purchase</Button>
                 <Button color={!isBuy && 'purple'}>Redeem</Button>
             </ButtonGroup>
-            <Segment raised padded attached color='purple'>
+            <Segment padded attached raised color='purple'>
                 <Form style={{marginTop: '1%'}}>
                     <FormField>
                         <Header as='h4'>
@@ -300,7 +302,7 @@ const InvestorPanel = () => {
 
                 </Form>
             </Segment>
-        </Fragment>
+        </Container>
     )
 }
 
