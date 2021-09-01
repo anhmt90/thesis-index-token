@@ -45,6 +45,8 @@ const InvestorPanel = () => {
     const [tolerance, setTolerance] = useState(5);
     const [estimationDFAM, setEstimationDFAM] = useState('0');
     const [minAmountsOut, setMinAmountsOut] = useState([]);
+    const [isFRPActivated, setIsFRPActivated] = useState(true);
+
 
     const expectedAmountsOut = useRef([])
 
@@ -103,6 +105,10 @@ const InvestorPanel = () => {
 
     }
 
+    function handleChangeFRP() {
+        setIsFRPActivated(!isFRPActivated)
+    }
+
     const handleChangeTolerance = (_tolerance) => {
         _tolerance = _tolerance < 0 ? 0 : (_tolerance > 100 ? 100 : _tolerance)
         setTolerance(_tolerance);
@@ -129,6 +135,7 @@ const InvestorPanel = () => {
         return items;
     }
 
+
     return (
         <Fragment>
             <ButtonGroup fluid attached='top'>
@@ -136,13 +143,6 @@ const InvestorPanel = () => {
                 <Button color={!isBuy && 'purple'}>Redeem</Button>
             </ButtonGroup>
             <Segment raised padded attached color='purple'>
-                {/*<Container style={{width: '50%', marginBottom: '20px'}}>*/}
-                {/*    <ButtonGroup fluid>*/}
-                {/*        <Button color={isBuy && 'purple'}>Purchase</Button>*/}
-                {/*        <Button color={!isBuy && 'purple'}>Redeem</Button>*/}
-                {/*    </ButtonGroup>*/}
-                {/*</Container>*/}
-
                 <Form style={{marginTop: '5%'}}>
                     <FormField>
                         <Header as='h4'>
@@ -185,7 +185,13 @@ const InvestorPanel = () => {
                                             </Header>
                                         </ListItem>
                                         <ListItem>
-                                            <Checkbox toggle label='&nbsp;'/>
+                                            <Checkbox
+                                                toggle
+                                                label='&nbsp;'
+                                                checked={isFRPActivated}
+                                                onClick={() => handleChangeFRP()}
+                                                color='purple'
+                                            />
                                         </ListItem>
                                     </List>
                                 </Header>
@@ -202,12 +208,12 @@ const InvestorPanel = () => {
                                         label={{basic: true, content: '%'}}
                                         labelPosition='right'
                                         placeholder='Enter percentage...'
+                                        disabled={!isFRPActivated}
                                         style={{width: '35%'}}
                                     />
                                 </FormField>
-
                                 <List horizontal relaxed>
-                                    {displayMinAmountsOut()}
+                                    {isFRPActivated && displayMinAmountsOut()}
                                 </List>
                             </GridColumn>
                             <GridColumn width={6} style={{paddingLeft: '30px'}}>
