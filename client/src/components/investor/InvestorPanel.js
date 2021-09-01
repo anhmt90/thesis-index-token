@@ -15,7 +15,7 @@ import {
     Input,
     Label,
     List,
-    ListDescription,
+    ListDescription, ListHeader,
     ListIcon,
     ListItem,
     Segment
@@ -24,7 +24,7 @@ import AppContext from "../../context";
 import {CONTRACTS, getInstance} from "../../utils/getContract";
 import {queryAllComponentAmountsOut} from "../../utils/queryAmountsOut";
 import {estimateMintedDFAM} from "../../utils/estimations";
-import {fromWei, toWei} from "../../getWeb3";
+import {BN, fromWei, toWei} from "../../getWeb3";
 import {calcFrontrunningPrevention} from "../../utils/common";
 import {tokenUnits2Float} from "../../utils/conversions";
 
@@ -37,7 +37,7 @@ const InvestorPanel = () => {
         setIndexBalance,
         ethBalance, setEthBalance,
         supply, setSupply,
-        setIndexPrice,
+        indexBalance, setIndexPrice,
     } = useContext(AppContext);
 
     const [isBuy, setIsBuy] = useState(true);
@@ -226,9 +226,15 @@ const InvestorPanel = () => {
                                         <List.Item>
                                             <Image avatar src='../images/DFAM.jpg'/>
                                             <List.Content verticalAlign='middle'>
-                                                <Label basic circular color='green' size='large'>
-                                                    {fromWei(estimationDFAM)}
-                                                </Label>
+                                                <ListHeader>
+                                                    <Label basic circular color='green' size='large'>
+                                                        + {fromWei(estimationDFAM)}
+                                                    </Label>
+                                                </ListHeader>
+                                                <ListDescription style={{paddingTop: '10px'}}>
+                                                    <Icon name='arrow right' />
+                                                    {fromWei(BN(indexBalance).add(BN(estimationDFAM)))}
+                                                </ListDescription>
                                             </List.Content>
                                         </List.Item>
                                         <List.Item>
@@ -252,7 +258,7 @@ const InvestorPanel = () => {
                                     onClick={handleSubmit}
                                 >
                                     Buy
-                                    <Icon name='right arrow'/>
+                                    <Icon name='arrow circle right' />
                                 </FormButton>
                             </GridColumn>
                         </GridRow>
