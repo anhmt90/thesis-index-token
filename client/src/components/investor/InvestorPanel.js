@@ -41,7 +41,7 @@ const InvestorPanel = () => {
     } = useContext(AppContext);
 
     const [isBuy, setIsBuy] = useState(true);
-    const [capital, setCapital] = useState(null);
+    const [capital, setCapital] = useState('0');
     const [tolerance, setTolerance] = useState(5);
     const [estimationDFAM, setEstimationDFAM] = useState('0');
     const [estimationTxCost, setEstimationTxCost] = useState('0');
@@ -51,9 +51,9 @@ const InvestorPanel = () => {
     const expectedAmountsOut = useRef([])
 
     const getTx = useCallback(() => {
-        const _minAmountsOut = isFRPActivated ? minAmountsOut : [];
+        const _minAmountsOut = isFRPActivated && tolerance ? minAmountsOut : [];
         return getInstance(CONTRACTS.INDEX_FUND).methods.buy(_minAmountsOut);
-    }, [isFRPActivated, minAmountsOut])
+    }, [isFRPActivated, minAmountsOut, tolerance])
 
 
     useEffect(() => {
@@ -162,14 +162,14 @@ const InvestorPanel = () => {
                 <Button color={!isBuy && 'purple'}>Redeem</Button>
             </ButtonGroup>
             <Segment raised padded attached color='purple'>
-                <Form style={{marginTop: '5%'}}>
+                <Form style={{marginTop: '1%'}}>
                     <FormField>
                         <Header as='h4'>
                             <Icon name='money bill alternate outline'/>
                             Investment Capital
                         </Header>
                         <Input
-                            value={capital}
+                            value={capital === '0' ? null : capital}
                             placeholder='0.00'
                             onChange={e => {
                                 handleChangeCapital(e.target.value);
@@ -192,7 +192,7 @@ const InvestorPanel = () => {
                         />
                     </FormField>
 
-                    <Grid divided style={{marginTop: '5%'}}>
+                    <Grid divided style={{marginTop: '1%'}}>
                         <GridRow>
                             <GridColumn width={10} style={{paddingRight: '30px'}}>
                                 <Header as='h4'>
@@ -242,7 +242,7 @@ const InvestorPanel = () => {
                                         Estimations
                                     </Header>
                                     <List style={{paddingLeft: '10%'}}>
-                                        <List.Item>
+                                        <List.Item style={{paddingBottom: '10px'}}>
                                             <Image avatar src='../images/DFAM.jpg'/>
                                             <List.Content verticalAlign='middle'>
                                                 <ListHeader>
@@ -256,12 +256,25 @@ const InvestorPanel = () => {
                                                 </ListDescription>
                                             </List.Content>
                                         </List.Item>
+                                        <List.Item style={{paddingBottom: '10px'}}>
+                                            <Image avatar src='https://react.semantic-ui.com/images/avatar/small/stevie.jpg' />
+                                            <List.Content verticalAlign='middle'>
+                                                <ListHeader>
+                                                    <Label basic circular color='red' size='large'>
+                                                        - {fromWei(BN(toWei(capital.toString())).add(BN(estimationTxCost)))}{capital === '0' && '.00'}
+                                                    </Label>
+                                                </ListHeader>
+                                                <ListDescription style={{paddingTop: '10px'}}>
+                                                    <Icon name='arrow right'/>
+                                                    {fromWei(BN(ethBalance).sub(BN(toWei(capital.toString())).add(BN(estimationTxCost))))}
+                                                </ListDescription>
+                                            </List.Content>
+                                        </List.Item>
                                         <List.Item>
-                                            {/*<Image avatar src='https://react.semantic-ui.com/images/avatar/small/stevie.jpg' />*/}
                                             <ListIcon name='gripfire' size='big' color='blue'/>
                                             <List.Content verticalAlign='middle'>
                                                 <Header color='blue' size='small'>
-                                                    {estimationTxCost}{estimationTxCost === '0' && '.00'}
+                                                    {fromWei(estimationTxCost)}{estimationTxCost === '0' && '.00'}
                                                     <span><Icon name='ethereum' size='normal'/></span>
                                                 </Header>
                                             </List.Content>

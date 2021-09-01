@@ -14,7 +14,7 @@ const InvestorPage = () => {
 
     return (
         <Fragment>
-            <Grid style={{margin: '1.5% auto'}}>
+            <Grid style={{margin: '1.5% auto', padding: '0 1%'}}>
                 <GridRow>
                     <GridColumn width={6}>
                         <GridRow style={{marginBottom: '5%'}}>

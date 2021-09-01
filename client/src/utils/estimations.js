@@ -1,14 +1,12 @@
 import allAddrs from "../data/contractAddresses.json";
-import {BN, fromWei, toWei, web3} from "../getWeb3";
+import {BN, toWei, web3} from "../getWeb3";
 import {_getSwapPath} from "./common";
 import {CONTRACTS, getInstance} from "./getContract";
-import {queryAllComponentAmountsOut} from "./queryAmountsOut";
 import {getAmountOut, swapExactETHForTokens} from "./simulateUniswap";
 
 
 const queryUniswapEthOut = async (tokenSymbol, amountToken) => {
     const path = _getSwapPath(tokenSymbol, false);
-    console.log(tokenSymbol  + ' ==> ' + amountToken)
     const amounts = await getInstance(CONTRACTS.UNISWAP_ROUTER).methods.getAmountsOut(amountToken, path).call();
     return amounts[1];
 };
@@ -55,28 +53,27 @@ const estimateTotalNAVOfCapital = async (totalETH) => {
 
         const path = _getSwapPath(symbol, true)
         const amounts = await getInstance(CONTRACTS.UNISWAP_ROUTER).methods.getAmountsOut(ethEach, path).call();
-        console.log('amountsOut', symbol, amounts[1]);
         const componentNAV = getAmountOut(amounts[1], reserveTokenUpdated, reserveWETHUpdated)
-        console.log('componentNAV', symbol, componentNAV);
         totalNAV = totalNAV.add(BN(componentNAV))
     }
     return totalNAV.toString();
 }
 
 export const estimateMintedDFAM = async (totalETH) => {
-    console.log('totalETH', totalETH);
-
     const indexPrice = await queryIndexPrice();
     const totalNAV = await estimateTotalNAVOfCapital(totalETH);
-    console.log('totalNAV', totalNAV);
     return BN(totalNAV).mul(BN(toWei('1'))).div(BN(indexPrice)).toString()
 }
 
 export const estimateTxCost = async (tx, sender, valueInEther) => {
+    console.log('valueInEther', valueInEther);
+
     const gasUsed = await tx.estimateGas({
         from: sender,
         gas: '3000000',
         value: toWei(valueInEther.toString())
     });
-    return gasUsed * fromWei(await web3.eth.getGasPrice(), 'ether');
+    const estimation = BN(gasUsed).mul(BN(await web3.eth.getGasPrice())).toString();
+    console.log('estimation', BN(gasUsed).mul(BN(await web3.eth.getGasPrice())).toString());
+    return estimation;
 };
