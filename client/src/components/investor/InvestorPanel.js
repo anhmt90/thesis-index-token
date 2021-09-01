@@ -1,4 +1,4 @@
-import {useCallback, useContext, useEffect, useRef, useState} from "react";
+import {Fragment, useCallback, useContext, useEffect, useRef, useState} from "react";
 import {
     Button,
     ButtonGroup,
@@ -15,7 +15,7 @@ import {
     Image,
     Input,
     Label,
-    List,
+    List, ListContent,
     ListDescription,
     ListHeader,
     ListIcon,
@@ -29,6 +29,7 @@ import {estimateMintedDFAM, estimateTxCost} from "../../utils/estimations";
 import {BN, fromWei, toWei} from "../../getWeb3";
 import {calcFrontrunningPrevention} from "../../utils/common";
 import {tokenUnits2Float} from "../../utils/conversions";
+import AmountInput from "./AmountInput";
 
 
 const InvestorPanel = () => {
@@ -42,7 +43,7 @@ const InvestorPanel = () => {
         indexBalance, setIndexPrice,
     } = useContext(AppContext);
 
-    const [isBuy, setIsBuy] = useState(true);
+    const [isInvestPanel, setIsInvestPanel] = useState(true);
     const [capital, setCapital] = useState('0');
     const [tolerance, setTolerance] = useState(5);
     const [estimationDFAM, setEstimationDFAM] = useState('0');
@@ -139,7 +140,7 @@ const InvestorPanel = () => {
 
     }
 
-    function displayMinAmountsOut() {
+    function renderMinAmountsOut() {
         const items = []
         for (let i = 0; i < portfolio.length; i++) {
             const item = (
@@ -157,42 +158,28 @@ const InvestorPanel = () => {
     }
 
 
+
     return (
-        <Container style={{boxShadow: '0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19)' }}>
+        <Container style={{boxShadow: '0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19)'}}>
             <ButtonGroup fluid attached='top'>
-                <Button color={isBuy && 'purple'}>Purchase</Button>
-                <Button color={!isBuy && 'purple'}>Redeem</Button>
+                <Button
+                    color={isInvestPanel && 'purple'}
+                    content='Invest'
+                    onClick={() => setIsInvestPanel(true)}
+                />
+                <Button
+                    color={!isInvestPanel && 'purple'}
+                    content='Redeem'
+                    onClick={() => setIsInvestPanel(false)}
+                />
             </ButtonGroup>
             <Segment padded attached raised color='purple'>
                 <Form style={{marginTop: '1%'}}>
-                    <FormField>
-                        <Header as='h4'>
-                            <Icon name='money bill alternate outline'/>
-                            Investment Capital
-                        </Header>
-                        <Input
-                            value={capital === '0' ? null : capital}
-                            placeholder='0.00'
-                            onChange={e => {
-                                handleChangeCapital(e.target.value);
-                            }}
-                            type='number'
-                            step={parseInt(supply) === 0 ? '0.001' : 'any'}
-                            min={0}
-                            max={parseInt(supply) === 0 ? 0.01 : parseFloat(tokenUnits2Float(ethBalance))}
-                            size='large'
-                            iconPosition='left'
-                            icon='ethereum'
-
-                            // labelPosition='left'
-                            // label={{
-                            //     basic: true,
-                            //     icon: 'ethereum',
-                            //     iconPosition: 'right',
-                            //     content: 'Investment Capital',
-                            // }}
-                        />
-                    </FormField>
+                    <AmountInput
+                        isInvestPanel={isInvestPanel}
+                        capital={capital}
+                        handleChangeCapital={handleChangeCapital}
+                    />
 
                     <Grid divided style={{marginTop: '1%'}}>
                         <GridRow>
@@ -234,7 +221,7 @@ const InvestorPanel = () => {
                                     />
                                 </FormField>
                                 <List horizontal relaxed>
-                                    {(isFRPActivated && tolerance &&  capital && parseFloat(capital) > 0) && displayMinAmountsOut()}
+                                    {(isFRPActivated && tolerance && capital && parseFloat(capital) > 0) && renderMinAmountsOut()}
                                 </List>
                             </GridColumn>
                             <GridColumn width={6} style={{paddingLeft: '30px'}}>
@@ -259,7 +246,8 @@ const InvestorPanel = () => {
                                             </List.Content>
                                         </List.Item>
                                         <List.Item style={{paddingBottom: '10px'}}>
-                                            <Image avatar src='https://react.semantic-ui.com/images/avatar/small/stevie.jpg' />
+                                            <Image avatar
+                                                   src='https://react.semantic-ui.com/images/avatar/small/stevie.jpg'/>
                                             <List.Content verticalAlign='middle'>
                                                 <ListHeader>
                                                     <Label basic circular color='red' size='large'>
