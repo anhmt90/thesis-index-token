@@ -1,5 +1,5 @@
 import allAddrs from "../data/contractAddresses.json";
-import {BN, toWei} from "../getWeb3";
+import {BN, fromWei, toWei, web3} from "../getWeb3";
 import {_getSwapPath} from "./common";
 import {CONTRACTS, getInstance} from "./getContract";
 import {queryAllComponentAmountsOut} from "./queryAmountsOut";
@@ -71,3 +71,12 @@ export const estimateMintedDFAM = async (totalETH) => {
     console.log('totalNAV', totalNAV);
     return BN(totalNAV).mul(BN(toWei('1'))).div(BN(indexPrice)).toString()
 }
+
+export const estimateTxCost = async (tx, sender, valueInEther) => {
+    const gasUsed = await tx.estimateGas({
+        from: sender,
+        gas: '3000000',
+        value: toWei(valueInEther.toString())
+    });
+    return gasUsed * fromWei(await web3.eth.getGasPrice(), 'ether');
+};

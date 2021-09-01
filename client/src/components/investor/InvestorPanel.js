@@ -1,4 +1,4 @@
-import {Fragment, useContext, useEffect, useRef, useState} from "react";
+import {Fragment, useCallback, useContext, useEffect, useRef, useState} from "react";
 import {
     Button,
     ButtonGroup,
@@ -23,7 +23,7 @@ import {
 import AppContext from "../../context";
 import {CONTRACTS, getInstance} from "../../utils/getContract";
 import {queryAllComponentAmountsOut} from "../../utils/queryAmountsOut";
-import {estimateMintedDFAM} from "../../utils/estimations";
+import {estimateMintedDFAM, estimateTxCost} from "../../utils/estimations";
 import {BN, fromWei, toWei} from "../../getWeb3";
 import {calcFrontrunningPrevention} from "../../utils/common";
 import {tokenUnits2Float} from "../../utils/conversions";
@@ -44,17 +44,36 @@ const InvestorPanel = () => {
     const [capital, setCapital] = useState(null);
     const [tolerance, setTolerance] = useState(5);
     const [estimationDFAM, setEstimationDFAM] = useState('0');
+    const [estimationTxCost, setEstimationTxCost] = useState('0');
     const [minAmountsOut, setMinAmountsOut] = useState([]);
     const [isFRPActivated, setIsFRPActivated] = useState(true);
 
-
     const expectedAmountsOut = useRef([])
+
+    const getTx = useCallback(() => {
+        const _minAmountsOut = isFRPActivated ? minAmountsOut : [];
+        return getInstance(CONTRACTS.INDEX_FUND).methods.buy(_minAmountsOut);
+    }, [isFRPActivated, minAmountsOut])
+
+
+    useEffect(() => {
+        const estimateGas = async () => {
+            if (capital && parseFloat(capital) > 0.00) {
+                const _txCost = await estimateTxCost(getTx(), account, capital);
+                console.log('_txCost', _txCost)
+                setEstimationTxCost(_txCost);
+            } else {
+                setEstimationTxCost('0');
+            }
+        }
+        estimateGas();
+    }, [account, capital, getTx])
 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (capital) {
-            await getInstance(CONTRACTS.INDEX_FUND).methods.buy(minAmountsOut).send({
+            await getTx().send({
                 from: account,
                 value: toWei(capital.toString()),
                 gas: '3000000'
@@ -208,12 +227,12 @@ const InvestorPanel = () => {
                                         label={{basic: true, content: '%'}}
                                         labelPosition='right'
                                         placeholder='Enter percentage...'
-                                        disabled={!isFRPActivated}
+                                        disabled={!isFRPActivated || !capital || parseFloat(capital) <= 0}
                                         style={{width: '35%'}}
                                     />
                                 </FormField>
                                 <List horizontal relaxed>
-                                    {isFRPActivated && displayMinAmountsOut()}
+                                    {(isFRPActivated && tolerance &&  capital && parseFloat(capital) > 0) && displayMinAmountsOut()}
                                 </List>
                             </GridColumn>
                             <GridColumn width={6} style={{paddingLeft: '30px'}}>
@@ -222,17 +241,17 @@ const InvestorPanel = () => {
                                         <Icon name='calculator'/>
                                         Estimations
                                     </Header>
-                                    <List style={{paddingLeft: '15%'}}>
+                                    <List style={{paddingLeft: '10%'}}>
                                         <List.Item>
                                             <Image avatar src='../images/DFAM.jpg'/>
                                             <List.Content verticalAlign='middle'>
                                                 <ListHeader>
                                                     <Label basic circular color='green' size='large'>
-                                                        + {fromWei(estimationDFAM)}
+                                                        + {fromWei(estimationDFAM)}{estimationDFAM === '0' && '.00'}
                                                     </Label>
                                                 </ListHeader>
                                                 <ListDescription style={{paddingTop: '10px'}}>
-                                                    <Icon name='arrow right' />
+                                                    <Icon name='arrow right'/>
                                                     {fromWei(BN(indexBalance).add(BN(estimationDFAM)))}
                                                 </ListDescription>
                                             </List.Content>
@@ -241,9 +260,10 @@ const InvestorPanel = () => {
                                             {/*<Image avatar src='https://react.semantic-ui.com/images/avatar/small/stevie.jpg' />*/}
                                             <ListIcon name='gripfire' size='big' color='blue'/>
                                             <List.Content verticalAlign='middle'>
-                                                <Label basic circular color='blue' size='large'>
-                                                    {3000000} Gas used
-                                                </Label>
+                                                <Header color='blue' size='small'>
+                                                    {estimationTxCost}{estimationTxCost === '0' && '.00'}
+                                                    <span><Icon name='ethereum' size='normal'/></span>
+                                                </Header>
                                             </List.Content>
                                         </List.Item>
                                     </List>
@@ -258,7 +278,7 @@ const InvestorPanel = () => {
                                     onClick={handleSubmit}
                                 >
                                     Buy
-                                    <Icon name='arrow circle right' />
+                                    <Icon name='arrow circle right'/>
                                 </FormButton>
                             </GridColumn>
                         </GridRow>
