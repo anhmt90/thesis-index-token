@@ -20,7 +20,7 @@ export const queryAllComponentAmountsOut = async (amountEthTotal) => {
     for (const componentSymbol of currentPortfolio) {
         const amountOut = await queryUniswapTokenOut(componentSymbol, ethInForEach);
         const decimals = await getInstance(CONTRACTS[componentSymbol]).methods.decimals().call()
-        componentAmountsOut.push(parseFloat(tokenUnits2Float(amountOut, decimals)));
+        componentAmountsOut.push(amountOut);
     }
     return componentAmountsOut;
 }
