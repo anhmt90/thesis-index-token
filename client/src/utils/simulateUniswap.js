@@ -34,3 +34,12 @@ export const swapExactETHForTokens = async (componentSymbol, ethAmount) => {
     const reserveWETHUpdated = BN(reserveWETH).add(BN(ethAmount)).toString()
     return [reserveWETHUpdated, reserveTokenUpdated]
 }
+
+// UniswapV2Router02.swapExactTokensForETH()
+export const swapExactTokensForETH = async (componentSymbol, tokenAmount) => {
+    const path = _getSwapPath(componentSymbol)
+    const amounts = await getInstance(CONTRACTS.UNISWAP_ROUTER).methods.getAmountsOut(tokenAmount, path).call();
+    const [reserveToken, reserveWETHUpdated] = await _swap(amounts, path)
+    const reserveTokenUpdated = BN(reserveToken).add(BN(tokenAmount)).toString()
+    return [reserveTokenUpdated, reserveWETHUpdated]
+}

@@ -45,7 +45,7 @@ getWeb3().then(_web3 => {
     web3 = _web3
     toWei = web3.utils.toWei;
     fromWei = web3.utils.fromWei;
-
+    window.BN = BN
 });
 
 export default getWeb3;

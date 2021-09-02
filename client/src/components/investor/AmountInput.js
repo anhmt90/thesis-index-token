@@ -18,7 +18,6 @@ const AmountInput = ({isInvestPanel, capital, handleChangeCapital}) => {
         image: <Image size='mini' src={`../images/${isInvestPanel? 'Ethereum.png' : 'DFAM.jpg'}`}/>,
         style: {
             borderRight: 'none',
-            paddingRight: '0'
         }
     }
 
@@ -49,7 +48,7 @@ const AmountInput = ({isInvestPanel, capital, handleChangeCapital}) => {
             {renderAmountInputLabel()}
             {isInvestPanel ?
                 <Input
-                    value={capital === '0' ? null : capital}
+                    value={capital === '0' ? '' : capital}
                     placeholder='0.00'
                     onChange={e => {
                         handleChangeCapital(e.target.value);
@@ -58,7 +57,7 @@ const AmountInput = ({isInvestPanel, capital, handleChangeCapital}) => {
                     step={parseInt(supply) === 0 ? '0.001' : 'any'}
                     min={0}
                     max={parseInt(supply) === 0 ? 0.01 : parseFloat(tokenUnits2Float(ethBalance))}
-                    size='large'
+                    size='huge'
 
                     labelPosition='left'
                     label={innerLabel}
@@ -72,11 +71,10 @@ const AmountInput = ({isInvestPanel, capital, handleChangeCapital}) => {
                         handleChangeCapital(e.target.value);
                     }}
                     type='number'
-                    step={parseInt(supply) === 0 ? '0.001' : 'any'}
+                    step='any'
                     min={0}
-                    max={parseInt(supply) === 0 ? 0.01 : parseFloat(tokenUnits2Float(ethBalance))}
-                    size='large'
-
+                    max={parseFloat(tokenUnits2Float(indexBalance))}
+                    size='huge'
                     labelPosition='left'
                     label={innerLabel}
 

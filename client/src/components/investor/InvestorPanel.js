@@ -25,7 +25,7 @@ import {
 import AppContext from "../../context";
 import {CONTRACTS, getInstance} from "../../utils/getContract";
 import {queryAllComponentAmountsOut} from "../../utils/queryAmountsOut";
-import {estimateMintedDFAM, estimateTxCost} from "../../utils/estimations";
+import {estimateMintedDFAM, estimateReceivedNAV, estimateTxCost} from "../../utils/estimations";
 import {BN, fromWei, toWei} from "../../getWeb3";
 import {calcFrontrunningPrevention} from "../../utils/common";
 import {tokenUnits2Float} from "../../utils/conversions";
@@ -47,6 +47,7 @@ const InvestorPanel = () => {
     const [capital, setCapital] = useState('0');
     const [tolerance, setTolerance] = useState(5);
     const [estimationDFAM, setEstimationDFAM] = useState('0');
+    const [estimationETH, setEstimationETH] = useState('0');
     const [estimationTxCost, setEstimationTxCost] = useState('0');
     const [minAmountsOut, setMinAmountsOut] = useState([]);
     const [isFRPActivated, setIsFRPActivated] = useState(true);
@@ -92,42 +93,52 @@ const InvestorPanel = () => {
                 setEthBalance(_ethBalance);
                 setSupply(_supply);
                 setIndexPrice(_indexPrice);
-
-                // toast(positiveMsg({
-                //     header: `Smart Contract successfully ${!initInputs? 'deployed' : 'updated'}`,
-                //     msg: `TLS-endorsed Smart Contract ${!initInputs? 'deployed' : 'updated'} successully at address ${futureContractAddress}`
-                // }));
             });
         }
     }
 
     const handleChangeCapital = (_capital) => {
-        const maxCapital = parseFloat(tokenUnits2Float(ethBalance));
-        if (parseInt(supply) === 0)
-            _capital = _capital < 0 ? 0.00 : (_capital > 0.01 ? 0.01 : _capital)
-        else
-            _capital = _capital < 0 ? 0.00 : (_capital > maxCapital ? maxCapital : _capital)
+        if(isInvestPanel) {
+            const maxCapital = parseFloat(tokenUnits2Float(ethBalance));
+            if (parseInt(supply) === 0)
+                _capital = _capital < 0 ? 0.00 : (_capital > 0.01 ? 0.01 : _capital)
+            else
+                _capital = _capital < 0 ? 0.00 : (_capital > maxCapital ? maxCapital : _capital)
 
-        setCapital(_capital)
-        if (_capital && parseFloat(_capital) > 0.00) {
-            estimateMintedDFAM(toWei(_capital.toString())).then(estimation => {
-                console.log('DFAM estimation: ', estimation)
-                setEstimationDFAM(estimation)
-            })
+            setCapital(_capital)
+            setEstimationETH('-' + toWei(_capital))
+            if (_capital && parseFloat(_capital) > 0.00) {
+                estimateMintedDFAM(toWei(_capital.toString())).then(estimation => {
+                    console.log('DFAM estimation: ', estimation)
+                    setEstimationDFAM(estimation)
+                })
 
-            queryAllComponentAmountsOut(toWei(_capital.toString())).then(amountsOut => {
-                expectedAmountsOut.current = amountsOut;
-                setMinAmountsOut(calcFrontrunningPrevention(amountsOut, tolerance))
-            });
-
+                queryAllComponentAmountsOut(toWei(_capital.toString())).then(amountsOut => {
+                    expectedAmountsOut.current = amountsOut;
+                    setMinAmountsOut(calcFrontrunningPrevention(amountsOut, tolerance))
+                });
+            } else {
+                setEstimationDFAM('0')
+                setMinAmountsOut([])
+            }
         } else {
-            setEstimationDFAM('0')
-            setMinAmountsOut([])
+            const maxCapital = parseFloat(tokenUnits2Float(indexBalance));
+            _capital = _capital < 0 ? 0.00 : (_capital > maxCapital ? maxCapital : _capital)
+            setCapital(_capital)
+            setEstimationDFAM('-' + toWei(_capital))
+            if (_capital && parseFloat(_capital) > 0.00) {
+                estimateReceivedNAV(toWei(_capital.toString())).then(estimation => {
+                    console.log('NAV estimation: ', estimation)
+                    setEstimationETH(estimation)
+                })
+            } else {
+                setEstimationETH('0')
+            }
         }
 
     }
 
-    function handleChangeFRP() {
+    function handleToggleFRP() {
         setIsFRPActivated(!isFRPActivated)
     }
 
@@ -135,9 +146,6 @@ const InvestorPanel = () => {
         _tolerance = _tolerance < 0 ? 0 : (_tolerance > 100 ? 100 : _tolerance)
         setTolerance(_tolerance);
         setMinAmountsOut(calcFrontrunningPrevention(expectedAmountsOut.current, _tolerance));
-        // const _minAmountsOut = calcFrontrunningPrevention(expectedAmountsOut.current, _tolerance);
-        // setMinAmountsOut(_minAmountsOut)
-
     }
 
     function renderMinAmountsOut() {
@@ -157,6 +165,43 @@ const InvestorPanel = () => {
         return items;
     }
 
+    const renderEstimationDFAM = () => {
+        const _estimationDFAM = fromWei(estimationDFAM).replace('-', '')
+        if (isInvestPanel)
+            return '+ ' + _estimationDFAM + (_estimationDFAM.includes('.') ? '' : '.00' )
+        else
+            return '- ' + _estimationDFAM + (_estimationDFAM.includes('.') ? '': '.00')
+    }
+
+    const renderEstimationETH = () => {
+        const _estimationETHFloat = fromWei(estimationETH).replace('-', '')
+        if (isInvestPanel)
+            return '- ' + fromWei(BN(estimationETH).add(BN(estimationTxCost))) + (estimationETH.includes('.') ? '' : '.00')
+        else
+            return '+ ' + _estimationETHFloat + (_estimationETHFloat.includes('.') ? '' : '.00')
+    }
+
+    const renderEstimationDFAMBalance = () => {
+        return fromWei(BN(indexBalance).add(BN(estimationDFAM)))
+    }
+
+    const renderEstimationETHBalance = () => {
+        return fromWei(BN(ethBalance).add(BN(estimationETH).add(BN(estimationTxCost).neg())))
+    }
+
+    const handleClickInvestTab = () => {
+        if(!isInvestPanel) {
+            setIsInvestPanel(true)
+            setCapital('0');
+        }
+    }
+
+    const handleClickRedeemTab = () => {
+        if(isInvestPanel) {
+            setIsInvestPanel(false)
+            setCapital('0');
+        }
+    }
 
 
     return (
@@ -165,12 +210,12 @@ const InvestorPanel = () => {
                 <Button
                     color={isInvestPanel && 'purple'}
                     content='Invest'
-                    onClick={() => setIsInvestPanel(true)}
+                    onClick={handleClickInvestTab}
                 />
                 <Button
                     color={!isInvestPanel && 'purple'}
                     content='Redeem'
-                    onClick={() => setIsInvestPanel(false)}
+                    onClick={handleClickRedeemTab}
                 />
             </ButtonGroup>
             <Segment padded attached raised color='purple'>
@@ -197,7 +242,7 @@ const InvestorPanel = () => {
                                                 toggle
                                                 label='&nbsp;'
                                                 checked={isFRPActivated}
-                                                onClick={() => handleChangeFRP()}
+                                                onClick={() => handleToggleFRP()}
                                                 color='purple'
                                             />
                                         </ListItem>
@@ -235,28 +280,27 @@ const InvestorPanel = () => {
                                             <Image avatar src='../images/DFAM.jpg'/>
                                             <List.Content verticalAlign='middle'>
                                                 <ListHeader>
-                                                    <Label basic circular color='green' size='large'>
-                                                        + {fromWei(estimationDFAM)}{estimationDFAM === '0' && '.00'}
+                                                    <Label basic circular color={isInvestPanel ? 'green' : 'red'} size='large'>
+                                                        {renderEstimationDFAM()}
                                                     </Label>
                                                 </ListHeader>
                                                 <ListDescription style={{paddingTop: '10px'}}>
                                                     <Icon name='arrow right'/>
-                                                    {fromWei(BN(indexBalance).add(BN(estimationDFAM)))}
+                                                    {renderEstimationDFAMBalance()}
                                                 </ListDescription>
                                             </List.Content>
                                         </List.Item>
                                         <List.Item style={{paddingBottom: '10px'}}>
-                                            <Image avatar
-                                                   src='https://react.semantic-ui.com/images/avatar/small/stevie.jpg'/>
+                                            <Image avatar src='../images/Ethereum.png'/>
                                             <List.Content verticalAlign='middle'>
                                                 <ListHeader>
-                                                    <Label basic circular color='red' size='large'>
-                                                        - {fromWei(BN(toWei(capital.toString())).add(BN(estimationTxCost)))}{capital === '0' && '.00'}
+                                                    <Label basic circular color={isInvestPanel ? 'red' : 'green'} size='large'>
+                                                        {renderEstimationETH()}
                                                     </Label>
                                                 </ListHeader>
                                                 <ListDescription style={{paddingTop: '10px'}}>
                                                     <Icon name='arrow right'/>
-                                                    {fromWei(BN(ethBalance).sub(BN(toWei(capital.toString())).add(BN(estimationTxCost))))}
+                                                    {renderEstimationETHBalance()}
                                                 </ListDescription>
                                             </List.Content>
                                         </List.Item>
