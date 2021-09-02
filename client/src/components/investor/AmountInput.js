@@ -65,7 +65,7 @@ const AmountInput = ({isInvestPanel, capital, handleChangeCapital}) => {
                 />
                 :
                 <Input
-                    value={capital === '0' ? null : capital}
+                    value={capital === '0' ? '' : capital}
                     placeholder='0.00'
                     onChange={e => {
                         handleChangeCapital(e.target.value);

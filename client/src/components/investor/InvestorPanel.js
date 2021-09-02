@@ -127,6 +127,7 @@ const InvestorPanel = () => {
                 value
             }).on('receipt', async (txReceipt) => {
                 await updateFigures(txReceipt);
+                resetStates();
             });
         }
 
@@ -195,7 +196,6 @@ const InvestorPanel = () => {
                 setMinAmountsOut([])
             }
         }
-
     }
 
     function handleToggleFRP() {
@@ -299,17 +299,28 @@ const InvestorPanel = () => {
         )
     }
 
+    const resetStates = () => {
+        setCapital('0');
+        setEstimationDFAM('0')
+        setEstimationETH('0')
+        setEstimationTxCost('0')
+        setTolerance(5)
+        setMinAmountsOut([])
+        setIsFRPActivated(true)
+    }
+
     const handleClickInvestTab = () => {
         if (!isInvestPanel) {
+            resetStates();
             setIsInvestPanel(true)
-            setCapital('0');
         }
     }
 
     const handleClickRedeemTab = () => {
         if (isInvestPanel) {
+            console.log('resetting')
+            resetStates();
             setIsInvestPanel(false)
-            setCapital('0');
         }
     }
 
