@@ -1,9 +1,9 @@
 import allAddrs from "../data/contractAddresses.json";
-import {BN, fromWei, toWei, web3} from "../getWeb3";
+import {BN, toWei, web3} from "../getWeb3";
 import {_getSwapPath} from "./common";
 import {CONTRACTS, getInstance} from "./getContract";
 import {getAmountOut, swapExactETHForTokens} from "./simulateUniswap";
-import ERC20_JSON from "../abis/ERC20.json";
+import {queryAllComponentNAVs} from "./queryAmountsOut";
 
 
 const queryUniswapEthOut = async (tokenSymbol, amountToken) => {
@@ -45,7 +45,7 @@ const queryTotalNAVsOfSpecificComponentAmounts = async (componentAmounts) => {
     return Object.values(ethNAVs).reduce((accum, ethAmount) => accum.add(BN(ethAmount)), BN(0)).toString()
 }
 
-const estimateTotalNAVOfCapital = async (totalETH) => {
+const estimateTotalNAVOfCapitalInput = async (totalETH) => {
     const componentSymbols = await getInstance(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call();
     const ethEach = BN(totalETH).div(BN(componentSymbols.length));
     let totalNAV = BN(0);
@@ -62,45 +62,22 @@ const estimateTotalNAVOfCapital = async (totalETH) => {
 
 export const estimateMintedDFAM = async (totalETH) => {
     const indexPrice = await queryIndexPrice();
-    const totalNAV = await estimateTotalNAVOfCapital(totalETH);
+    const totalNAV = await estimateTotalNAVOfCapitalInput(totalETH);
     return BN(totalNAV).mul(BN(toWei('1'))).div(BN(indexPrice)).toString()
 }
 
-export const estimateReceivedNAV = async (amountDFAM) => {
-    const indexPrice = await queryIndexPrice();
-    const componentSymbols = await getInstance(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call();
-    const navOutForEach = BN(amountDFAM).mul(BN(indexPrice)).div(BN(toWei('1'))).div(BN(componentSymbols.length)).toString();
 
-    const routerInstance = getInstance(CONTRACTS.UNISWAP_ROUTER);
-    const path = ['', allAddrs.WETH]
-    let totalNAVOut = BN(0);
-    for (const symbol of componentSymbols) {
-        path[0] = allAddrs[symbol];
-        const amounts = await routerInstance.methods.getAmountsIn(navOutForEach, path).call();
-        let amountToSell = amounts[0];
-        const componentBalanceOfIndexFund = await getInstance(CONTRACTS[symbol]).methods.balanceOf(allAddrs.indexFund).call();
-        if (BN(amountToSell).gt(BN(componentBalanceOfIndexFund)))
-            amountToSell = componentBalanceOfIndexFund;
 
-        // const [reserveTokenUpdated, reserveWETHUpdated]= await swapExactTokensForETH(symbol, amountToSell)
-        const pair = await getInstance(CONTRACTS.UNISWAP_FACTORY).methods.getPair(path[0], path[1]).call();
-        let reserveComponent = await (new web3.eth.Contract(ERC20_JSON.abi, path[0])).methods.balanceOf(pair).call();
-        let reserveWETH = await (new web3.eth.Contract(ERC20_JSON.abi, path[1])).methods.balanceOf(pair).call();
-        const componentNAV = getAmountOut(amountToSell, reserveComponent, reserveWETH);
-        totalNAVOut = totalNAVOut.add(BN(componentNAV))
-    }
-    return totalNAVOut.toString();
+export const estimateRedeemedETH = async (amountDFAM) => {
+        const componentNAVs = await queryAllComponentNAVs(amountDFAM);
+        return componentNAVs.reduce((accum, eth) => accum.add(BN(eth)), BN(0)).toString();
 }
 
 export const estimateTxCost = async (tx, sender, value) => {
-    console.log('valueInEther', value);
-
     const gasUsed = await tx.estimateGas({
         from: sender,
         gas: '3000000',
         value: value ? toWei(value.toString()) : ''
     });
-    const estimation = BN(gasUsed).mul(BN(await web3.eth.getGasPrice())).toString();
-    console.log('estimation', BN(gasUsed).mul(BN(await web3.eth.getGasPrice())).toString());
-    return estimation;
+    return BN(gasUsed).mul(BN(await web3.eth.getGasPrice())).toString();
 };

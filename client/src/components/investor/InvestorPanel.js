@@ -24,10 +24,10 @@ import {
 } from "semantic-ui-react";
 import AppContext from "../../context";
 import {CONTRACTS, getAddress, getInstance} from "../../utils/getContract";
-import {queryAllComponentAmountsOut} from "../../utils/queryAmountsOut";
-import {estimateMintedDFAM, estimateReceivedNAV, estimateTxCost} from "../../utils/estimations";
+import {queryAllComponentAmountsOut, queryAllComponentNAVs} from "../../utils/queryAmountsOut";
+import {estimateMintedDFAM, estimateRedeemedETH, estimateTxCost} from "../../utils/estimations";
 import {BN, fromWei, toWei} from "../../getWeb3";
-import {calcFrontrunningPrevention} from "../../utils/common";
+import {calcArrayFRP} from "../../utils/common";
 import {tokenUnits2Float} from "../../utils/conversions";
 import AmountInput from "./AmountInput";
 
@@ -89,6 +89,7 @@ const InvestorPanel = () => {
                     const _txCost = await estimateTxCost(tx, account, value);
                     console.log('_txCost', _txCost)
                     setEstimationTxCost(_txCost);
+
 
                 }
             } else {
@@ -168,7 +169,7 @@ const InvestorPanel = () => {
 
                 queryAllComponentAmountsOut(toWei(_capital.toString())).then(amountsOut => {
                     expectedAmountsOut.current = amountsOut;
-                    setMinAmountsOut(calcFrontrunningPrevention(amountsOut, tolerance))
+                    setMinAmountsOut(calcArrayFRP(amountsOut, tolerance))
                 });
             } else {
                 setEstimationDFAM('0')
@@ -180,12 +181,18 @@ const InvestorPanel = () => {
             setCapital(_capital)
             setEstimationDFAM('-' + toWei(_capital))
             if (_capital && parseFloat(_capital) > 0.00) {
-                estimateReceivedNAV(toWei(_capital.toString())).then(estimation => {
+                estimateRedeemedETH(toWei(_capital.toString())).then(estimation => {
                     console.log('NAV estimation: ', estimation)
                     setEstimationETH(estimation)
                 })
+
+                queryAllComponentNAVs(toWei(_capital.toString())).then(navs => {
+                    expectedAmountsOut.current = navs;
+                    setMinAmountsOut(calcArrayFRP(navs, tolerance))
+                })
             } else {
-                setEstimationETH('0')
+                setEstimationETH('0');
+                setMinAmountsOut([])
             }
         }
 
@@ -198,7 +205,7 @@ const InvestorPanel = () => {
     const handleChangeTolerance = (_tolerance) => {
         _tolerance = _tolerance < 0 ? 0 : (_tolerance > 100 ? 100 : _tolerance)
         setTolerance(_tolerance);
-        setMinAmountsOut(calcFrontrunningPrevention(expectedAmountsOut.current, _tolerance));
+        setMinAmountsOut(calcArrayFRP(expectedAmountsOut.current, _tolerance));
     }
 
     const handleApprove = async () => {
