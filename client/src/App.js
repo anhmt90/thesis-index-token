@@ -1,13 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
-import _ from 'lodash';
+import React, {useState} from 'react';
 
 import AppContext from './context';
 import NavBar from "./components/NavBar";
-
-import addresses from "./data/contractAddresses.json";
-import InvestorPage from "./components/investor/InvestorPage";
-import {CONTRACTS, getInstance} from "./utils/getContract";
-
+import {Route, useLocation} from "react-router-dom";
+import Page from "./components/Page";
 
 
 const App = ({ web3 }) => {
@@ -25,11 +21,12 @@ const App = ({ web3 }) => {
     const [supply, setSupply] = useState('');
     const [indexPrice, setIndexPrice] = useState('');
 
-
+    const location = useLocation();
 
     return (
         <AppContext.Provider value={{
             web3,
+            location,
             account, setAccount,
             isAccountChanged, setIsAccountChanged,
             isWalletDetected, setIsWalletDetected,
@@ -47,7 +44,7 @@ const App = ({ web3 }) => {
         }}>
             <div style={{ width: '100vw', height: '100vh' }}>
                 <NavBar />
-                <InvestorPage />
+                <Page />
             </div>
 
         </AppContext.Provider>

@@ -3,10 +3,12 @@ import {Menu, Image, Button, List, ListItem, ListContent, Label, Icon} from 'sem
 import AppContext from "../context";
 import {CONTRACTS, getInstance} from "../utils/getContract";
 import {fromWei} from "../getWeb3";
+import {NavLink} from "react-router-dom";
 
 const NavBar = () => {
     const {
         web3,
+        location,
         account, setAccount,
         setIsAccountChanged,
         isWalletDetected, setIsWalletDetected,
@@ -32,7 +34,7 @@ const NavBar = () => {
         }
 
         detectAccount();
-    },[web3.utils, web3.eth, setAccount, setIsAccountChanged, setIsWalletDetected])
+    }, [web3.utils, web3.eth, setAccount, setIsAccountChanged, setIsWalletDetected])
 
     useEffect(() => {
         const detectNetwork = async () => {
@@ -46,7 +48,7 @@ const NavBar = () => {
 
     useEffect(() => {
         const queryDFAMBalance = async () => {
-            if(account){
+            if (account) {
                 const _indexBalance = await getInstance(CONTRACTS.INDEX_TOKEN).methods.balanceOf(account).call();
                 setIndexBalance(_indexBalance)
             }
@@ -56,7 +58,7 @@ const NavBar = () => {
 
     useEffect(() => {
         const queryEthBalance = async () => {
-            if(account){
+            if (account) {
                 const _ethBalance = await web3.eth.getBalance(account);
                 setEthBalance(_ethBalance)
             }
@@ -123,19 +125,45 @@ const NavBar = () => {
         }
     }
 
+    const getMenuColor = () => {
+        if(location.pathname === '/investor')
+            return 'purple'
+        else if (location.pathname === '/admin')
+            return 'teal'
+        else
+            return 'black'
+    }
+
     return (
         <div className='navbar'>
-            <Menu size='massive' style={{borderRadius: '0px', alignItems: 'center'}}>
+            <Menu
+                color={'black'} inverted
+                size='massive'
+                style={{borderRadius: '0px', alignItems: 'center'}}
+            >
 
 
                 <Menu.Header style={{padding: '10px 30px'}}>
-                    <Image src='../images/DFAM.jpg' wrapped size={'tiny'} style={{height: '35px'}}/>
+                    <NavLink to='/'>
+                        <Image src='../images/DFAM.jpg' wrapped size={'tiny'} style={{height: '35px'}}/>
+                    </NavLink>
                 </Menu.Header>
 
+                <NavLink to='/investor'>
+                    <Menu.Item
+                        name='Investor'
+                        active={location.pathname === '/' || location.pathname === '/investor'}
+                        onClick={() => {}}
+                    />
+                </NavLink>
 
-                <Menu.Item name='Investor'/>
-
-                <Menu.Item name='Admin'/>
+                <NavLink to='/admin'>
+                    <Menu.Item
+                        name='Admin'
+                        active={location.pathname === '/admin'}
+                        onClick={() => {}}
+                    />
+                </NavLink>
 
                 <Menu.Menu position='right'>
                     <Menu.Item>
@@ -149,7 +177,7 @@ const NavBar = () => {
                     <Menu.Item>
                         <b>{fromWei(ethBalance)}</b>
                         &nbsp;
-                        <Icon name='ethereum' />
+                        <Icon name='ethereum'/>
                     </Menu.Item>
 
                     <Menu.Item>

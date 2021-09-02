@@ -6,20 +6,15 @@ import App from './App';
 import getWeb3 from './getWeb3';
 import 'semantic-ui-css/semantic.min.css'
 
-
-// ReactDOM.render(
-//   <React.StrictMode>
-//     <App />
-//   </React.StrictMode>,
-//   document.getElementById('root')
-// );
-
+import { BrowserRouter } from 'react-router-dom';
 
 
 getWeb3().then(web3 => {
     ReactDOM.render(
         <React.StrictMode>
-            <App web3={web3} />
+            <BrowserRouter>
+                <App web3={web3} />
+            </BrowserRouter>
         </React.StrictMode>,
         document.getElementById('root')
     );
