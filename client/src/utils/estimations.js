@@ -92,13 +92,13 @@ export const estimateReceivedNAV = async (amountDFAM) => {
     return totalNAVOut.toString();
 }
 
-export const estimateTxCost = async (tx, sender, valueInEther) => {
-    console.log('valueInEther', valueInEther);
+export const estimateTxCost = async (tx, sender, value) => {
+    console.log('valueInEther', value);
 
     const gasUsed = await tx.estimateGas({
         from: sender,
         gas: '3000000',
-        value: toWei(valueInEther.toString())
+        value: value ? toWei(value.toString()) : ''
     });
     const estimation = BN(gasUsed).mul(BN(await web3.eth.getGasPrice())).toString();
     console.log('estimation', BN(gasUsed).mul(BN(await web3.eth.getGasPrice())).toString());

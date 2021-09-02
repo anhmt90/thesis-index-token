@@ -6,7 +6,7 @@ import {
     Container,
     Form,
     FormButton,
-    FormField,
+    FormField, FormGroup,
     Grid,
     GridColumn,
     GridRow,
@@ -23,7 +23,7 @@ import {
     Segment
 } from "semantic-ui-react";
 import AppContext from "../../context";
-import {CONTRACTS, getInstance} from "../../utils/getContract";
+import {CONTRACTS, getAddress, getInstance} from "../../utils/getContract";
 import {queryAllComponentAmountsOut} from "../../utils/queryAmountsOut";
 import {estimateMintedDFAM, estimateReceivedNAV, estimateTxCost} from "../../utils/estimations";
 import {BN, fromWei, toWei} from "../../getWeb3";
@@ -51,54 +51,107 @@ const InvestorPanel = () => {
     const [estimationTxCost, setEstimationTxCost] = useState('0');
     const [minAmountsOut, setMinAmountsOut] = useState([]);
     const [isFRPActivated, setIsFRPActivated] = useState(true);
+    const [allowance, setAllowance] = useState('0')
 
     const expectedAmountsOut = useRef([])
 
-    const getTx = useCallback(() => {
-        const _minAmountsOut = isFRPActivated && tolerance ? minAmountsOut : [];
-        return getInstance(CONTRACTS.INDEX_FUND).methods.buy(_minAmountsOut);
-    }, [isFRPActivated, minAmountsOut, tolerance])
+    const isEnoughAllowance = useCallback((_allowance, _capital) => {
+        return isInvestPanel || BN(_allowance).gte(BN(toWei(_capital)))
+    }, [isInvestPanel])
 
+    const getTx = useCallback(({capital, tolerance, minAmountsOut, isInvestPanel, isFRPActivated}) => {
+        const _minAmountsOut = isFRPActivated && tolerance ? minAmountsOut : [];
+        if (isInvestPanel)
+            return getInstance(CONTRACTS.INDEX_FUND).methods.buy(_minAmountsOut);
+        else
+            return getInstance(CONTRACTS.INDEX_FUND).methods.sell(toWei(capital), _minAmountsOut);
+    }, [])
+
+    useEffect(() => {
+        const queryAllowance = async () => {
+            if (account) {
+                const indexFundAddress = getAddress(CONTRACTS.INDEX_FUND);
+                const _allowance = await getInstance(CONTRACTS.INDEX_TOKEN).methods.allowance(account, indexFundAddress).call();
+                setAllowance(_allowance);
+            }
+        }
+        queryAllowance();
+    }, [account])
 
     useEffect(() => {
         const estimateGas = async () => {
             if (capital && parseFloat(capital) > 0.00) {
-                const _txCost = await estimateTxCost(getTx(), account, capital);
-                console.log('_txCost', _txCost)
-                setEstimationTxCost(_txCost);
+                const tx = getTx({capital, tolerance, minAmountsOut, isInvestPanel, isFRPActivated});
+                console.log('In estimateGas', tx)
+                const value = isInvestPanel ? capital : '';
+
+                if (isEnoughAllowance(allowance, capital)) {
+                    const _txCost = await estimateTxCost(tx, account, value);
+                    console.log('_txCost', _txCost)
+                    setEstimationTxCost(_txCost);
+
+                }
             } else {
                 setEstimationTxCost('0');
             }
         }
         estimateGas();
-    }, [account, capital, getTx])
+    }, [account, allowance, capital, getTx, isEnoughAllowance, isFRPActivated, isInvestPanel, minAmountsOut, tolerance])
+
+    /******************************************************************************************************************/
 
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (capital) {
-            await getTx().send({
-                from: account,
-                value: toWei(capital.toString()),
-                gas: '3000000'
-            }).on('receipt', async (txReceipt) => {
-                const costPaid = txReceipt.gasUsed * fromWei((await web3.eth.getGasPrice()), 'ether');
-                console.log('costPaid', costPaid)
+        e.preventDefault()
 
-                const _indexBalance = await getInstance(CONTRACTS.INDEX_TOKEN).methods.balanceOf(account).call();
-                const _ethBalance = await web3.eth.getBalance(account);
-                const _supply = await getInstance(CONTRACTS.INDEX_TOKEN).methods.totalSupply().call();
-                const _indexPrice = await getInstance(CONTRACTS.INDEX_FUND).methods.getIndexPrice().call();
-                setIndexBalance(_indexBalance);
-                setEthBalance(_ethBalance);
-                setSupply(_supply);
-                setIndexPrice(_indexPrice);
+        const updateFigures = async (txReceipt) => {
+            const costPaid = txReceipt.gasUsed * fromWei((await web3.eth.getGasPrice()), 'ether');
+            console.log('costPaid', costPaid)
+
+            const _indexBalance = await getInstance(CONTRACTS.INDEX_TOKEN).methods.balanceOf(account).call();
+            const _ethBalance = await web3.eth.getBalance(account);
+            const _supply = await getInstance(CONTRACTS.INDEX_TOKEN).methods.totalSupply().call();
+            const _indexPrice = await getInstance(CONTRACTS.INDEX_FUND).methods.getIndexPrice().call();
+            setIndexBalance(_indexBalance);
+            setEthBalance(_ethBalance);
+            setSupply(_supply);
+            setIndexPrice(_indexPrice);
+        }
+
+        const executeTx = async (value) => {
+            const tx = getTx({capital, tolerance, minAmountsOut, isInvestPanel, isFRPActivated});
+            await tx.send({
+                from: account,
+                gas: '3000000',
+                value
+            }).on('receipt', async (txReceipt) => {
+                await updateFigures(txReceipt);
             });
+        }
+
+        if (capital) {
+            if (isInvestPanel) {
+                await executeTx(toWei(capital.toString()))
+            } else {
+                if (isEnoughAllowance(allowance, capital)) {
+                    await executeTx('');
+                } else {
+                    const indexFundAddress = getAddress(CONTRACTS.INDEX_FUND)
+                    await getInstance(CONTRACTS.INDEX_TOKEN).methods.approve(indexFundAddress, toWei(capital)).send({
+                        from: account,
+                        gas: '3000000'
+                    }).on('receipt', async (txIncreaseAllowanceReceipt) => {
+                        await executeTx('')
+                    })
+                }
+            }
         }
     }
 
+    /******************************************************************************************************************/
+
     const handleChangeCapital = (_capital) => {
-        if(isInvestPanel) {
+        if (isInvestPanel) {
             const maxCapital = parseFloat(tokenUnits2Float(ethBalance));
             if (parseInt(supply) === 0)
                 _capital = _capital < 0 ? 0.00 : (_capital > 0.01 ? 0.01 : _capital)
@@ -148,6 +201,20 @@ const InvestorPanel = () => {
         setMinAmountsOut(calcFrontrunningPrevention(expectedAmountsOut.current, _tolerance));
     }
 
+    const handleApprove = async () => {
+        const indexFundAddress = getAddress(CONTRACTS.INDEX_FUND);
+        console.log('toWei(capital)', toWei(capital));
+        await getInstance(CONTRACTS.INDEX_TOKEN).methods.approve(indexFundAddress, toWei(capital)).send({
+            from: account,
+            gas: '300000'
+        }).on('receipt', async (txReceipt) => {
+            const _allowance = await getInstance(CONTRACTS.INDEX_TOKEN).methods.allowance(account, indexFundAddress).call()
+            setAllowance(_allowance)
+        })
+    }
+
+    /******************************************************************************************************************/
+
     function renderMinAmountsOut() {
         const items = []
         for (let i = 0; i < portfolio.length; i++) {
@@ -167,18 +234,20 @@ const InvestorPanel = () => {
 
     const renderEstimationDFAM = () => {
         const _estimationDFAM = fromWei(estimationDFAM).replace('-', '')
+        const decimalSuffix = _estimationDFAM.includes('.') ? '' : '.00'
         if (isInvestPanel)
-            return '+ ' + _estimationDFAM + (_estimationDFAM.includes('.') ? '' : '.00' )
+            return '+ ' + _estimationDFAM + decimalSuffix
         else
-            return '- ' + _estimationDFAM + (_estimationDFAM.includes('.') ? '': '.00')
+            return '- ' + _estimationDFAM + decimalSuffix
     }
 
     const renderEstimationETH = () => {
-        const _estimationETHFloat = fromWei(estimationETH).replace('-', '')
+        const _estimationETH = fromWei(estimationETH).replace('-', '')
+        const decimalSuffix = _estimationETH.includes('.') ? '' : '.00'
         if (isInvestPanel)
-            return '- ' + fromWei(BN(estimationETH).add(BN(estimationTxCost))) + (estimationETH.includes('.') ? '' : '.00')
+            return '- ' + _estimationETH + decimalSuffix
         else
-            return '+ ' + _estimationETHFloat + (_estimationETHFloat.includes('.') ? '' : '.00')
+            return '+ ' + _estimationETH + decimalSuffix
     }
 
     const renderEstimationDFAMBalance = () => {
@@ -189,15 +258,49 @@ const InvestorPanel = () => {
         return fromWei(BN(ethBalance).add(BN(estimationETH).add(BN(estimationTxCost).neg())))
     }
 
+    const renderTxCost = () => {
+        if (!isEnoughAllowance(allowance, capital)) {
+            return (
+                <Fragment>
+                    <ListHeader>
+                        <Header color='blue' as='h5'>
+                            Not enough allowance to estimate gas
+                        </Header>
+                    </ListHeader>
+                    <ListDescription style={{paddingTop: '5px'}}>
+                        <FormGroup inline>
+                            <span>Approve {capital} DFAM? &nbsp; &nbsp;</span>
+                            <FormButton
+                                compact
+                                size='mini'
+                                content='Approve'
+                                onClick={handleApprove}
+                                color='blue'
+                            />
+                        </FormGroup>
+                    </ListDescription>
+                </Fragment>
+            )
+        }
+        const _estimationTxCost = fromWei(estimationTxCost)
+        const decimalSuffix = _estimationTxCost.includes('.') ? '' : '.00'
+        return (
+            <Header color='blue' size='small'>
+                {_estimationTxCost + decimalSuffix}
+                <span><Icon name='ethereum' size='normal'/></span>
+            </Header>
+        )
+    }
+
     const handleClickInvestTab = () => {
-        if(!isInvestPanel) {
+        if (!isInvestPanel) {
             setIsInvestPanel(true)
             setCapital('0');
         }
     }
 
     const handleClickRedeemTab = () => {
-        if(isInvestPanel) {
+        if (isInvestPanel) {
             setIsInvestPanel(false)
             setCapital('0');
         }
@@ -248,39 +351,43 @@ const InvestorPanel = () => {
                                         </ListItem>
                                     </List>
                                 </Header>
-                                <FormField>
-                                    <Input
-                                        value={tolerance}
-                                        onChange={e => {
-                                            handleChangeTolerance(e.target.value)
-                                        }}
-                                        type='number'
-                                        step='any'
-                                        min={0}
-                                        max={100}
-                                        label={{basic: true, content: '%'}}
-                                        labelPosition='right'
-                                        placeholder='Enter percentage...'
-                                        disabled={!isFRPActivated || !capital || parseFloat(capital) <= 0}
-                                        style={{width: '35%'}}
-                                    />
-                                </FormField>
+                                <FormGroup inline>
+                                    <label>Slippage Tolerance:</label>
+                                    <FormField>
+                                        <Input
+                                            value={tolerance}
+                                            onChange={e => {
+                                                handleChangeTolerance(e.target.value)
+                                            }}
+                                            type='number'
+                                            step='any'
+                                            min={0}
+                                            max={100}
+                                            label={{basic: true, content: '%'}}
+                                            labelPosition='right'
+                                            placeholder='Enter percentage...'
+                                            disabled={!isFRPActivated || !capital || parseFloat(capital) <= 0}
+                                            style={{width: '35%'}}
+                                        />
+                                    </FormField>
+                                </FormGroup>
                                 <List horizontal relaxed>
                                     {(isFRPActivated && tolerance && capital && parseFloat(capital) > 0) && renderMinAmountsOut()}
                                 </List>
                             </GridColumn>
-                            <GridColumn width={6} style={{paddingLeft: '30px'}}>
+                            <GridColumn width={6} style={{paddingLeft: '20px'}}>
                                 <FormField>
-                                    <Header as='h4'>
+                                    <Header as='h4' style={{paddingBottom: '10px'}}>
                                         <Icon name='calculator'/>
                                         Estimations
                                     </Header>
-                                    <List style={{paddingLeft: '10%'}}>
+                                    <List style={{paddingLeft: '0'}}>
                                         <List.Item style={{paddingBottom: '10px'}}>
                                             <Image avatar src='../images/DFAM.jpg'/>
                                             <List.Content verticalAlign='middle'>
                                                 <ListHeader>
-                                                    <Label basic circular color={isInvestPanel ? 'green' : 'red'} size='large'>
+                                                    <Label basic circular color={isInvestPanel ? 'green' : 'red'}
+                                                           size='large'>
                                                         {renderEstimationDFAM()}
                                                     </Label>
                                                 </ListHeader>
@@ -294,7 +401,8 @@ const InvestorPanel = () => {
                                             <Image avatar src='../images/Ethereum.png'/>
                                             <List.Content verticalAlign='middle'>
                                                 <ListHeader>
-                                                    <Label basic circular color={isInvestPanel ? 'red' : 'green'} size='large'>
+                                                    <Label basic circular color={isInvestPanel ? 'red' : 'green'}
+                                                           size='large'>
                                                         {renderEstimationETH()}
                                                     </Label>
                                                 </ListHeader>
@@ -307,10 +415,7 @@ const InvestorPanel = () => {
                                         <List.Item>
                                             <ListIcon name='gripfire' size='big' color='blue'/>
                                             <List.Content verticalAlign='middle'>
-                                                <Header color='blue' size='small'>
-                                                    {fromWei(estimationTxCost)}{estimationTxCost === '0' && '.00'}
-                                                    <span><Icon name='ethereum' size='normal'/></span>
-                                                </Header>
+                                                {renderTxCost()}
                                             </List.Content>
                                         </List.Item>
                                     </List>
@@ -320,11 +425,13 @@ const InvestorPanel = () => {
                         <GridRow>
                             <GridColumn textAlign='center'>
                                 <FormButton
+                                    onClick={handleSubmit}
+                                    disabled={!capital || !(parseFloat(capital) > 0)}
                                     color='purple'
                                     style={{width: '50%', margin: '5% auto'}}
-                                    onClick={handleSubmit}
+
                                 >
-                                    Buy
+                                    {isInvestPanel ? 'Buy' : 'Sell'}
                                     <Icon name='arrow circle right'/>
                                 </FormButton>
                             </GridColumn>
