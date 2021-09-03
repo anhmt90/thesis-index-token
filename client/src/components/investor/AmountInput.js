@@ -5,7 +5,7 @@ import AppContext from "../../context";
 import {useContext} from "react";
 
 
-const AmountInput = ({isInvestPanel, capital, handleChangeCapital}) => {
+const AmountInput = ({isUpdatePanel, announcement, handleChangeAnnouncement}) => {
 
     const {
         ethBalance, setEthBalance,
@@ -15,7 +15,7 @@ const AmountInput = ({isInvestPanel, capital, handleChangeCapital}) => {
 
     const innerLabel = {
         basic: true,
-        image: <Image size='mini' src={`../images/${isInvestPanel? 'Ethereum.png' : 'DFAM.jpg'}`}/>,
+        image: <Image size='mini' src={`../images/${isUpdatePanel? 'Ethereum.png' : 'DFAM.jpg'}`}/>,
         style: {
             borderRight: 'none',
         }
@@ -24,7 +24,7 @@ const AmountInput = ({isInvestPanel, capital, handleChangeCapital}) => {
     const renderAmountInputLabel = () => {
         return (
             <Header as='h4'>
-                {isInvestPanel ?
+                {isUpdatePanel ?
                     <Fragment>
                         <Icon name='money bill alternate outline'/>
                         Investment Capital
@@ -46,12 +46,12 @@ const AmountInput = ({isInvestPanel, capital, handleChangeCapital}) => {
     return (
         <FormField>
             {renderAmountInputLabel()}
-            {isInvestPanel ?
+            {isUpdatePanel ?
                 <Input
-                    value={capital === '0' ? '' : capital}
+                    value={announcement === '0' ? '' : announcement}
                     placeholder='0.00'
                     onChange={e => {
-                        handleChangeCapital(e.target.value);
+                        handleChangeAnnouncement(e.target.value);
                     }}
                     type='number'
                     step={parseInt(supply) === 0 ? '0.001' : 'any'}
@@ -65,10 +65,10 @@ const AmountInput = ({isInvestPanel, capital, handleChangeCapital}) => {
                 />
                 :
                 <Input
-                    value={capital === '0' ? '' : capital}
+                    value={announcement === '0' ? '' : announcement}
                     placeholder='0.00'
                     onChange={e => {
-                        handleChangeCapital(e.target.value);
+                        handleChangeAnnouncement(e.target.value);
                     }}
                     type='number'
                     step='any'

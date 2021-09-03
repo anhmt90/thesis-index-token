@@ -5,8 +5,7 @@ import {
     Checkbox,
     Container,
     Form,
-    FormButton,
-    FormField, FormGroup,
+    FormGroup,
     Grid,
     GridColumn,
     GridRow,
@@ -15,7 +14,7 @@ import {
     Image,
     Input,
     Label,
-    List, ListContent,
+    List,
     ListDescription,
     ListHeader,
     ListIcon,
@@ -269,23 +268,23 @@ const InvestorPanel = () => {
         if (!isEnoughAllowance(allowance, capital)) {
             return (
                 <Fragment>
-                    <ListHeader>
+                    <List.Header>
                         <Header color='blue' as='h5'>
                             Not enough allowance to estimate gas
                         </Header>
-                    </ListHeader>
-                    <ListDescription style={{paddingTop: '5px'}}>
-                        <FormGroup inline>
+                    </List.Header>
+                    <List.Description style={{paddingTop: '5px'}}>
+                        <Form.Group inline>
                             <span>Approve {capital} DFAM? &nbsp; &nbsp;</span>
-                            <FormButton
+                            <Form.Button
                                 compact
                                 size='mini'
                                 content='Approve'
                                 onClick={handleApprove}
                                 color='blue'
                             />
-                        </FormGroup>
-                    </ListDescription>
+                        </Form.Group>
+                    </List.Description>
                 </Fragment>
             )
         }
@@ -340,11 +339,11 @@ const InvestorPanel = () => {
                 />
             </ButtonGroup>
             <Segment padded attached raised color='purple'>
-                <Form style={{marginTop: '1%'}}>
+                <Form>
                     <AmountInput
-                        isInvestPanel={isInvestPanel}
-                        capital={capital}
-                        handleChangeCapital={handleChangeCapital}
+                        isUpdatePanel={isInvestPanel}
+                        announcement={capital}
+                        handleChangeAnnouncement={handleChangeCapital}
                     />
 
                     <Grid divided style={{marginTop: '1%'}}>
@@ -371,7 +370,7 @@ const InvestorPanel = () => {
                                 </Header>
                                 <FormGroup inline>
                                     <label>Slippage Tolerance:</label>
-                                    <FormField>
+                                    <Form.Field>
                                         <Input
                                             value={tolerance}
                                             onChange={e => {
@@ -387,14 +386,14 @@ const InvestorPanel = () => {
                                             disabled={!isFRPActivated || !capital || parseFloat(capital) <= 0}
                                             style={{width: '35%'}}
                                         />
-                                    </FormField>
+                                    </Form.Field>
                                 </FormGroup>
                                 <List horizontal relaxed>
                                     {(isFRPActivated && tolerance && capital && parseFloat(capital) > 0) && renderMinAmountsOut()}
                                 </List>
                             </GridColumn>
                             <GridColumn width={6} style={{paddingLeft: '20px'}}>
-                                <FormField>
+                                <Form.Field>
                                     <Header as='h4' style={{paddingBottom: '10px'}}>
                                         <Icon name='calculator'/>
                                         Estimations
@@ -437,12 +436,12 @@ const InvestorPanel = () => {
                                             </List.Content>
                                         </List.Item>
                                     </List>
-                                </FormField>
+                                </Form.Field>
                             </GridColumn>
                         </GridRow>
                         <GridRow>
                             <GridColumn textAlign='center'>
-                                <FormButton
+                                <Form.Button
                                     onClick={handleSubmit}
                                     disabled={!capital || !(parseFloat(capital) > 0)}
                                     color='purple'
@@ -451,7 +450,7 @@ const InvestorPanel = () => {
                                 >
                                     {isInvestPanel ? 'Buy' : 'Sell'}
                                     <Icon name='arrow circle right'/>
-                                </FormButton>
+                                </Form.Button>
                             </GridColumn>
                         </GridRow>
                     </Grid>
