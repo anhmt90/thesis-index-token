@@ -29,17 +29,43 @@ export const queryCurrentPrices = async () => {
     return currentPrices;
 }
 
+const _compareComponent = (a, b) => {
+    if (a.diffPercent.gt(b.diffPercent)) return -1;
+    if (a.diffPercent.lt(b.diffPercent)) return 1;
+    if (a.diffPercent.eq(b.diffPercent)) {
+        if ((curPortfolio.has(a.symbol) && curPortfolio.has(b.symbol)) || (!curPortfolio.has(a.symbol) && !curPortfolio.has(b.symbol)))
+            return 0;
+        if (curPortfolio.has(a.symbol) && !curPortfolio.has(b.symbol))
+            return -1;
+        if (!curPortfolio.has(a.symbol) && curPortfolio.has(b.symbol))
+            return 1;
+    }
+};
 
-export const computePriceDiffPercents = (prevPrices, curPrices) => {
-    const priceDiffPercentages = {};
+export const computePriceDiffPercents = async (prevPrices, curPrices) => {
+    if(!curPortfolio || curPortfolio.length !== 0)
+        curPortfolio = new Set(await getInstance(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call());
+
+    const _priceDiffPercentages = [];
     console.log('prevPrices', prevPrices)
     console.log('curPrices', curPrices)
     for (const [symbol, curPrice] of Object.entries(curPrices)) {
         const prevPrice = BN(prevPrices[symbol]);
         const diff = BN(curPrice).sub(prevPrice);
-        priceDiffPercentages[symbol] = diff.mul(BN(toWei('1'))).div(prevPrice).mul(BN(100));
+        _priceDiffPercentages.push({
+            symbol,
+            diffPercent: diff.mul(BN(toWei('1'))).div(prevPrice).mul(BN(100))
+        })
     }
-    console.log("PRICE DIFFS ===> ", Object.entries(priceDiffPercentages).map(([symbol, diffPercent]) => symbol + ': ' + diffPercent));
+
+    _priceDiffPercentages.sort(_compareComponent);
+    console.log("PRICE DIFFS 1 ===> ", _priceDiffPercentages);
+    const priceDiffPercentages = {};
+    _priceDiffPercentages.map(({symbol, diffPercent}) => {
+        priceDiffPercentages[symbol] = diffPercent;
+    })
+
+    console.log("PRICE DIFFS 2 ===> ", Object.entries(priceDiffPercentages).map(([symbol, diffPercent]) => symbol + ': ' + diffPercent));
     return priceDiffPercentages
 }
 
@@ -65,12 +91,12 @@ export const selectNewPortfolio = async (curPrices) => {
         console.log("CURRENT PRICES ===> ", curPrices);
     }
 
-    let priceDiffPercentages = computePriceDiffPercents(prevPrices, curPrices);
+    let priceDiffPercentages = await computePriceDiffPercents(prevPrices, curPrices);
     priceDiffPercentages = Object.entries(priceDiffPercentages).map(([symbol, diffPercent]) => ({symbol, diffPercent}))
 
     curPortfolio = new Set(await getInstance(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call());
 
-    priceDiffPercentages.sort(_compareComponent);
+
     console.log("SORTED PRICE DIFFS ===> ", priceDiffPercentages.map(({symbol, diffPercent}) => diffPercent.toString() + '_' + symbol));
 
     // get new portfolio from based off the sorted price difference percentages
@@ -84,20 +110,6 @@ export const selectNewPortfolio = async (curPrices) => {
 
     return newPortfolio;
 };
-
-const _compareComponent = (a, b) => {
-    if (a.diffPercent.gt(b.diffPercent)) return -1;
-    if (a.diffPercent.lt(b.diffPercent)) return 1;
-    if (a.diffPercent.eq(b.diffPercent)) {
-        if ((curPortfolio.has(a.symbol) && curPortfolio.has(b.symbol)) || (!curPortfolio.has(a.symbol) && !curPortfolio.has(b.symbol)))
-            return 0;
-        if (curPortfolio.has(a.symbol) && !curPortfolio.has(b.symbol))
-            return -1;
-        if (!curPortfolio.has(a.symbol) && curPortfolio.has(b.symbol))
-            return 1;
-    }
-};
-
 
 // const _deriveSubbedOutAndSubbedInComponents = async (newPortfolio) => {
 //     // get current portfolio onchain

@@ -26,37 +26,40 @@ const PerformanceTable = () => {
         const fetchCurrentPrices = async () => {
             return await queryCurrentPrices();
         }
-        fetchCurrentPrices().then(_currentPrices => {
+        fetchCurrentPrices().then(async (_currentPrices) => {
             setCurrentPrices(_currentPrices);
-            const priceDiffPercents = computePriceDiffPercents(PREV_PRICES, _currentPrices)
+            const priceDiffPercents = await computePriceDiffPercents(PREV_PRICES, _currentPrices)
             setPriceDiffPercents(priceDiffPercents);
         });
     }, [])
 
     const renderRows = () => {
+        if (!priceDiffPercents)
+            return undefined;
 
-        return Object.entries(PREV_PRICES).map(([symbol, prevPrice]) => {
+        const _priceDiffPercents = Object.entries(priceDiffPercents).map(([symbol, diffPercent]) => ({symbol, diffPercent}))
+
+
+        return Object.entries(priceDiffPercents).map(([symbol, diffPercent]) => {
             let isNeg = false
-            let diffPercent = '???'
-            if(priceDiffPercents){
-                diffPercent = BN(priceDiffPercents[symbol]);
-                isNeg = diffPercent.isNeg();
-                diffPercent = fromWei(diffPercent.abs().toString())
-            }
-            return  (
+            isNeg = diffPercent.isNeg();
+            if (isNeg)
+                diffPercent = diffPercent.abs()
+
+            return (
                 <Table.Row>
                     <Table.Cell>
                         <Header as='h4'>
                             {symbol}
                         </Header>
                     </Table.Cell>
-                    <Table.Cell singleLine>{fromWei(prevPrice)}</Table.Cell>
+                    <Table.Cell singleLine>{fromWei(PREV_PRICES[symbol])}</Table.Cell>
                     <Table.Cell>
                         {currentPrices && fromWei(currentPrices[symbol])}
                     </Table.Cell>
                     <Table.Cell>
                         <Header as='h5' color={isNeg ? 'red' : 'green'}>
-                            {priceDiffPercents && `${isNeg ? '-' : '+'} ${diffPercent}`} %
+                            {priceDiffPercents && `${isNeg ? '-' : '+'} ${fromWei(diffPercent.toString())}`} %
                         </Header>
                     </Table.Cell>
                 </Table.Row>
