@@ -1,9 +1,8 @@
 import PREV_PRICES from "../data/tokenPrices-0.json"
 import {float2TokenUnits} from "./conversions";
 import {_getSwapPath} from "./common";
-import {CONTRACTS, getInstance} from "./getContract";
-import {toWei, BN} from "../getWeb3";
-import fetchEthereumTokens from "./fetchITSA";
+import {CONTRACTS, getABI, getAddress, getInstance} from "./getContract";
+import {BN, toWei} from "../getWeb3";
 
 const ITC_EIN_V100 = 'itc_ein_v100';
 const ECONOMIC_DIM_GROUP = 'E';
@@ -16,8 +15,12 @@ let curPortfolio;
 
 const queryUniswapPriceInEth = async (tokenSymbol) => {
     const path = _getSwapPath(tokenSymbol, true);
+    console.log('1')
     const amounts = await getInstance(CONTRACTS.UNISWAP_ROUTER).methods.getAmountsOut(toWei('1'), path).call();
+    console.log('2')
+    console.log('tokenSymbol', tokenSymbol)
     const decimals = await getInstance(CONTRACTS[tokenSymbol]).methods.decimals().call();
+    console.log('3')
     return BN(toWei('1')).mul(BN(float2TokenUnits('1', decimals))).div(BN(amounts[1])).toString();
 };
 
@@ -43,35 +46,35 @@ const _compareComponent = (a, b) => {
 };
 
 export const computePriceDiffPercents = async (prevPrices, curPrices) => {
-    if(!curPortfolio || curPortfolio.length !== 0)
+    if (!curPortfolio || curPortfolio.length !== 0)
         curPortfolio = new Set(await getInstance(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call());
 
-    const _priceDiffPercentages = [];
+    const _priceDiffPercents = [];
     console.log('prevPrices', prevPrices)
     console.log('curPrices', curPrices)
     for (const [symbol, curPrice] of Object.entries(curPrices)) {
         const prevPrice = BN(prevPrices[symbol]);
         const diff = BN(curPrice).sub(prevPrice);
-        _priceDiffPercentages.push({
+        _priceDiffPercents.push({
             symbol,
             diffPercent: diff.mul(BN(toWei('1'))).div(prevPrice).mul(BN(100))
         })
     }
 
-    _priceDiffPercentages.sort(_compareComponent);
-    console.log("PRICE DIFFS 1 ===> ", _priceDiffPercentages);
-    const priceDiffPercentages = {};
-    _priceDiffPercentages.map(({symbol, diffPercent}) => {
-        priceDiffPercentages[symbol] = diffPercent;
+    _priceDiffPercents.sort(_compareComponent);
+    console.log("PRICE DIFFS 1 ===> ", _priceDiffPercents);
+    const priceDiffPercents = {};
+    _priceDiffPercents.map(function({symbol, diffPercent}) {
+        priceDiffPercents[symbol] = diffPercent;
     })
 
-    console.log("PRICE DIFFS 2 ===> ", Object.entries(priceDiffPercentages).map(([symbol, diffPercent]) => symbol + ': ' + diffPercent));
-    return priceDiffPercentages
+    console.log("PRICE DIFFS 2 ===> ", Object.entries(priceDiffPercents).map(([symbol, diffPercent]) => symbol + ': ' + diffPercent));
+    return priceDiffPercents
 }
 
 
-export const selectNewPortfolio = async (curPrices) => {
-    await fetchEthereumTokens([`${ITC_EIN_V100}=${EIN_FININS_DEFI__LENDINGSAVING}`]);
+export const selectNewPortfolio = async (curPrices, priceDiffPercents) => {
+    // await fetchEthereumTokens([`${ITC_EIN_V100}=${EIN_FININS_DEFI__LENDINGSAVING}`]);
     // how to get the token contract addresses on the tokens fetched from ITSA --> manually from Etherscan
 
     /**
@@ -86,22 +89,26 @@ export const selectNewPortfolio = async (curPrices) => {
     const prevPrices = PREV_PRICES
     console.log("PREVIOUS PRICES ===> ", prevPrices);
 
-    if(!curPrices || curPrices.length === 0){
+    if (!curPrices || curPrices.length === 0) {
         curPrices = await queryCurrentPrices;
         console.log("CURRENT PRICES ===> ", curPrices);
     }
 
-    let priceDiffPercentages = await computePriceDiffPercents(prevPrices, curPrices);
-    priceDiffPercentages = Object.entries(priceDiffPercentages).map(([symbol, diffPercent]) => ({symbol, diffPercent}))
+    if (!priceDiffPercents || Object.keys(priceDiffPercents).length === 0)
+        priceDiffPercents = await computePriceDiffPercents(prevPrices, curPrices);
+
+    priceDiffPercents = Object.entries(priceDiffPercents).map(([symbol, diffPercent]) => ({symbol, diffPercent}))
 
     curPortfolio = new Set(await getInstance(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call());
 
-
-    console.log("SORTED PRICE DIFFS ===> ", priceDiffPercentages.map(({symbol, diffPercent}) => diffPercent.toString() + '_' + symbol));
+    console.log("SORTED PRICE DIFFS ===> ", priceDiffPercents.map(({
+                                                                       symbol,
+                                                                       diffPercent
+                                                                   }) => diffPercent.toString() + '_' + symbol));
 
     // get new portfolio from based off the sorted price difference percentages
     const newPortfolio = [];
-    for (const {symbol, _} of priceDiffPercentages) {
+    for (const {symbol, _} of priceDiffPercents) {
         if (newPortfolio.length >= curPortfolio.size)
             break;
         newPortfolio.push(symbol);
@@ -111,31 +118,29 @@ export const selectNewPortfolio = async (curPrices) => {
     return newPortfolio;
 };
 
-// const _deriveSubbedOutAndSubbedInComponents = async (newPortfolio) => {
-//     // get current portfolio onchain
-//     const fundContract = getContract(CONTRACTS.INDEX_FUND);
-//     const curPortfolio = await fundContract.methods.getComponentSymbols().call();
-//     console.log("CURRENT PORTFOLIO ===> ", curPortfolio);
-//
-//     // derive subtituted components (components out) from current portfolio
-//     const newPortfolioSet = new Set(newPortfolio);
-//     const componentsOut = curPortfolio.filter(component => !newPortfolioSet.has(component));
-//     console.log("REMOVED COMPONENTS ===> ", componentsOut);
-//
-//     if (componentsOut.length === 0) {
-//         log.info("Portfolio in good form, update not necessary!");
-//         return [[], []];
-//     }
-//
-//     // derive new components that are not in the current portfolio (components in)
-//     const curPortfolioSet = new Set(curPortfolio);
-//     const componentsIn = newPortfolio.filter(component => !curPortfolioSet.has(component));
-//     console.log("NEW COMPONENTS ===> ", componentsIn);
-//
-//     return [componentsOut, componentsIn];
-// };
-//
-//
+export const deriveSubbedOutAndSubbedInComponents = async (newPortfolio) => {
+    // get current portfolio onchain
+    const curPortfolio = await getInstance(CONTRACTS.INDEX_FUND).methods.getComponentSymbols().call();
+
+    // derive substituted components (components out) from current portfolio
+    const newPortfolioSet = new Set(newPortfolio);
+    const componentsOut = curPortfolio.filter(component => !newPortfolioSet.has(component));
+    console.log("REMOVED COMPONENTS ===> ", componentsOut);
+
+    if (componentsOut.length === 0) {
+        console.log("Portfolio in good form, update not necessary!");
+        return [[], []];
+    }
+
+    // derive new components that are not in the current portfolio (components in)
+    const curPortfolioSet = new Set(curPortfolio);
+    const componentsIn = newPortfolio.filter(component => !curPortfolioSet.has(component));
+    console.log("NEW COMPONENTS ===> ", componentsIn);
+
+    return [componentsOut, componentsIn];
+};
+
+
 // const decidePortfolioSubstitution = async (newPortfolio) => {
 //     let [componentsOut, componentsIn] = await _deriveSubbedOutAndSubbedInComponents(newPortfolio);
 //     componentsOut = new Set(componentsOut);
@@ -147,7 +152,7 @@ export const selectNewPortfolio = async (curPrices) => {
 //
 //     let sumEthOut = BN(0);
 //     for (const symbol of componentsOut) {
-//         const componentContract = getContract(symbol);
+//         const componentContract = getInstance(symbol);
 //         const componentBalanceOfIndexFund = await componentContract.methods.balanceOf(allAddrs.indexFund).call();
 //         if (componentBalanceOfIndexFund === '0')
 //             continue;
@@ -158,7 +163,7 @@ export const selectNewPortfolio = async (curPrices) => {
 //     }
 //
 //     /**
-//      * Asume using the current amounts of the new components and swap back again for ether with
+//      * Assume using the current amounts of the new components and swap back again for ether with
 //      * the current price to see whether it's worth the uniswap fees, meaning whether the increasing
 //      * values of the new portfolio is more significant than the uniswap's fees for swapping the old
 //      * components out and swapping the new components in.
@@ -175,7 +180,7 @@ export const selectNewPortfolio = async (curPrices) => {
 //     console.log("RETAINED COMPONENTS ===> ", componentsRetained);
 //
 //     for (const symbol of componentsRetained) {
-//         const componentContract = getContract(symbol);
+//         const componentContract = getInstance(symbol);
 //         const componentBalanceOfIndexFund = await componentContract.methods.balanceOf(allAddrs.indexFund).call();
 //         ethAmountOut = await queryUniswapEthOut(symbol, componentBalanceOfIndexFund);
 //         ethTotalNewPortfolio = ethTotalNewPortfolio.add(BN(ethAmountOut));
@@ -194,6 +199,7 @@ export const selectNewPortfolio = async (curPrices) => {
 //
 //     // take the money from the sale, buy those new components
 // };
+
 //
 // const _buy = async () => {
 //     const investor = (await web3.eth.getAccounts())[2];
@@ -226,8 +232,20 @@ export const selectNewPortfolio = async (curPrices) => {
 //     });
 // };
 //
+
+// const loadITINsFromSymbolsAndITC = (symbols, itcKey, itcVal) => {
+//     const itsaTokens = loadItsaTokenInfo();
+//     const symbolSet = new Set(symbols);
+//     const _itsaTokensFiltered = itsaTokens.filter(token => token[itcKey].startsWith(itcVal)
+//         && symbolSet.has(token.symbol)).map(token => [token.symbol, token.itin]);
+//     const _itsaTokensSymbolItinMaps = Object.fromEntries(_itsaTokensFiltered);
+//     // loop through symbols to get itins in the order of components
+//     const itins = symbols.map(symbol => _itsaTokensSymbolItinMaps[symbol]);
+//     return itins;
+// };
+//
 // export const announceUpdate = async (allNextComponentSymbols, _msg) => {
-//     const [componentSymbolsOut, componentSymbolsIn] = await _deriveSubbedOutAndSubbedInComponents(allNextComponentSymbols);
+//     const [componentSymbolsOut, componentSymbolsIn] = await deriveSubbedOutAndSubbedInComponents(allNextComponentSymbols);
 //     if (componentSymbolsOut.length === 0) {
 //         return [[], []];
 //     }
@@ -244,8 +262,7 @@ export const selectNewPortfolio = async (curPrices) => {
 //     console.log("_announcementMsg ===>", _announcementMsg);
 //
 //     // call the announce() func of oracle contact
-//     oracleContract = getContract(CONTRACTS.ORACLE);
-//     await oracleContract.methods.announceUpdate(
+//     await getInstance(CONTRACTS.ORACLE).methods.announceUpdate(
 //         componentSymbolsOut,
 //         componentAddrsIn,
 //         allNextComponentSymbols,
@@ -281,16 +298,16 @@ export const selectNewPortfolio = async (curPrices) => {
 //         console.log(`Gas used (COMMIT UPDATE): `, txReceipt.gasUsed);
 //     });
 // };
-//
+
 // const _makeAnnouncementMsg = (action, _announcementMsg) => {
 //     const today = new Date();
 //     const next2Days = new Date(today.setDate(today.getDate() + 2)).toUTCString();
 //     if (!_announcementMsg) {
-//         _announcementMsg = `The next portfolio ${action} in the IndexFund contract (${allAddrs.indexFund}) will be on <${next2Days} +/- 15 minutes>.`;
+//         _announcementMsg = `The next portfolio ${action} in the IndexFund contract (${getAddress(CONTRACTS.INDEX_FUND)}) will be on <${next2Days} +/- 15 minutes>.`;
 //     }
 //     return _announcementMsg;
 // }
-//
+
 //
 // const announceRebalancing = async (_msg) => {
 //     const _announcementMsg = _makeAnnouncementMsg('rebalancing', _msg)

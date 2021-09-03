@@ -2,6 +2,7 @@ import {useState} from "react";
 import {Button, Container, Form, Header, Icon, Rating, Segment, Table} from "semantic-ui-react";
 import AnnouncementBox from "./AnnouncementBox";
 import PerformanceTable from "./PerformanceTable";
+import ReplacementTable from "./ReplacementTable";
 
 
 const AdminPanel = () => {
@@ -33,8 +34,11 @@ const AdminPanel = () => {
             </Button.Group>
             <Segment padded attached raised color='teal'>
                 <Form>
-                   <PerformanceTable />
-
+                    <PerformanceTable />
+                    <Form.Field>
+                        <Header as='h4'>Suggested Replacements:</Header>
+                        <ReplacementTable />
+                    </Form.Field>
                     <AnnouncementBox
                         isUpdatePanel={isUpdatePanel}
                         announcement={announcement}

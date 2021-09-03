@@ -24,7 +24,7 @@ const getWeb3 = async () => {
          * We are not running Metamask
          * --> create our own provider and wire it up with web3
          */
-
+        console.log("Select HTTP Provider");
         const provider = new Web3.providers.HttpProvider(
             // 'https://rinkeby.infura.io/v3/ad6c5b3aa2854ff2845f842c4e308077'
             'http://localhost:8545'

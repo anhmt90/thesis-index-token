@@ -1,44 +1,30 @@
-import {Header, Rating, Table} from "semantic-ui-react";
-import {useContext, useEffect, useState} from "react";
-import AppContext from "../../context";
+import {Header, Table} from "semantic-ui-react";
+import {useEffect, useState} from "react";
 
 import PREV_PRICES from "../../data/tokenPrices-0.json";
-import {fromWei, BN} from "../../getWeb3";
+import {fromWei} from "../../getWeb3";
 import {computePriceDiffPercents, queryCurrentPrices} from "../../utils/oracle";
 
 
 const PerformanceTable = () => {
 
-    const {
-        web3,
-        account,
-        portfolio,
-        setIndexBalance,
-        ethBalance, setEthBalance,
-        supply, setSupply,
-        indexBalance, setIndexPrice,
-    } = useContext(AppContext);
-
     const [currentPrices, setCurrentPrices] = useState(null);
     const [priceDiffPercents, setPriceDiffPercents] = useState(null);
 
     useEffect(() => {
-        const fetchCurrentPrices = async () => {
-            return await queryCurrentPrices();
-        }
-        fetchCurrentPrices().then(async (_currentPrices) => {
-            setCurrentPrices(_currentPrices);
-            const priceDiffPercents = await computePriceDiffPercents(PREV_PRICES, _currentPrices)
-            setPriceDiffPercents(priceDiffPercents);
-        });
+            const fetchCurrentPrices = async () => {
+                return await queryCurrentPrices();
+            }
+            fetchCurrentPrices().then(async (_currentPrices) => {
+                setCurrentPrices(_currentPrices);
+                const _priceDiffPercents = await computePriceDiffPercents(PREV_PRICES, _currentPrices)
+                setPriceDiffPercents(_priceDiffPercents);
+            });
     }, [])
 
     const renderRows = () => {
-        if (!priceDiffPercents)
+        if (!priceDiffPercents || Object.keys(priceDiffPercents).length === 0)
             return undefined;
-
-        const _priceDiffPercents = Object.entries(priceDiffPercents).map(([symbol, diffPercent]) => ({symbol, diffPercent}))
-
 
         return Object.entries(priceDiffPercents).map(([symbol, diffPercent]) => {
             let isNeg = false
