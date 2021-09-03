@@ -1,18 +1,7 @@
 import {useState} from "react";
-import {
-    Button,
-    ButtonGroup,
-    Container,
-    Form,
-    FormButton,
-    FormField,
-    Header,
-    Icon, Image,
-    Item, List,
-    Segment
-} from "semantic-ui-react";
-import AmountInput from "../investor/AmountInput";
+import {Button, Container, Form, Header, Icon, Rating, Segment, Table} from "semantic-ui-react";
 import AnnouncementBox from "./AnnouncementBox";
+import PerformanceTable from "./PerformanceTable";
 
 
 const AdminPanel = () => {
@@ -44,19 +33,7 @@ const AdminPanel = () => {
             </Button.Group>
             <Segment padded attached raised color='teal'>
                 <Form>
-                    <Form.Field>
-                        <Button
-                            content='Auto-select new portfolio'
-                        />
-                    </Form.Field>
-                    <Form.Field>
-                        <label>To be replaced components:</label>
-                        <List>
-                            <List.Header>
-
-                            </List.Header>
-                        </List>
-                    </Form.Field>
+                   <PerformanceTable />
 
                     <AnnouncementBox
                         isUpdatePanel={isUpdatePanel}
