@@ -1,4 +1,4 @@
-import {Header, Table} from "semantic-ui-react";
+import {Container, Header, Icon, Segment, Table} from "semantic-ui-react";
 import {useEffect, useState} from "react";
 
 import PREV_PRICES from "../../data/tokenPrices-0.json";
@@ -54,20 +54,28 @@ const PerformanceTable = () => {
     }
 
     return (
-        <Table padded>
-            <Table.Header>
-                <Table.Row>
-                    <Table.HeaderCell>Component</Table.HeaderCell>
-                    <Table.HeaderCell singleLine>Previous Price</Table.HeaderCell>
-                    <Table.HeaderCell singleLine>Current Price</Table.HeaderCell>
-                    <Table.HeaderCell>Difference</Table.HeaderCell>
-                </Table.Row>
-            </Table.Header>
+        <Segment padded>
+            <Header as='h3'>
+                <Icon name='chart line' />
+                Price Performance
+            </Header>
+            <Container style={{width: '100%'}}>
+                <Table>
+                    <Table.Header>
+                        <Table.Row>
+                            <Table.HeaderCell>Token</Table.HeaderCell>
+                            <Table.HeaderCell singleLine>Previous Price <Icon name='ethereum' /></Table.HeaderCell>
+                            <Table.HeaderCell singleLine>Current Price <Icon name='ethereum' /></Table.HeaderCell>
+                            <Table.HeaderCell>Difference</Table.HeaderCell>
+                        </Table.Row>
+                    </Table.Header>
 
-            <Table.Body>
-                {renderRows()}
-            </Table.Body>
-        </Table>
+                    <Table.Body>
+                        {renderRows()}
+                    </Table.Body>
+                </Table>
+            </Container>
+        </Segment>
     )
 }
 

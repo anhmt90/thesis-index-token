@@ -6,7 +6,7 @@ import ITC_ERC20_TOKENS from "../../data/itc_erc20_tokens.json";
 import AppContext from "../../context";
 
 
-const ReplacementTable = () => {
+const ReplacementTable = ({setNewPortfolio}) => {
 
     const {
         web3,
@@ -35,6 +35,7 @@ const ReplacementTable = () => {
     useEffect(() => {
         const deriveComponentsOutIn = async () => {
             const newPortfolio = await selectNewPortfolio();
+            setNewPortfolio(newPortfolio);
             const [_componentsOut, _componentsIn] = await deriveSubbedOutAndSubbedInComponents(newPortfolio);
             setComponentsOut(_componentsOut);
             setComponentsIn(_componentsIn);

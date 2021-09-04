@@ -8,6 +8,8 @@ import ReplacementTable from "./ReplacementTable";
 const AdminPanel = () => {
 
     const [isUpdatePanel, setIsUpdatePanel] = useState(true);
+
+    const [newPortfolio, setNewPortfolio] = useState([])
     const [announcement, setAnnouncement] = useState('')
 
     const handleChangeAnnouncement = (_announcement) => {
@@ -34,11 +36,18 @@ const AdminPanel = () => {
             </Button.Group>
             <Segment padded attached raised color='teal'>
                 <Form>
-                    <PerformanceTable />
                     <Form.Field>
-                        <Header as='h4'>Suggested Replacements:</Header>
-                        <ReplacementTable />
+                        <Header as='h4' content='Suggested Replacements'/>
+                        <ReplacementTable
+                            setNewPortfolio={setNewPortfolio}
+                        />
                     </Form.Field>
+                    {newPortfolio.length > 0 &&
+                        <Form.Group inline>
+                            <Header as='h4' content='New Portfolio:&nbsp;'/>
+                            {newPortfolio.join(', ')}
+                        </Form.Group>
+                    }
                     <AnnouncementBox
                         isUpdatePanel={isUpdatePanel}
                         announcement={announcement}
