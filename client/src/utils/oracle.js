@@ -90,7 +90,7 @@ export const selectNewPortfolio = async (curPrices, priceDiffPercents) => {
     console.log("PREVIOUS PRICES ===> ", prevPrices);
 
     if (!curPrices || curPrices.length === 0) {
-        curPrices = await queryCurrentPrices;
+        curPrices = await queryCurrentPrices();
         console.log("CURRENT PRICES ===> ", curPrices);
     }
 
