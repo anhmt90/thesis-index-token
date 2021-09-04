@@ -1,22 +1,56 @@
-import {useState} from "react";
-import {Button, Container, Form, Header, Icon, Rating, Segment, Table} from "semantic-ui-react";
+import {useContext, useState} from "react";
+import {Button, Container, Form, Header, Icon, Segment} from "semantic-ui-react";
 import AnnouncementBox from "./AnnouncementBox";
-import PerformanceTable from "./PerformanceTable";
 import ReplacementTable from "./ReplacementTable";
+import {CONTRACTS, getAddress, getInstance} from "../../utils/getContract";
+import AppContext from "../../context";
 
 
 const AdminPanel = () => {
 
+    const { account, portfolio } = useContext(AppContext)
+
     const [isUpdatePanel, setIsUpdatePanel] = useState(true);
 
     const [newPortfolio, setNewPortfolio] = useState([])
+    const [componentsOut, setComponentsOut] = useState([])
+    const [componentsIn, setComponentsIn] = useState([])
+    const [itins, setItins] = useState([])
+
     const [announcement, setAnnouncement] = useState('')
 
     const handleChangeAnnouncement = (_announcement) => {
         setAnnouncement(_announcement);
     }
 
-    const handleSubmit = () => {
+    const isUpdateReady = () => {
+        return componentsOut && componentsIn && itins && newPortfolio
+            && componentsOut.length > 0
+            && componentsOut.length === componentsIn.length
+            && componentsOut.length === itins.length
+            && newPortfolio.length === portfolio.length
+    }
+
+    const handleSubmit = async () => {
+
+        if(isUpdateReady) {
+            const _componentAddrsIn = componentsIn.map(symbol => getAddress(CONTRACTS[symbol]))
+            console.log('componentsOut', componentsOut)
+            console.log('_componentAddrsIn', _componentAddrsIn)
+            console.log('newPortfolio', newPortfolio)
+            console.log('itins', itins)
+            console.log('announcement', announcement)
+
+            await getInstance(CONTRACTS.ORACLE).methods.announceUpdate(
+                componentsOut, _componentAddrsIn, newPortfolio, itins, announcement).send({
+                from: account,
+                gas: '3000000'
+            })
+
+        } else {
+            throw new Error('Update not ready yet')
+        }
+
 
     }
 
@@ -40,6 +74,9 @@ const AdminPanel = () => {
                         <Header as='h4' content='Suggested Replacements'/>
                         <ReplacementTable
                             setNewPortfolio={setNewPortfolio}
+                            setComponentsOut={setComponentsOut}
+                            setComponentsIn={setComponentsIn}
+                            setItins={setItins}
                         />
                     </Form.Field>
                     {newPortfolio.length > 0 &&
@@ -55,7 +92,7 @@ const AdminPanel = () => {
                     />
                     <Form.Button
                         onClick={handleSubmit}
-                        disabled={!announcement}
+                        // disabled={!announcement}
                         color='teal'
                         style={{width: '50%', margin: '1% auto'}}
                     >

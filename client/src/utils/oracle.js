@@ -15,12 +15,8 @@ let curPortfolio;
 
 const queryUniswapPriceInEth = async (tokenSymbol) => {
     const path = _getSwapPath(tokenSymbol, true);
-    console.log('1')
     const amounts = await getInstance(CONTRACTS.UNISWAP_ROUTER).methods.getAmountsOut(toWei('1'), path).call();
-    console.log('2')
-    console.log('tokenSymbol', tokenSymbol)
     const decimals = await getInstance(CONTRACTS[tokenSymbol]).methods.decimals().call();
-    console.log('3')
     return BN(toWei('1')).mul(BN(float2TokenUnits('1', decimals))).div(BN(amounts[1])).toString();
 };
 

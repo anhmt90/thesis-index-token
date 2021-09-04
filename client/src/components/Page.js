@@ -1,7 +1,7 @@
 import React, {useContext} from "react";
 import {Grid, GridColumn, GridRow} from 'semantic-ui-react';
 import PortfolioBoard from './PortfolioBoard';
-import PriceBoard from "./PriceBoard";
+import PriceBoard from "./investor/PriceBoard";
 import {Route} from "react-router-dom";
 import AdminPanel from "./admin/AdminPanel";
 import InvestorPanel from "./investor/InvestorPanel";

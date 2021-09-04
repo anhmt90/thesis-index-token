@@ -1,9 +1,9 @@
 import React, {useContext, useEffect} from 'react';
-import AppContext from "../context";
+import AppContext from "../../context";
 import {Header, Icon, Segment} from "semantic-ui-react";
 
-import {CONTRACTS, getInstance} from '../utils/getContract'
-import {fromWei} from "../getWeb3";
+import {CONTRACTS, getInstance} from '../../utils/getContract'
+import {fromWei} from "../../getWeb3";
 
 const PriceBoard = () => {
     const {

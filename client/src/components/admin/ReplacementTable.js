@@ -6,7 +6,7 @@ import ITC_ERC20_TOKENS from "../../data/itc_erc20_tokens.json";
 import AppContext from "../../context";
 
 
-const ReplacementTable = ({setNewPortfolio}) => {
+const ReplacementTable = ({setNewPortfolio, setComponentsOut, setComponentsIn, setItins}) => {
 
     const {
         web3,
@@ -18,15 +18,14 @@ const ReplacementTable = ({setNewPortfolio}) => {
         indexBalance, setIndexPrice,
     } = useContext(AppContext);
 
-    const [componentsOut, setComponentsOut] = useState([])
-    const [componentsIn, setComponentsIn] = useState([])
+
 
     const [symbolInputs, setSymbolInputs] = useState([])
     const [addressInputs, setAddressInputs] = useState([])
     const [itinInputs, setItinInputs] = useState([])
 
     const portfolioSet = useRef(portfolio)
-    const componentsOutHashSet = useRef(new Set(componentsOut))
+    const componentsOutHashSet = useRef(new Set([]))
 
     useEffect(() => {
         portfolioSet.current = new Set(portfolio);
@@ -41,14 +40,13 @@ const ReplacementTable = ({setNewPortfolio}) => {
             setComponentsIn(_componentsIn);
             componentsOutHashSet.current = new Set(_componentsOut);
 
-            console.log('ITC_ERC20_TOKENS', ITC_ERC20_TOKENS)
-
             // extract ITINs
             const _componentsInSet = new Set(_componentsIn);
-            const itins = {}
-            ITC_ERC20_TOKENS.filter(itcObj => _componentsInSet.has(itcObj.symbol)).map(function(itcObj) {
-              itins[itcObj.symbol] = itcObj.itin
+            const _itins = {}
+            ITC_ERC20_TOKENS.filter(itcObj => _componentsInSet.has(itcObj.symbol)).map(itcObj => {
+              _itins[itcObj.symbol] = itcObj.itin
             })
+            setItins(Object.values(_itins))
 
             // Symbol/Address/ITIN inputs
             const _symbolInputs = []
@@ -58,7 +56,7 @@ const ReplacementTable = ({setNewPortfolio}) => {
                 const _symbolIn = componentsOutHashSet.current.has(symbol) ? _componentsIn[_componentsOut.indexOf(symbol)] : '';
                 _symbolInputs.push(_symbolIn)
                 _addressInputs.push(_symbolIn ? getAddress(CONTRACTS[_symbolIn]) : '')
-                _itinInputs.push(_symbolIn ? itins[_symbolIn] : '')
+                _itinInputs.push(_symbolIn ? _itins[_symbolIn] : '')
             })
             setSymbolInputs(_symbolInputs)
             setAddressInputs(_addressInputs)
@@ -69,7 +67,7 @@ const ReplacementTable = ({setNewPortfolio}) => {
         if (portfolio || portfolio.length > 0)
             deriveComponentsOutIn()
 
-    }, [portfolio])
+    }, [portfolio, setComponentsIn, setComponentsOut, setItins, setNewPortfolio])
 
     function handleChangeSymbol(symbol, i, _symbolInputs) {
         _symbolInputs[i] = symbol;
