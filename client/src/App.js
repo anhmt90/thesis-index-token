@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 
 import AppContext from './context';
 import NavBar from "./components/NavBar";

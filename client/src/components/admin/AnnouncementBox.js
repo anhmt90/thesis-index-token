@@ -1,17 +1,13 @@
-import {Fragment} from "react";
-import {FormField, Header, Icon, Image, Input, TextArea} from "semantic-ui-react";
-import {tokenUnits2Float} from "../../utils/conversions";
-import AppContext from "../../context";
 import {useContext} from "react";
+import {FormField, Header, Icon, Image, TextArea} from "semantic-ui-react";
+import {PageContext} from "../../context";
 
 
-const AmountInput = ({isUpdatePanel, announcement, handleChangeAnnouncement}) => {
+const AnnouncementBox = ({isUpdatePanel}) => {
 
     const {
-        ethBalance, setEthBalance,
-        supply, setSupply,
-        indexBalance, setIndexPrice,
-    } = useContext(AppContext);
+        announcement, setAnnouncement
+    } = useContext(PageContext)
 
     const innerLabel = {
         basic: true,
@@ -31,12 +27,12 @@ const AmountInput = ({isUpdatePanel, announcement, handleChangeAnnouncement}) =>
                 value={announcement === '0' ? '' : announcement}
                 placeholder='Write a message to announce to the stakeholders about the changes to the portfolio...'
                 onChange={e => {
-                    handleChangeAnnouncement(e.target.value);
+                    setAnnouncement(e.target.value);
                 }}
-                rows={10}
+                rows={3}
             />
         </FormField>
     )
 }
 
-export default AmountInput;
+export default AnnouncementBox;
