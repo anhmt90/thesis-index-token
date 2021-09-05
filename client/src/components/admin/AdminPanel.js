@@ -81,15 +81,17 @@ const AdminPanel = () => {
                     <AnnouncementBox
                         isUpdatePanel={isUpdatePanel}
                     />
-                    <Form.Button
-                        onClick={handleSubmit}
-                        // disabled={!announcement}
-                        color='teal'
-                        style={{width: '50%', margin: '1% auto'}}
-                    >
-                        Announce
-                        <Icon name='arrow circle right'/>
-                    </Form.Button>
+                    <Form.Field  style={{ textAlign: 'center'}}>
+                        <Form.Button
+                            onClick={handleSubmit}
+                            // disabled={!announcement}
+                            color='teal'
+                            style={{width: '50%', margin: '1% auto'}}
+                        >
+                            Announce
+                            <Icon name='arrow circle right'/>
+                        </Form.Button>
+                    </Form.Field>
                 </Form>
             </Segment>
         </Container>
