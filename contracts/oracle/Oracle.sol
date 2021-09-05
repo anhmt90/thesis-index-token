@@ -13,6 +13,7 @@ contract Oracle is Ownable {
     address[] public componentAddrsIn;
     string[] public allNextComponentSymbols;
     string[] public componentITINs;
+    string public announcementMessage;
 
 
     // constructor (address payable _indexFund) {
@@ -25,7 +26,7 @@ contract Oracle is Ownable {
         address[] memory _componentAddrsIn,
         string[] memory _allNextComponentSymbols,
         string[] memory _componentITINs,
-        string calldata _announcementMessage
+        string memory _announcementMessage
     ) external onlyOwner {
         require(_componentSymbolsOut.length > 0, "Oracle: no components will be replaced");
         require(_componentSymbolsOut.length == _componentAddrsIn.length, "Oracle: number of component to be added and to be removed not matched");
@@ -39,6 +40,7 @@ contract Oracle is Ownable {
         componentAddrsIn = _componentAddrsIn;
         allNextComponentSymbols = _allNextComponentSymbols;
         componentITINs = _componentITINs;
+        announcementMessage = _announcementMessage;
 
         IndexFund(indexFund).announcePortfolioUpdating(_announcementMessage);
     }
