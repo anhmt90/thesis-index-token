@@ -13,7 +13,8 @@ contract Oracle is Ownable {
     address[] public componentAddrsIn;
     string[] public allNextComponentSymbols;
     string[] public componentITINs;
-    string public announcementMessage;
+    string public updateAnnouncement;
+    string public rebalancingAnnouncement;
 
 
     // constructor (address payable _indexFund) {
@@ -40,7 +41,7 @@ contract Oracle is Ownable {
         componentAddrsIn = _componentAddrsIn;
         allNextComponentSymbols = _allNextComponentSymbols;
         componentITINs = _componentITINs;
-        announcementMessage = _announcementMessage;
+        updateAnnouncement = _announcementMessage;
 
         IndexFund(indexFund).announcePortfolioUpdating(_announcementMessage);
     }
@@ -59,6 +60,7 @@ contract Oracle is Ownable {
     }
 
     function announceRebalancing(string calldata _announcementMessage) external onlyOwner {
+        rebalancingAnnouncement = _announcementMessage;
         IndexFund(indexFund).announcePortfolioRebalancing(_announcementMessage);
     }
 
