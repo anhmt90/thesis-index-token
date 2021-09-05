@@ -33,7 +33,7 @@ const PerformanceTable = () => {
                 diffPercent = diffPercent.abs()
 
             return (
-                <Table.Row>
+                <Table.Row key={symbol}>
                     <Table.Cell>
                         <Header as='h4'>
                             {symbol}

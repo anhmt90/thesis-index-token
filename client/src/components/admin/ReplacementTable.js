@@ -3,10 +3,10 @@ import {useContext, useEffect, useRef, useState} from "react";
 import {deriveSubbedOutAndSubbedInComponents, selectNewPortfolio} from "../../utils/oracle";
 import {CONTRACTS, getAddress} from "../../utils/getContract";
 import ITC_ERC20_TOKENS from "../../data/itc_erc20_tokens.json";
-import AppContext from "../../context";
+import AppContext, {PageContext} from "../../context";
 
 
-const ReplacementTable = ({setNewPortfolio, setComponentsOut, setComponentsIn, setItins}) => {
+const ReplacementTable = () => {
 
     const {
         web3,
@@ -17,6 +17,13 @@ const ReplacementTable = ({setNewPortfolio, setComponentsOut, setComponentsIn, s
         supply, setSupply,
         indexBalance, setIndexPrice,
     } = useContext(AppContext);
+
+    const {
+        newPortfolio, setNewPortfolio,
+        componentsOut, setComponentsOut,
+        componentsIn, setComponentsIn,
+        itins, setItins,
+    } = useContext(PageContext)
 
 
 
@@ -32,6 +39,7 @@ const ReplacementTable = ({setNewPortfolio, setComponentsOut, setComponentsIn, s
     }, [portfolio])
 
     useEffect(() => {
+        console.log('setComponentsIn', setComponentsIn)
         const deriveComponentsOutIn = async () => {
             const newPortfolio = await selectNewPortfolio();
             setNewPortfolio(newPortfolio);
@@ -64,7 +72,7 @@ const ReplacementTable = ({setNewPortfolio, setComponentsOut, setComponentsIn, s
 
 
         }
-        if (portfolio || portfolio.length > 0)
+        if ((portfolio || portfolio.length > 0) && setComponentsIn && setComponentsOut && setNewPortfolio && setItins)
             deriveComponentsOutIn()
 
     }, [portfolio, setComponentsIn, setComponentsOut, setItins, setNewPortfolio])
@@ -92,7 +100,7 @@ const ReplacementTable = ({setNewPortfolio, setComponentsOut, setComponentsIn, s
         return portfolio.map((symbol, i) => {
 
             return (
-                <Table.Row color='green'>
+                <Table.Row color='green' key={i}>
                     <Table.Cell collapsing>
                         <Header as='h4' content={symbol}/>
                     </Table.Cell>

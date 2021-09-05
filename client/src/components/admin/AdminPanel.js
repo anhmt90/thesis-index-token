@@ -3,25 +3,23 @@ import {Button, Container, Form, Header, Icon, Segment} from "semantic-ui-react"
 import AnnouncementBox from "./AnnouncementBox";
 import ReplacementTable from "./ReplacementTable";
 import {CONTRACTS, getAddress, getInstance} from "../../utils/getContract";
-import AppContext from "../../context";
+import AppContext, {PageContext} from "../../context";
 
 
 const AdminPanel = () => {
 
     const { account, portfolio } = useContext(AppContext)
 
+    const {
+        newPortfolio, setNewPortfolio,
+        componentsOut, setComponentsOut,
+        componentsIn, setComponentsIn,
+        itins, setItins,
+        announcement, setAnnouncement
+    } = useContext(PageContext)
+
     const [isUpdatePanel, setIsUpdatePanel] = useState(true);
 
-    const [newPortfolio, setNewPortfolio] = useState([])
-    const [componentsOut, setComponentsOut] = useState([])
-    const [componentsIn, setComponentsIn] = useState([])
-    const [itins, setItins] = useState([])
-
-    const [announcement, setAnnouncement] = useState('')
-
-    const handleChangeAnnouncement = (_announcement) => {
-        setAnnouncement(_announcement);
-    }
 
     const isUpdateReady = () => {
         return componentsOut && componentsIn && itins && newPortfolio
@@ -33,7 +31,7 @@ const AdminPanel = () => {
 
     const handleSubmit = async () => {
 
-        if(isUpdateReady) {
+        if(isUpdateReady()) {
             const _componentAddrsIn = componentsIn.map(symbol => getAddress(CONTRACTS[symbol]))
             console.log('componentsOut', componentsOut)
             console.log('_componentAddrsIn', _componentAddrsIn)
@@ -72,14 +70,9 @@ const AdminPanel = () => {
                 <Form>
                     <Form.Field>
                         <Header as='h4' content='Suggested Replacements'/>
-                        <ReplacementTable
-                            setNewPortfolio={setNewPortfolio}
-                            setComponentsOut={setComponentsOut}
-                            setComponentsIn={setComponentsIn}
-                            setItins={setItins}
-                        />
+                        <ReplacementTable />
                     </Form.Field>
-                    {newPortfolio.length > 0 &&
+                    {newPortfolio && newPortfolio.length > 0 &&
                         <Form.Group inline>
                             <Header as='h4' content='New Portfolio:&nbsp;'/>
                             {newPortfolio.join(', ')}
@@ -87,8 +80,6 @@ const AdminPanel = () => {
                     }
                     <AnnouncementBox
                         isUpdatePanel={isUpdatePanel}
-                        announcement={announcement}
-                        handleChangeAnnouncement={handleChangeAnnouncement}
                     />
                     <Form.Button
                         onClick={handleSubmit}

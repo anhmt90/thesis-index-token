@@ -33,7 +33,9 @@ const PortfolioBoard = () => {
                     <Image avatar src='https://react.semantic-ui.com/images/avatar/small/rachel.png'/>
                     <List.Content>
                         <List.Header as='a'>{portfolio[i]}</List.Header>
-                        <List.Description content={portfolioAddrs[i]}/>
+                        <List.Description>
+                            <Header as='h5'>{portfolioAddrs[i]}</Header>
+                        </List.Description>
                     </List.Content>
                 </List.Item>
             )
