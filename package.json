@@ -16,7 +16,8 @@
     "deploy": "env-cmd -f config/.env node src/deploy.js main && npm run cp-client-dev",
     "oracle": "env-cmd -f config/.env node src/oracle/oracle.js",
     "fetchitc": "env-cmd -f config/.env.secret node src/oracle/fetchITSA.js",
-    "test": "env-cmd -f config/.env.test mocha --timeout 30000"
+    "test": "env-cmd -f config/.env.test mocha --timeout 30000",
+    "jump-time": "env-cmd -f config/.env node src/jumpBlockTime.js"
   },
   "author": "Tuan Anh Ma",
   "license": "ISC",

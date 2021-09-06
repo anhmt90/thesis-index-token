@@ -226,10 +226,10 @@ const InvestorPanel = () => {
         for (let i = 0; i < portfolio.length; i++) {
             const item = (
                 <List.Item key={i} style={{paddingLeft: '100px!important'}}>
-                    <Image avatar src='https://react.semantic-ui.com/images/avatar/small/daniel.jpg'/>
+                    <Image avatar src='../images/Ethereum.png'/>
                     <List.Content>
                         <List.Header>{portfolio[i]}</List.Header>
-                        {minAmountsOut.length > 0 && <ListDescription>{minAmountsOut[i]}</ListDescription>}
+                        {minAmountsOut.length > 0 && <ListDescription>{tokenUnits2Float(minAmountsOut[i], portfolio[i]==='CEL' ? 4 : 18)}</ListDescription>}
                     </List.Content>
                 </List.Item>
             )
@@ -348,7 +348,7 @@ const InvestorPanel = () => {
 
                     <Grid divided style={{marginTop: '1%'}}>
                         <GridRow>
-                            <GridColumn width={10} style={{paddingRight: '30px'}}>
+                            <GridColumn width={8} style={{paddingRight: '30px'}}>
                                 <Header as='h4'>
                                     <List horizontal>
                                         <ListItem>
@@ -388,11 +388,11 @@ const InvestorPanel = () => {
                                         />
                                     </Form.Field>
                                 </FormGroup>
-                                <List horizontal relaxed>
+                                <List relaxed>
                                     {(isFRPActivated && tolerance && capital && parseFloat(capital) > 0) && renderMinAmountsOut()}
                                 </List>
                             </GridColumn>
-                            <GridColumn width={6} style={{paddingLeft: '20px'}}>
+                            <GridColumn width={8} style={{paddingLeft: '20px'}}>
                                 <Form.Field>
                                     <Header as='h4' style={{paddingBottom: '10px'}}>
                                         <Icon name='calculator'/>

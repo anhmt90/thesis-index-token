@@ -47,8 +47,8 @@ contract Oracle is Ownable {
     }
 
     function commitUpdate(uint256[] calldata _amountsOutMinOut, uint256[] calldata _amountsOutMinIn) external onlyOwner {
-        require(componentSymbolsOut.length == _amountsOutMinOut.length, "Oracle: length of _componentSymbolsOut and _amountsOutMinOut not matched");
-        require(componentAddrsIn.length == _amountsOutMinIn.length, "Oracle: length of _componentAddrsIn and _amountsOutMinIn not matched");
+        // require(componentSymbolsOut.length == _amountsOutMinOut.length, "Oracle: length of _componentSymbolsOut and _amountsOutMinOut not matched");
+        // require(componentAddrsIn.length == _amountsOutMinIn.length, "Oracle: length of _componentAddrsIn and _amountsOutMinIn not matched");
 
         IndexFund(indexFund).updatePorfolio(
             componentSymbolsOut,
@@ -68,8 +68,7 @@ contract Oracle is Ownable {
         uint256[] calldata _amountsETHOutMin,
         uint256[] calldata _amountsCpntOutMin)
     external onlyOwner {
-        require(_amountsETHOutMin.length == _amountsCpntOutMin.length, "Oracle: length of _amountsETHOutMin and _amountsCpntOutMin not matched");
-        require(_amountsETHOutMin.length == _amountsCpntOutMin.length, "Oracle: length of _amountsETHOutMin and _amountsCpntOutMin not matched");
+        // require(_amountsETHOutMin.length == _amountsCpntOutMin.length, "Oracle: length of _amountsETHOutMin and _amountsCpntOutMin not matched");
 
         IndexFund(indexFund).rebalance(_amountsETHOutMin, _amountsCpntOutMin);
     }
