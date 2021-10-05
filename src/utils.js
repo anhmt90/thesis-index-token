@@ -24,7 +24,8 @@ const {
     INDEX_TOKEN_JSON,
     INDEX_FUND_JSON,
     ORACLE_JSON,
-    ERC20_INSTANCE_JSON
+    ERC20_INSTANCE_JSON,
+    WETH_JSON
 } = require('./constants.js');
 
 // require(process.env.NODE_ENV && (process.env.NODE_ENV).toUpperCase() === 'TEST' ? '../test/fixtures/constants.js' : './constants.js');
@@ -513,9 +514,17 @@ const increaseGanacheBlockTime = async (timeAdvancedInSecs = 60 * 60 * 24 * 2) =
     }, () => {
     });
 }
+
+const getAddress = (contract) => {
+    if (!contract) {
+        throw new Error("Contract is not defined");
+    }
+    return allAddrs[contract]
+}
 /* ************************************************************************* */
 
 module.exports = {
+    getAddress,
     storeAddresses,
     storeTokenPrices,
     storeItcTokens,

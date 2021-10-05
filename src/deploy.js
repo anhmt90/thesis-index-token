@@ -28,6 +28,7 @@ const {
     getContract,
     CONTRACTS,
     calcTokenAmountFromEthAmountAndPoolPrice,
+    getAddress,
 
     BN,
     Ether,
@@ -319,6 +320,7 @@ const setUp = async () => {
 
     await mintTokens({ tokenSymbol: CONTRACTS.DAI, value: 1000000, receiver: admin });
     await provisionLiquidity(300);
+
 };
 
 

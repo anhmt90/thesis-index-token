@@ -29,7 +29,7 @@ const PriceBoard = () => {
                 <Icon name='dollar' />
                 Price
             </Header>
-            <p> {supply === '0' && 'Nominal'} Price: 1 DFAM = {fromWei(indexPrice)} ETH </p>
+            <p> {supply === '0' && 'Nominal'} Price: &nbsp; <Header as='h5'> 1 DFAM = {fromWei(indexPrice)} ETH</Header> </p>
             <p>Total Supply: {supply}</p>
 
         </Segment>

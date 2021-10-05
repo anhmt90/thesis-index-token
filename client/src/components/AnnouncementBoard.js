@@ -1,5 +1,5 @@
 import {Form, FormField, Header, Icon, Image, Label, List, ListDescription, Segment} from "semantic-ui-react";
-import {useCallback, useContext, useEffect, useState} from "react";
+import {Fragment, useCallback, useContext, useEffect, useState} from "react";
 import AppContext, {PageContext} from "../context";
 import {CONTRACTS, getInstance} from "../utils/getContract";
 
@@ -49,10 +49,10 @@ const AnnouncementBoard = () => {
             setItins(_itins);
             setAnnouncement(_announcement);
         }
-        if(updateTime.getTime() > 0)
+        if (updateTime.getTime() > 0)
             queryOracleData()
     }, [updateTime])
-    
+
     useEffect(() => {
         const queryLatestBlockTime = async () => {
             const _latestBlockTime = (await web3.eth.getBlock('latest')).timestamp
@@ -63,10 +63,9 @@ const AnnouncementBoard = () => {
     }, [web3.eth])
 
 
-
     const handleCommitUpdate = async (e) => {
         e.preventDefault();
-        if(latestBlockTime >= updateTime.getTime()) {
+        if (latestBlockTime >= updateTime.getTime()) {
             const _amountsOutMinOut = Array(componentsOut.length).fill('0')
             const _amountsOutMinIn = Array(componentsIn.length).fill('0')
             await getInstance(CONTRACTS.ORACLE).methods.commitUpdate(_amountsOutMinOut, _amountsOutMinIn).send({
@@ -123,66 +122,71 @@ const AnnouncementBoard = () => {
     }
 
     return (
-        <Segment padded style={{paddingBottom: '60px'}}>
-            <Header as='h3'>
-                <Icon name='announcement'/>
-                Update Announcement
-            </Header>
+        <Fragment>
             {
-                updateTime && updateTime.getTime() > 0 &&
-                <Form>
-                    <Form.Field>
-                        <label>Message:</label>
-                        <Segment textAlign='center' color='green'>
-                            <Header as='h5'>
-                                {announcement}
-                            </Header>
-                            <br />
-                            <br />
-                            <Header as='h4'>
-                                Next portfolio update: {updateTime.toString()}
-                            </Header>
-                        </Segment>
-                    </Form.Field>
-                    <Form.Field inline>
-                        <label>To be Replaced:</label>
-                        <List horizontal>
-                            {renderComponentsOut()}
-                        </List>
-                    </Form.Field>
+                updateTime.getTime() > 0 &&
+                <Segment padded style={{paddingBottom: '60px'}}>
+                    <Header as='h3'>
+                        <Icon name='announcement'/>
+                        Update Announcement
+                    </Header>
+                    {
+                        updateTime && updateTime.getTime() > 0 &&
+                        <Form>
+                            <Form.Field>
+                                <label>Message:</label>
+                                <Segment textAlign='center' color='green'>
+                                    <Header as='h5'>
+                                        {announcement}
+                                    </Header>
+                                    <br/>
+                                    <br/>
+                                    <Header as='h4'>
+                                        Next portfolio update: {updateTime.toString()}
+                                    </Header>
+                                </Segment>
+                            </Form.Field>
+                            <Form.Field inline>
+                                <label>To be Replaced:</label>
+                                <List horizontal>
+                                    {renderComponentsOut()}
+                                </List>
+                            </Form.Field>
 
-                    <Form.Field>
-                        <label>New:</label>
-                        <List>
-                            {renderComponentsIn()}
-                        </List>
-                    </Form.Field>
+                            <Form.Field>
+                                <label>New:</label>
+                                <List>
+                                    {renderComponentsIn()}
+                                </List>
+                            </Form.Field>
 
-                    <Form.Field inline>
-                        <label>Upcoming Portfolio:</label>
-                        <List horizontal>
-                            {renderNewPortfolio()}
-                        </List>
-                    </Form.Field>
+                            <Form.Field inline>
+                                <label>Upcoming Portfolio:</label>
+                                <List horizontal>
+                                    {renderNewPortfolio()}
+                                </List>
+                            </Form.Field>
 
-                    { latestBlockTime > 0 &&
-                        <Form.Field inline>
-                            <Form.Button
-                                compact
-                                disabled={latestBlockTime < updateTime.getTime()}
-                                color='teal'
-                                floated='right'
-                                onClick={handleCommitUpdate}
-                            >
-                                Commit Update
-                            </Form.Button>
-                        </Form.Field>
+                            {latestBlockTime > 0 &&
+                            <Form.Field inline>
+                                <Form.Button
+                                    compact
+                                    disabled={latestBlockTime < updateTime.getTime()}
+                                    color='teal'
+                                    floated='right'
+                                    onClick={handleCommitUpdate}
+                                >
+                                    Commit Update
+                                </Form.Button>
+                            </Form.Field>
+                            }
+
+                        </Form>
                     }
 
-                </Form>
+                </Segment>
             }
-
-        </Segment>
+        </Fragment>
     )
 }
 

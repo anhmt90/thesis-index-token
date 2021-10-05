@@ -9,6 +9,7 @@ const NavBar = () => {
     const {
         web3,
         location,
+        isAdmin,
         account, setAccount,
         setIsAccountChanged,
         isWalletDetected, setIsWalletDetected,
@@ -157,13 +158,15 @@ const NavBar = () => {
                     />
                 </NavLink>
 
-                <NavLink to='/admin'>
-                    <Menu.Item
-                        name='Admin'
-                        active={location.pathname === '/admin'}
-                        onClick={() => {}}
-                    />
-                </NavLink>
+                {isAdmin &&
+                    <NavLink to='/admin'>
+                        <Menu.Item
+                            name='Admin'
+                            active={location.pathname === '/admin'}
+                            onClick={() => {}}
+                        />
+                    </NavLink>
+                }
 
                 <Menu.Menu position='right'>
                     <Menu.Item>
@@ -175,15 +178,15 @@ const NavBar = () => {
                     </Menu.Item>
 
                     <Menu.Item>
-                        <b>{fromWei(ethBalance)}</b>
+                        <Image avatar src='../images/ethereum.png' style={{width: '25px', height: '25px'}}/>
                         &nbsp;
-                        <Icon name='ethereum'/>
+                        <b>{fromWei(ethBalance)}</b>
                     </Menu.Item>
 
                     <Menu.Item>
-                        <b>{fromWei(indexBalance)}</b>
-                        &nbsp;
                         <Image avatar src='../images/DFAM.jpg' style={{width: '25px', height: '25px'}}/>
+                        &nbsp;
+                        <b>{fromWei(indexBalance)}</b>
                     </Menu.Item>
 
                 </Menu.Menu>

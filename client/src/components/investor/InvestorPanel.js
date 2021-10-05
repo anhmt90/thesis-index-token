@@ -29,6 +29,9 @@ import {BN, fromWei, toWei} from "../../getWeb3";
 import {calcArrayFRP} from "../../utils/common";
 import {tokenUnits2Float} from "../../utils/conversions";
 import AmountInput from "./AmountInput";
+import { toast } from 'react-toastify';
+import {positiveMsg} from "../FeedbackMessage";
+
 
 
 const InvestorPanel = () => {
@@ -127,6 +130,10 @@ const InvestorPanel = () => {
             }).on('receipt', async (txReceipt) => {
                 await updateFigures(txReceipt);
                 resetStates();
+                // toast(positiveMsg({
+                //     header: `SUCCESS`,
+                //     msg: `Purchase succeeded!`
+                // }));
             });
         }
 
@@ -226,7 +233,7 @@ const InvestorPanel = () => {
         for (let i = 0; i < portfolio.length; i++) {
             const item = (
                 <List.Item key={i} style={{paddingLeft: '100px!important'}}>
-                    <Image avatar src='../images/Ethereum.png'/>
+                    <Image avatar src={`../images/${portfolio[i]}.png`} />
                     <List.Content>
                         <List.Header>{portfolio[i]}</List.Header>
                         {minAmountsOut.length > 0 && <ListDescription>{tokenUnits2Float(minAmountsOut[i], portfolio[i]==='CEL' ? 4 : 18)}</ListDescription>}

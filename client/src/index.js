@@ -13,7 +13,7 @@ getWeb3().then(web3 => {
     ReactDOM.render(
         <React.StrictMode>
             <BrowserRouter>
-                <App web3={web3} />
+                <App _web3={web3} />
             </BrowserRouter>
         </React.StrictMode>,
         document.getElementById('root')

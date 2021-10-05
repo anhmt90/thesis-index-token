@@ -30,7 +30,7 @@ const PortfolioBoard = () => {
         for (let i = 0; i < portfolio.length; i++) {
             const item = (
                 <List.Item key={i}>
-                    <Image avatar src='https://react.semantic-ui.com/images/avatar/small/rachel.png'/>
+                    <Image avatar src={`../images/${portfolio[i]}.png`}/>
                     <List.Content>
                         <List.Header as='a'>{portfolio[i]}</List.Header>
                         <List.Description>

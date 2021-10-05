@@ -12,7 +12,8 @@ import AnnouncementBoard from "./AnnouncementBoard";
 const Page = () => {
 
     const {
-        location
+        location,
+        isAdmin
     } = useContext(AppContext)
 
     const [newPortfolio, setNewPortfolio] = useState([])
@@ -45,7 +46,9 @@ const Page = () => {
                     <GridColumn width={9}>
                         <Route path='/' exact component={InvestorPanel}/>
                         <Route path='/investor' exact component={InvestorPanel}/>
-                        <Route path='/admin' exact component={AdminPanel}/>
+                        {isAdmin &&
+                            <Route path='/admin' exact component={AdminPanel}/>
+                        }
                     </GridColumn>
                 </GridRow>
             </Grid>
