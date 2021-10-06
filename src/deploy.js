@@ -94,7 +94,7 @@ const addLiquidityExactWETH = async ({ ethAmount, msgSender, symbol, price }) =>
     log.info(`******** ADD LIQUIDITY ${symbol}/WETH ********`);
 
     /** Approve before adding liquidity */
-    const tokenAmountInUnit = calcTokenAmountFromEthAmountAndPoolPrice(ethAmount, price, decimals)
+    const tokenAmountInUnit = calcTokenAmountFromEthAmountAndPoolPrice(ethAmount, price, decimals);
     log.debug('APRROVING', tokenAmountInUnit, `units of ${symbol} to Uniswap Router...`);
     await tokenContract.methods.approve(allAddrs.uniswapRouter, BN(tokenAmountInUnit)).send({
         from: msgSender,
@@ -126,7 +126,7 @@ const addLiquidityExactWETH = async ({ ethAmount, msgSender, symbol, price }) =>
 };
 
 const deployAuxContracts = async () => {
-    if (!admin) await setAdmin();
+    if (!admin) await setAccounts();
 
     allAddrs.DAI = await deployContract({
         name: CONTRACTS.DAI,
@@ -156,7 +156,7 @@ const deployAuxContracts = async () => {
             default:
                 return 18;
         }
-    }
+    };
 
     for (const [symbol, name] of Object.entries(LENDING_TOKENS)) {
         const decimals = getDecimals(symbol);
@@ -254,7 +254,7 @@ const deployCoreContracts = async (componentNames) => {
     await oracleContract.methods.setIndexFund(allAddrs.indexFund).send({
         from: admin,
         gas: '3000000'
-    })
+    });
 
     allAddrs.oracle = await fundContract.methods.oracle().call();
     log.debug('ORACLE deployed at:', allAddrs.oracle);
@@ -321,8 +321,62 @@ const setUp = async () => {
     await mintTokens({ tokenSymbol: CONTRACTS.DAI, value: 1000000, receiver: admin });
     await provisionLiquidity(300);
 
+    await increasePoolPricesForTesting();
+    await reducePoolPricesForTesting();
 };
 
+const increasePoolPricesForTesting = async () => {
+    log.debug("--- increasePoolPricesForTesting() ---");
+
+    // increase YFI token price
+    let amounts = await getContract(CONTRACTS.UNISWAP_ROUTER).methods.swapExactETHForTokens(
+        0,
+        [allAddrs.WETH, allAddrs.YFI],
+        investor,
+        ((await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp + 10000).toString()
+    ).send({
+        from: investor,
+        value: Ether('100'),
+        gas: '5000000'
+    })
+
+
+    // increase MRK token price
+    await getContract(CONTRACTS.UNISWAP_ROUTER).methods.swapExactETHForTokens(
+        0,
+        [allAddrs.WETH, allAddrs.MKR],
+        investor,
+        ((await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp + 10000).toString()
+    ).send({
+        from: investor,
+        value: Ether('50'),
+        gas: '5000000'
+    });
+};
+
+
+const reducePoolPricesForTesting = async () => {
+    log.debug("--- reducePoolPricesForTesting() ---");
+    // increase YFI token price
+    const brzxAmount = "1000000" + '0'.repeat(18);
+
+    await getContract(CONTRACTS.BZRX).methods.approve(allAddrs.uniswapRouter, brzxAmount).send({
+        from: admin,
+        gas: '5000000'
+    });
+
+    await getContract(CONTRACTS.UNISWAP_ROUTER).methods.swapExactTokensForETH(
+        "1000000" + '0'.repeat(18),
+        "0",
+        [allAddrs.BZRX, allAddrs.WETH],
+        admin,
+        ((await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp + 10000).toString()
+    ).send({
+        from: admin,
+        gas: '5000000'
+    });
+
+};
 
 const main = async () => {
     await deployAuxContracts();
@@ -340,9 +394,14 @@ const initialPortfolio = [CONTRACTS.AAVE, CONTRACTS.COMP, CONTRACTS.BZRX, CONTRA
 
 
 let admin;
+let investor;
 
-const setAdmin = async () => { admin = (await web3.eth.getAccounts())[0]; };
-(async () => { await setAdmin(); });
+const setAccounts = async () => {
+    accounts = await web3.eth.getAccounts();
+    admin = accounts[0];
+    investor = accounts[2];
+};
+(async () => { await setAccounts(); });
 
 if ((process.env.NODE_ENV).toUpperCase() !== 'TEST') {
     main().finally(() => {
