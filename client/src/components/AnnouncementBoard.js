@@ -80,7 +80,7 @@ const AnnouncementBoard = () => {
     function renderComponentsOut() {
         return componentsOut && componentsOut.map((symbol, i) => (
                 <List.Item key={i}>
-                    <Image avatar src='../images/Ethereum.png'/>
+                    <Image avatar src={`../images/${symbol}.png`}/>
                     <List.Content>
                         <List.Header as='a'>{symbol}</List.Header>
                     </List.Content>
@@ -92,7 +92,7 @@ const AnnouncementBoard = () => {
     function renderComponentsIn() {
         return componentsIn && componentsIn.map((symbol, i) => (
                 <List.Item key={i}>
-                    <Image avatar src='../images/Ethereum.png'/>
+                    <Image avatar src={`../images/${symbol}.png`} />
                     <List.Content>
                         <List.Header as='a'>{symbol}</List.Header>
                         {componentAddrsIn.length > 0 &&
@@ -101,7 +101,7 @@ const AnnouncementBoard = () => {
                         </ListDescription>}
                         {itins.length > 0 &&
                         <ListDescription>
-                            ITIN: <Header as='h5'>{itins[i]}</Header>
+                            ITIN: <b as='h5'>{itins[i]}</b>
                         </ListDescription>}
                     </List.Content>
                 </List.Item>
@@ -112,7 +112,7 @@ const AnnouncementBoard = () => {
     function renderNewPortfolio() {
         return newPortfolio && newPortfolio.map((symbol, i) => (
                 <List.Item key={i}>
-                    <Image avatar src='../images/Ethereum.png'/>
+                    <Image avatar src={`../images/${symbol}.png`}/>
                     <List.Content>
                         <List.Header as='a'>{newPortfolio[i]}</List.Header>
                     </List.Content>
@@ -136,12 +136,11 @@ const AnnouncementBoard = () => {
                             <Form.Field>
                                 <label>Message:</label>
                                 <Segment textAlign='center' color='green'>
-                                    <Header as='h5'>
+                                    <Header as='h3'>
                                         {announcement}
                                     </Header>
                                     <br/>
-                                    <br/>
-                                    <Header as='h4'>
+                                    <Header as='h5'>
                                         Next portfolio update: {updateTime.toString()}
                                     </Header>
                                 </Segment>
