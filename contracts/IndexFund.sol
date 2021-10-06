@@ -106,7 +106,7 @@ contract IndexFund is Fund, TimeLock {
                 _amountsOutMinOut[i],
                 path,
                 address(this),
-                block.timestamp + 10
+                block.timestamp + 60
             );
             delete portfolio[_cpntSymbolsOut[i]];
         }
@@ -120,7 +120,7 @@ contract IndexFund is Fund, TimeLock {
                 _amountsOutMinIn[i],
                 path,
                 address(this),
-                block.timestamp + 10
+                block.timestamp + 60
             );
             portfolio[IERC20Metadata(_cpntAddrsIn[i]).symbol()] = _cpntAddrsIn[i];
         }
@@ -279,7 +279,7 @@ contract IndexFund is Fund, TimeLock {
                 _amountOutMin,
                 path,
                 address(this),
-                block.timestamp + 10
+                block.timestamp + 60
             )[1];
         }
     }
@@ -349,7 +349,7 @@ contract IndexFund is Fund, TimeLock {
                     _amountETHOutMin,
                     path,
                     _to,
-                    block.timestamp + 10
+                    block.timestamp + 60
             );
         }
     }
