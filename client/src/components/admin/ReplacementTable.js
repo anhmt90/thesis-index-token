@@ -3,7 +3,7 @@ import {useContext, useEffect, useRef, useState} from "react";
 import {deriveSubbedOutAndSubbedInComponents, selectNewPortfolio} from "../../utils/oracle";
 import {CONTRACTS, getAddress} from "../../utils/getContract";
 import ITC_ERC20_TOKENS from "../../data/itc_erc20_tokens.json";
-import AppContext, {PageContext} from "../../context";
+import AppContext, {PageContext, AdminPanelContext} from "../../context";
 
 
 const ReplacementTable = () => {
@@ -19,17 +19,11 @@ const ReplacementTable = () => {
     } = useContext(AppContext);
 
     const {
-        newPortfolio, setNewPortfolio,
-        componentsOut, setComponentsOut,
-        componentsIn, setComponentsIn,
-        itins, setItins,
-    } = useContext(PageContext)
+        symbolInputs, setSymbolInputs,
+        addressInputs, setAddressInputs,
+        itinInputs, setItinInputs
+    } = useContext(AdminPanelContext)
 
-
-
-    const [symbolInputs, setSymbolInputs] = useState([])
-    const [addressInputs, setAddressInputs] = useState([])
-    const [itinInputs, setItinInputs] = useState([])
 
     const portfolioSet = useRef(portfolio)
     const componentsOutHashSet = useRef(new Set([]))
@@ -39,13 +33,9 @@ const ReplacementTable = () => {
     }, [portfolio])
 
     useEffect(() => {
-        console.log('setComponentsIn', setComponentsIn)
         const deriveComponentsOutIn = async () => {
             const newPortfolio = await selectNewPortfolio();
-            setNewPortfolio(newPortfolio);
             const [_componentsOut, _componentsIn] = await deriveSubbedOutAndSubbedInComponents(newPortfolio);
-            setComponentsOut(_componentsOut);
-            setComponentsIn(_componentsIn);
             componentsOutHashSet.current = new Set(_componentsOut);
 
             // extract ITINs
@@ -54,7 +44,6 @@ const ReplacementTable = () => {
             ITC_ERC20_TOKENS.filter(itcObj => _componentsInSet.has(itcObj.symbol)).map(itcObj => {
               _itins[itcObj.symbol] = itcObj.itin
             })
-            setItins(Object.values(_itins))
 
             // Symbol/Address/ITIN inputs
             const _symbolInputs = []
@@ -72,10 +61,10 @@ const ReplacementTable = () => {
 
 
         }
-        if ((portfolio || portfolio.length > 0) && setComponentsIn && setComponentsOut && setNewPortfolio && setItins)
+        if ((portfolio || portfolio.length > 0) && setAddressInputs && setItinInputs && setSymbolInputs)
             deriveComponentsOutIn()
 
-    }, [portfolio, setComponentsIn, setComponentsOut, setItins, setNewPortfolio])
+    }, [portfolio, setAddressInputs, setItinInputs, setSymbolInputs])
 
     function handleChangeSymbol(symbol, i, _symbolInputs) {
         _symbolInputs[i] = symbol;
