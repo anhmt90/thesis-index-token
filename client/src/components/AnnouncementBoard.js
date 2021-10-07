@@ -1,57 +1,36 @@
 import {Form, FormField, Header, Icon, Image, Label, List, ListDescription, Segment} from "semantic-ui-react";
-import {Fragment, useCallback, useContext, useEffect, useState} from "react";
-import AppContext, {PageContext} from "../context";
+import {Fragment, useCallback, useContext, useEffect, useRef, useState} from "react";
+import AppContext, {PageContext, AnnouncementBoardContext} from "../context";
 import {CONTRACTS, getInstance} from "../utils/getContract";
+import {isAnnounceAvailable} from "../utils/validate";
 
 import allAddrs from '../data/contractAddresses.json'
+import AnnouncementBoardUpdateDetails from "./AnnouncementBoardUpdateDetails";
 
 
-const AnnouncementBoard = () => {
+const AnnouncementBoard = ({isPortfolioUpdate}) => {
 
     const {web3, account} = useContext(AppContext)
 
-    const [newPortfolio, setNewPortfolio] = useState([])
-    const [componentsOut, setComponentsOut] = useState([])
-    const [componentsIn, setComponentsIn] = useState([])
-    const [componentAddrsIn, setComponentAddrsIn] = useState([])
-    const [itins, setItins] = useState([])
+
     const [announcement, setAnnouncement] = useState('')
     const [updateTime, setUpdateTime] = useState(new Date(0))
-    const [rebalancingTime, setRebalancingTime] = useState('')
+    const [rebalancingTime, setRebalancingTime] = useState(new Date(0))
     const [latestBlockTime, setLatestBlockTime] = useState(0)
 
-    const queryUpdateTime = useCallback(async () => {
-        const _updateTime = await getInstance(CONTRACTS.INDEX_FUND).methods.timelock('0').call();
-        setUpdateTime(new Date(parseInt(_updateTime) * 1000))
-        console.log('_updateTime', _updateTime)
-    }, [])
+    const updateBoardRef = useRef(null);
+    const rebalancingBoardRef = useRef(null);
+
+    const queryTime = useCallback(async () => {
+        const _time = await getInstance(CONTRACTS.INDEX_FUND).methods.timelock(isPortfolioUpdate ? '0' : '1').call();
+        isPortfolioUpdate ? setUpdateTime(new Date(parseInt(_time) * 1000)) : setRebalancingTime(new Date(parseInt(_time) * 1000))
+        console.log('_time', _time)
+        console.log('isPortfolioUpdate', isPortfolioUpdate)
+    }, [isPortfolioUpdate])
 
     useEffect(() => {
-        queryUpdateTime()
-    }, [queryUpdateTime])
-
-    useEffect(() => {
-        const queryOracleData = async () => {
-            const _componentsOut = await getInstance(CONTRACTS.ORACLE).methods.getComponentSymbolsOut().call()
-            const _componentAddrsIn = await getInstance(CONTRACTS.ORACLE).methods.getComponentAddrsIn().call()
-            const _componentAddrsInSet = new Set(_componentAddrsIn)
-            const _componentsIn = Object.entries(allAddrs).filter(([symbol, address]) => _componentAddrsInSet.has(address)).map(([symbol, _]) => symbol);
-            const _newPortfolio = await getInstance(CONTRACTS.ORACLE).methods.getAllNextComponentSymbols().call()
-            const _itins = await getInstance(CONTRACTS.ORACLE).methods.getComponentITINs().call()
-            const _announcement = await getInstance(CONTRACTS.ORACLE).methods.updateAnnouncement().call()
-            console.log('_announcement', _announcement)
-
-
-            setComponentsOut(_componentsOut);
-            setComponentsIn(_componentsIn);
-            setComponentAddrsIn(_componentAddrsIn);
-            setNewPortfolio(_newPortfolio);
-            setItins(_itins);
-            setAnnouncement(_announcement);
-        }
-        if (updateTime.getTime() > 0)
-            queryOracleData()
-    }, [updateTime])
+        queryTime()
+    }, [queryTime])
 
     useEffect(() => {
         const queryLatestBlockTime = async () => {
@@ -62,130 +41,81 @@ const AnnouncementBoard = () => {
         queryLatestBlockTime()
     }, [web3.eth])
 
+    useEffect(() => {
+        const queryOracleData = async () => {
+            const _announcement = isPortfolioUpdate ?
+                await getInstance(CONTRACTS.ORACLE).methods.updateAnnouncement().call()
+                : await getInstance(CONTRACTS.ORACLE).methods.rebalancingAnnouncement().call()
 
-    const handleCommitUpdate = async (e) => {
-        e.preventDefault();
-        if (latestBlockTime >= updateTime.getTime()) {
-            const _amountsOutMinOut = Array(componentsOut.length).fill('0')
-            const _amountsOutMinIn = Array(componentsIn.length).fill('0')
-            await getInstance(CONTRACTS.ORACLE).methods.commitUpdate(_amountsOutMinOut, _amountsOutMinIn).send({
-                from: account,
-                gas: '3000000'
-            }).on('receipt', async (txReceipt) => {
-                await queryUpdateTime();
-            });
+            setAnnouncement(_announcement);
         }
+        if (isAnnounceAvailable(isPortfolioUpdate, updateTime, rebalancingTime))
+            queryOracleData()
+    }, [isPortfolioUpdate, rebalancingTime, updateTime])
+
+    const handleCommitRebalancing = () => {
+        console.log("INSIDE handleCommitRebalancing")
     }
 
-    function renderComponentsOut() {
-        return componentsOut && componentsOut.map((symbol, i) => (
-                <List.Item key={i}>
-                    <Image avatar src={`../images/${symbol}.png`}/>
-                    <List.Content>
-                        <List.Header as='a'>{symbol}</List.Header>
-                    </List.Content>
-                </List.Item>
-            )
-        )
-    }
+    const handleCommit = (e) => {
+        if (isPortfolioUpdate) {
+            updateBoardRef.current.handleCommitUpdate(e);
+        } else {
+            handleCommitRebalancing();
+        }
 
-    function renderComponentsIn() {
-        return componentsIn && componentsIn.map((symbol, i) => (
-                <List.Item key={i}>
-                    <Image avatar src={`../images/${symbol}.png`} />
-                    <List.Content>
-                        <List.Header as='a'>{symbol}</List.Header>
-                        {componentAddrsIn.length > 0 &&
-                        <ListDescription>
-                            <Header as='h5'>{componentAddrsIn[i]}</Header>
-                        </ListDescription>}
-                        {itins.length > 0 &&
-                        <ListDescription>
-                            ITIN: <b as='h5'>{itins[i]}</b>
-                        </ListDescription>}
-                    </List.Content>
-                </List.Item>
-            )
-        )
-    }
-
-    function renderNewPortfolio() {
-        return newPortfolio && newPortfolio.map((symbol, i) => (
-                <List.Item key={i}>
-                    <Image avatar src={`../images/${symbol}.png`}/>
-                    <List.Content>
-                        <List.Header as='a'>{newPortfolio[i]}</List.Header>
-                    </List.Content>
-                </List.Item>
-            )
-        )
     }
 
     return (
-        <Fragment>
+        <AnnouncementBoardContext.Provider value={{
+            queryTime,
+            updateTime, latestBlockTime,
+        }}>
             {
-                updateTime.getTime() > 0 &&
-                <Segment padded style={{paddingBottom: '60px'}}>
+                isAnnounceAvailable(isPortfolioUpdate, updateTime, rebalancingTime) &&
+                <Segment padded color={isPortfolioUpdate ? 'blue' : 'orange'} style={{paddingBottom: '60px'}}>
                     <Header as='h3'>
                         <Icon name='announcement'/>
-                        Update Announcement
+                        {isPortfolioUpdate ? 'Update' : 'Rebalancing'} Announcement
                     </Header>
-                    {
-                        updateTime && updateTime.getTime() > 0 &&
-                        <Form>
-                            <Form.Field>
-                                <label>Message:</label>
-                                <Segment textAlign='center' color='green'>
-                                    <Header as='h3'>
-                                        {announcement}
-                                    </Header>
-                                    <br/>
-                                    <Header as='h5'>
-                                        Next portfolio update: {updateTime.toString()}
-                                    </Header>
-                                </Segment>
-                            </Form.Field>
-                            <Form.Field inline>
-                                <label>To be Replaced:</label>
-                                <List horizontal>
-                                    {renderComponentsOut()}
-                                </List>
-                            </Form.Field>
+                    <Form>
+                        <Form.Field>
+                            <Segment textAlign='center'
+                                     style={{boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.1), 0 1px 10px 0 rgba(0, 0, 0, 0.1)'}}>
+                                <Header as='h3'>
+                                    {announcement}
+                                </Header>
+                                <br/>
+                                <Header as='h5'>
+                                    Next portfolio
+                                    {isPortfolioUpdate ?
+                                        ` update: ${updateTime.toString()}`
+                                        : ` rebalancing: ${rebalancingTime.toString()}`
+                                    }
+                                </Header>
+                            </Segment>
+                        </Form.Field>
+                        {isPortfolioUpdate && <AnnouncementBoardUpdateDetails ref={updateBoardRef}/>}
 
-                            <Form.Field>
-                                <label>New:</label>
-                                <List>
-                                    {renderComponentsIn()}
-                                </List>
-                            </Form.Field>
+                        {latestBlockTime > 0 &&
+                        <Form.Field inline>
+                            <Form.Button
+                                compact
+                                disabled={isPortfolioUpdate ? latestBlockTime < updateTime.getTime() : latestBlockTime < rebalancingTime.getTime()}
+                                color='teal'
+                                floated='right'
+                                onClick={handleCommit}
+                            >
+                                Commit {isPortfolioUpdate ? 'Update' : 'Rebalancing'}
+                            </Form.Button>
+                        </Form.Field>
+                        }
 
-                            <Form.Field inline>
-                                <label>Upcoming Portfolio:</label>
-                                <List horizontal>
-                                    {renderNewPortfolio()}
-                                </List>
-                            </Form.Field>
-
-                            {latestBlockTime > 0 &&
-                            <Form.Field inline>
-                                <Form.Button
-                                    compact
-                                    disabled={latestBlockTime < updateTime.getTime()}
-                                    color='teal'
-                                    floated='right'
-                                    onClick={handleCommitUpdate}
-                                >
-                                    Commit Update
-                                </Form.Button>
-                            </Form.Field>
-                            }
-
-                        </Form>
-                    }
+                    </Form>
 
                 </Segment>
             }
-        </Fragment>
+        </AnnouncementBoardContext.Provider>
     )
 }
 
