@@ -12,11 +12,7 @@
 
 ![Update Workflow](./docs/seq_update.png)
 
-
-## Steps to run the system
-
-### 0. Setup
-
+## Required Setup
 Install the required packages and dependencies:
 
 ```console
@@ -33,13 +29,30 @@ Compile the contracts:
 truffle compile
 ```
 
-### 2. Run all unit tests
-```console
-npm run test
-```
-
-## Configure logging options
+## Configure logging options (optional)
 The `LOG_LEVEL` environment variable in `./config/env.test` can be changed to different options to control the log out of the test:
 - `debug` to show all debug information during the test
 - `info` to show only info logs
 - `error` to show only errors
+
+## Run Unit Tests on the Smart Contracts
+
+```console
+npm run test
+```
+
+
+## Run the Front-end/GUI Client
+
+On the 1st terminal and at the root directory
+```console
+npm run chain
+```
+
+To run the front-end GUI, on the 2nd terminal run
+```console
+cd client/
+yarn start
+```
+
+Then the front-end can be accessed using the browser at http://localhost:3000/. Please note that MetaMask or an equivalent wallet software should be installed on the browser in order to interact with the blockchain running by Ganache on localhost. Currently, MetaMask on the Chrome browser (Version 94.0.4606.71) has been tested.
