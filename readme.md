@@ -55,4 +55,4 @@ cd client/
 yarn start
 ```
 
-Then the front-end can be accessed using the browser at http://localhost:3000/. Please note that MetaMask or an equivalent wallet software should be installed on the browser in order to interact with the blockchain running by Ganache on localhost. Currently, MetaMask on the Chrome browser (Version 94.0.4606.71) has been tested.
+Then the front-end can be accessed using the browser at http://localhost:3000/. Please note that MetaMask or an equivalent wallet software should be installed on the browser in order to interact with the blockchain run by Ganache on localhost. Currently, the front-ent has been tested with MetaMask on the Chrome browser (Version 94.0.4606.71).
