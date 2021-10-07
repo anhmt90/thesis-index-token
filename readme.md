@@ -44,15 +44,17 @@ npm run test
 
 ## Run the Front-end/GUI Client
 
-On the 1st terminal and at the root directory
+On the 1st terminal (at the root directory), run the local blockchain using Ganache
 ```console
 npm run chain
 ```
 
-To run the front-end GUI, on the 2nd terminal run
+On the 2nd terminal (at the root directory), deploy the smart contract ecosystem and start the front-end client
 ```console
+npm run deploy
+
 cd client/
 yarn start
 ```
 
-Then the front-end can be accessed using the browser at http://localhost:3000/. Please note that MetaMask or an equivalent wallet software should be installed on the browser in order to interact with the blockchain run by Ganache on localhost. Currently, the front-ent has been tested with MetaMask on the Chrome browser (Version 94.0.4606.71).
+The front-end can then be accessed using the browser at http://localhost:3000/. Please note that MetaMask or an equivalent wallet software should be installed on the browser in order to interact with the blockchain run by Ganache on localhost. Currently, the front-end has been tested with MetaMask on the Chrome browser (Version 94.0.4606.71).
