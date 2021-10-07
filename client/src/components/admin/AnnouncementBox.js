@@ -1,13 +1,13 @@
 import {useContext} from "react";
 import {FormField, Header, Icon, Image, TextArea} from "semantic-ui-react";
-import {PageContext} from "../../context";
+import {PageContext, AdminPanelContext} from "../../context";
 
 
 const AnnouncementBox = ({isUpdatePanel}) => {
 
     const {
         announcement, setAnnouncement
-    } = useContext(PageContext)
+    } = useContext(AdminPanelContext)
 
     const innerLabel = {
         basic: true,
@@ -24,7 +24,7 @@ const AnnouncementBox = ({isUpdatePanel}) => {
                 Announcement
             </Header>
             <TextArea
-                value={announcement === '0' ? '' : announcement}
+                value={announcement}
                 placeholder='Write a message to announce to the stakeholders about the changes to the portfolio...'
                 onChange={e => {
                     setAnnouncement(e.target.value);

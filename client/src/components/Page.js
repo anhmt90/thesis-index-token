@@ -34,7 +34,10 @@ const Page = () => {
                 <GridRow>
                     <GridColumn width={7}>
                         <GridRow style={{marginBottom: '5%'}}>
-                            <AnnouncementBoard />
+                            <AnnouncementBoard isPortfolioUpdate={true} key={'0'} />
+                        </GridRow>
+                        <GridRow style={{marginBottom: '5%'}}>
+                            <AnnouncementBoard isPortfolioUpdate={false} key={'1'} />
                         </GridRow>
                         <GridRow style={{marginBottom: '5%'}}>
                             <PortfolioBoard/>

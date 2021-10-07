@@ -324,7 +324,6 @@ const InvestorPanel = () => {
 
     const handleClickRedeemTab = () => {
         if (isInvestPanel) {
-            console.log('resetting')
             resetStates();
             setIsInvestPanel(false)
         }

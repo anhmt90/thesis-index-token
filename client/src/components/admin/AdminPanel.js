@@ -52,7 +52,7 @@ const AdminPanel = () => {
         return true;
     }
 
-    const handleSubmit = async () => {
+    const handleAnnounceUpdate = async () => {
         try {
             if (validateInputs()) {
                 let _componentsOut = []
@@ -87,7 +87,6 @@ const AdminPanel = () => {
                     console.log('itins', _itins)
                     console.log('announcement', announcement)
 
-
                     await getInstance(CONTRACTS.ORACLE).methods.announceUpdate(
                         _componentsOut, _componentAddrsIn, _newPortfolio, _itins, announcement).send({
                         from: account,
@@ -103,31 +102,31 @@ const AdminPanel = () => {
         }
     }
 
-    function handleClickUpdateTab() {
+    const handleAnnounceRebalancing = async () => {
+        await getInstance(CONTRACTS.ORACLE).methods.announceRebalancing(announcement).send({
+            from: account,
+            gas: '3000000'
+        })
+    }
 
+    function handleClickUpdateTab() {
+        if (!isUpdatePanel) {
+            setIsUpdatePanel(true)
+        }
     }
 
     function handleClickRedeemTab() {
-
+        if (isUpdatePanel) {
+            setIsUpdatePanel(false)
+        }
     }
-
-    // function renderNewPortfolio() {
-    //     return newPortfolio && newPortfolio.map((symbol, i) => (
-    //             <List.Item key={i}>
-    //                 <Image avatar src={`../images/${symbol}.png`}/>
-    //                 <List.Content>
-    //                     <List.Header as='a'>{newPortfolio[i]}</List.Header>
-    //                 </List.Content>
-    //             </List.Item>
-    //         )
-    //     )
-    // }
 
     return (
         <AdminPanelContext.Provider value={{
             symbolInputs, setSymbolInputs,
             addressInputs, setAddressInputs,
-            itinInputs, setItinInputs
+            itinInputs, setItinInputs,
+            announcement, setAnnouncement
         }}>
             <Container style={{boxShadow: '0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19)'}}>
                 <Button.Group fluid attached='top'>
@@ -144,16 +143,18 @@ const AdminPanel = () => {
                 </Button.Group>
                 <Segment padded attached raised color='teal'>
                     <Form>
-                        <Form.Field>
-                            <Header as='h4' content='Suggested Replacements'/>
-                            <ReplacementTable/>
-                        </Form.Field>
+                        {isUpdatePanel &&
+                            <Form.Field>
+                                <Header as='h4' content='Suggested Replacements'/>
+                                <ReplacementTable/>
+                            </Form.Field>
+                        }
                         <AnnouncementBox
                             isUpdatePanel={isUpdatePanel}
                         />
                         <Form.Field style={{textAlign: 'center'}}>
                             <Form.Button
-                                onClick={handleSubmit}
+                                onClick={isUpdatePanel ? handleAnnounceUpdate : handleAnnounceRebalancing}
                                 // disabled={!announcement}
                                 color='teal'
                                 style={{width: '50%', margin: '1% auto'}}
