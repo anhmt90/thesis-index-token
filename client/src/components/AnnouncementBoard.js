@@ -86,12 +86,12 @@ const AnnouncementBoard = ({isPortfolioUpdate}) => {
                                     {announcement}
                                 </Header>
                                 <br/>
-                                <Header as='h5'>
+                                <Header as={'h5'}>
                                     Next portfolio
-                                    {isPortfolioUpdate ?
-                                        ` update: ${updateTime.toString()}`
-                                        : ` rebalancing: ${rebalancingTime.toString()}`
-                                    }
+                                    {isPortfolioUpdate ? ' update: ' : ' rebalancing: '}
+                                    <span style={{color: '#F5B041'}}>
+                                        {isPortfolioUpdate ? updateTime.toString() : rebalancingTime.toString()}
+                                    </span>
                                 </Header>
                             </Segment>
                         </Form.Field>
